@@ -51,18 +51,6 @@ export default function Register() {
                 throw new Error('Erro ao criar usuário. Por favor, tente novamente.');
             }
 
-            // 2. Criar perfil inicial (dados básicos)
-            const { error: profileError } = await userService.createProfile(
-                data.user.id,
-                form.fullName,
-                '', // telefone será preenchido depois no perfil
-                form.nickname
-            );
-
-            if (profileError) {
-                throw profileError;
-            }
-
             // 3. Fazer login automático
             const { error: signInError } = await signIn(form.email, form.password);
             
