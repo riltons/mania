@@ -15,7 +15,7 @@ import { gameService, VictoryType } from '@/services/gameService';
 import { competitionService } from '@/services/competitionService';
 import { InternalHeader } from '@/components/InternalHeader';
 import CustomModal from '@/components/CustomModal';
-import { useTheme } from '@/contexts/ThemeProvider';
+import { useTheme } from '@/core/contexts/ThemeProvider';
 
 interface VictoryOption {
     type: VictoryType;
