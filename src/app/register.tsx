@@ -28,6 +28,12 @@ export default function Register() {
             return;
         }
 
+        // Adicionar validação de email
+        if (!/^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/.test(form.email)) {
+            Alert.alert('Erro', 'Por favor, insira um email válido');
+            return;
+        }
+
         if (form.password !== form.confirmPassword) {
             Alert.alert('Erro', 'As senhas não conferem');
             return;
