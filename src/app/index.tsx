@@ -72,9 +72,9 @@ export default function LandingPage() {
             suas competições de dominó. É grátis!
           </Text>
           
-          <Link href="/pricing" asChild>
+          <Link href="/register" asChild>
             <Pressable style={styles.pricingButton}>
-              <Text style={styles.pricingButtonText}>Ver Planos</Text>
+              <Text style={styles.pricingButtonText}>Criar Conta</Text>
             </Pressable>
           </Link>
 

@@ -3,17 +3,17 @@ import { ScrollView, ActivityIndicator, Alert } from 'react-native';
 import styled from 'styled-components/native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '@/core/hooks/useAuth';
-import { subscriptionService, Plan } from '@/features/auth/services/subscriptionService';
 import { useTheme } from '@/core/contexts/ThemeProvider';
-import { supabaseMCP } from '@/core/lib/supabaseMCP';
+import { useSubscription } from '@/hooks/useSubscription';
+import { PlanInfo } from '@/services/playBillingService';
 
-const Container = styled.ScrollView`
+const Container = styled.ScrollView<{theme?: any}>`
   flex: 1;
   background-color: ${({ theme }) => theme.colors.backgroundDark};
   padding: 20px;
 `;
 
-const PlanCard = styled.View`
+const PlanCard = styled.View<{theme?: any}>`
   background-color: ${({ theme }) => theme.colors.backgroundLight};
   border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 8px;
@@ -21,25 +21,25 @@ const PlanCard = styled.View`
   margin-bottom: 16px;
 `;
 
-const Title = styled.Text`
+const Title = styled.Text<{theme?: any}>`
   color: ${({ theme }) => theme.colors.textPrimary};
   font-size: 18px;
   font-weight: bold;
 `;
 
-const PriceText = styled.Text`
+const PriceText = styled.Text<{theme?: any}>`
   color: ${({ theme }) => theme.colors.textSecondary};
   font-size: 16px;
   margin-vertical: 8px;
 `;
 
-const FeatureText = styled.Text`
+const FeatureText = styled.Text<{theme?: any}>`
   color: ${({ theme }) => theme.colors.textSecondary};
   font-size: 14px;
   margin-vertical: 2px;
 `;
 
-const SubscribeButton = styled.TouchableOpacity`
+const SubscribeButton = styled.TouchableOpacity<{theme?: any; disabled?: boolean}>`
   background-color: ${({ theme }) => theme.colors.primary};
   padding: 12px;
   border-radius: 8px;
@@ -60,103 +60,82 @@ export default function Pricing() {
   const hideFree = params.hideFree === 'true';
   const currentPlan = params.currentPlan;
   const { colors } = useTheme();
-  const [plans, setPlans] = useState<Plan[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { plans, loading, refreshing, subscribe, startTrial, subscription } = useSubscription();
   const [submitting, setSubmitting] = useState<string | null>(null);
-  const planOrder = ['free', 'premium_monthly', 'premium_yearly'];
+  
+  const planOrder = ['free_trial', 'premium_monthly', 'premium_annual'];
   let visiblePlans = plans;
+  
   if (currentPlan) {
-    const idx = planOrder.indexOf(currentPlan);
+    const idx = planOrder.indexOf(currentPlan as any);
     if (idx >= 0) {
-      if (currentPlan === 'premium_yearly') {
-        visiblePlans = plans.filter(p => planOrder.indexOf(p.slug) < idx);
+      if (currentPlan === 'premium_annual') {
+        visiblePlans = plans.filter(p => planOrder.indexOf(p.slug as any) < idx);
       } else {
-        visiblePlans = plans.filter(p => planOrder.indexOf(p.slug) > idx);
+        visiblePlans = plans.filter(p => planOrder.indexOf(p.slug as any) > idx);
       }
     }
   } else if (hideFree) {
-    visiblePlans = plans.filter(p => p.slug !== 'free');
+    visiblePlans = plans.filter(p => p.slug !== 'free_trial');
   }
 
-  useEffect(() => {
-    subscriptionService
-      .getPlans()
-      .then(setPlans)
-      .catch(() => Alert.alert('Erro', 'Não foi possível carregar planos'))
-      .finally(() => setLoading(false));
-  }, []);
-
-  async function fetchPaymentSheetParams(planId: string) {
-    try {
-      console.log('Iniciando fetchPaymentSheetParams para planId:', planId);
-      const { data: { session } } = await supabaseMCP.auth.getSession();
-      const token = session?.access_token;
-      console.log('Token obtido:', token ? 'Sim (não mostrado por segurança)' : 'Não');
-      
-      // Usando a variável de ambiente para a URL das funções
-      const functionsUrl = process.env.EXPO_PUBLIC_SUPABASE_FUNCTIONS_URL;
-      const url = `${functionsUrl}/create-setup-intent`;
-      console.log('URL da função:', url);
-      
-      // Verificar se o usuário está logado
-      if (!user || !user.id) {
-        throw new Error('Usuário não autenticado');
-      }
-      
-      // Enviar user_id junto com plan_id para não depender da validação do token
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          plan_id: planId,
-          user_id: user.id 
-        }),
-      });
-      
-      console.log('Status da resposta:', response.status);
-      const json = await response.json();
-      console.log('Resposta JSON:', JSON.stringify(json));
-      
-      if (!response.ok) {
-        throw new Error(json.error || `Erro ao obter parâmetros de pagamento (${response.status})`);
-      }
-      
-      return json;
-    } catch (e) {
-      console.error('Erro detalhado:', e);
-      throw e;
-    }
-  }
-
+  // Função para lidar com a assinatura ou início do trial
   const handleSubscribe = async (slug: string) => {
-    // Se for plano gratuito, navegar para cadastro e setar plano free
-    if (slug === 'free') {
-      router.replace(`/register?plan=${slug}`);
+    // Se for plano gratuito (trial), iniciar período de teste
+    if (slug === 'free_trial') {
+      if (!user) {
+        router.replace(`/register?plan=${slug}`);
+        return;
+      }
+      
+      try {
+        setSubmitting(slug);
+        const success = await startTrial();
+        if (success) {
+          Alert.alert('Sucesso', 'Seu período de teste foi iniciado com sucesso!');
+          router.replace('/dashboard');
+        }
+      } catch (error) {
+        console.error('Erro ao iniciar trial:', error);
+        Alert.alert('Erro', 'Não foi possível iniciar seu período de teste');
+      } finally {
+        setSubmitting(null);
+      }
       return;
     }
     
-    // Verificar se o usuário está logado
+    // Verificar se o usuário está logado para planos pagos
     if (!user) {
-      router.replace(`/register?plan=${slug}`);
+      router.replace('/login?returnTo=pricing');
       return;
     }
     
     try {
       setSubmitting(slug);
       const plan = plans.find(p => p.slug === slug);
-      if (!plan) { Alert.alert('Erro', 'Plano não encontrado'); return; }
-      await subscriptionService.createSubscription(user.id, plan.id);
-      Alert.alert('Sucesso', 'Assinatura realizada');
-      router.replace('/subscription');
-    } catch (e) {
-      console.error(e);
+      
+      if (!plan) { 
+        Alert.alert('Erro', 'Plano não encontrado'); 
+        return; 
+      }
+      
+      // Iniciar processo de assinatura via Play Store
+      const result = await subscribe(plan.id);
+      
+      if (!result.success) {
+        Alert.alert('Erro', 'Não foi possível processar a assinatura');
+      }
+      // O sucesso será tratado pelo listener de compras no PlayBillingService
+      
+    } catch (error) {
+      console.error('Erro ao assinar:', error);
       Alert.alert('Erro', 'Falha no pagamento');
     } finally {
       setSubmitting(null);
     }
   };
 
-  if (loading) return <ActivityIndicator style={{ flex: 1 }} color={colors.primary} size="large" />;
+  if (loading || refreshing) return <ActivityIndicator style={{ flex: 1 }} color={colors.primary} size="large" />;
 
   return (
     <Container>
@@ -169,7 +148,7 @@ export default function Pricing() {
               currency: plan.currency,
             })}{' '}/ {plan.interval === 'month' ? 'mês' : 'ano'}
           </PriceText>
-          {plan.features.map((f, i) => (
+          {plan.features.map((f: string, i: number) => (
             <FeatureText key={i}>• {f}</FeatureText>
           ))}
           <SubscribeButton disabled={submitting !== null} onPress={() => handleSubscribe(plan.slug)}>
@@ -177,11 +156,11 @@ export default function Pricing() {
               <ActivityIndicator color="#fff" />
             ) : currentPlan ? (
               <ButtonText>
-                {currentPlan === 'premium_yearly' ? 'Downgrade para ' : 'Upgrade para '}
+                {currentPlan === 'premium_annual' ? 'Downgrade para ' : 'Upgrade para '}
                 {plan.name}
               </ButtonText>
             ) : (
-              <ButtonText>{plan.slug === 'free' ? 'Cadastre-se' : 'Iniciar trial'}</ButtonText>
+              <ButtonText>{plan.slug === 'free_trial' ? 'Começar Período Gratuito' : 'Assinar Agora'}</ButtonText>
             )}
           </SubscribeButton>
         </PlanCard>

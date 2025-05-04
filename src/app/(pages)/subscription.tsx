@@ -1,95 +1,91 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, ActivityIndicator, Alert } from 'react-native';
+import React from 'react';
+import { View, Text, ActivityIndicator, Alert, ScrollView } from 'react-native';
 import styled from 'styled-components/native';
 import { useAuth } from '@/core/hooks/useAuth';
 import { Header } from '@/components/layout/Header';
-import { subscriptionService, SubscriptionWithPlan } from '@/features/auth/services/subscriptionService';
 import { useTheme } from '@/core/contexts/ThemeProvider';
 import { useRouter } from 'expo-router';
+import { useSubscription } from '@/hooks/useSubscription';
+import { SubscriptionWithPlan } from '@/services/playBillingService';
 
-const Container = styled.View`
+const Container = styled.View<{theme?: any}>`
   flex: 1;
   background-color: ${({ theme }) => theme.colors.backgroundDark};
   padding: 20px;
 `;
 
-const Title = styled.Text`
+const Title = styled.Text<{theme?: any}>`
   color: ${({ theme }) => theme.colors.textPrimary};
   font-size: 20px;
   font-weight: bold;
   margin-bottom: 12px;
 `;
 
-const InfoText = styled.Text`
+const InfoText = styled.Text<{theme?: any}>`
   color: ${({ theme }) => theme.colors.textSecondary};
   font-size: 16px;
   margin-bottom: 8px;
 `;
 
-const ActionButton = styled.TouchableOpacity`
+const ActionButton = styled.TouchableOpacity<{theme?: any; disabled?: boolean}>`
   background-color: ${({ theme }) => theme.colors.primary};
   padding: 12px;
   border-radius: 8px;
   align-items: center;
   margin-top: 20px;
+  opacity: ${({ disabled }) => (disabled ? 0.6 : 1)};
 `;
 
-const ButtonText = styled.Text`
+const ButtonText = styled.Text<{theme?: any}>`
   color: #fff;
   font-weight: bold;
 `;
 
 export default function Subscription() {
-  const { user, loading: authLoading } = useAuth();
+  const { user } = useAuth();
   const router = useRouter();
   const { colors } = useTheme();
-  const [sub, setSub] = useState<SubscriptionWithPlan | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [canceling, setCanceling] = useState(false);
+  const { 
+    subscription: sub, 
+    loading, 
+    refreshing, 
+    getRemainingDays,
+    restorePurchases
+  } = useSubscription();
 
-  useEffect(() => {
-    if (authLoading) return;
-    if (!user) {
-      router.replace('/login');
-      return;
+  // Redirecionar para login se não estiver autenticado
+  if (!user) {
+    router.replace('/login');
+    return null;
+  }
+  
+  // Função para restaurar compras
+  const handleRestorePurchases = async () => {
+    await restorePurchases();
+  };
+  
+  // Função para ir para tela de planos
+  const goToPlans = () => {
+    if (sub?.plan.slug) {
+      router.push(`/pricing?currentPlan=${sub.plan.slug}`);
+    } else {
+      router.push('/pricing');
     }
-    subscriptionService
-      .getUserSubscription(user.id)
-      .then(setSub)
-      .catch(() => Alert.alert('Erro', 'Não foi possível carregar assinatura'))
-      .finally(() => setLoading(false));
-  }, [user, authLoading]);
-
-  const handleCancel = async () => {
-    if (!sub) return;
-    try {
-      setCanceling(true);
-      await subscriptionService.cancelSubscription(sub.id);
-      // Inscrever usuário no plano gratuito
-      await subscriptionService.assignFreePlan(user.id);
-      const updated = await subscriptionService.getUserSubscription(user.id);
-      setSub(updated);
-      Alert.alert('Sucesso', 'Assinatura cancelada e plano gratuito ativado');
-    } catch {
-      Alert.alert('Erro', 'Não foi possível cancelar');
-    } finally {
-      setCanceling(false);
+  };
+  
+  // Mostrar dias restantes formatados
+  const getRemainingDaysText = () => {
+    const days = getRemainingDays();
+    if (days === 0) {
+      return 'Expira hoje';
+    } else if (days === 1) {
+      return 'Expira amanhã';
+    } else {
+      return `Expira em ${days} dias`;
     }
   };
 
-  const confirmCancel = () => {
-    if (!sub) return;
-    Alert.alert(
-      'Confirmar cancelamento',
-      'Tem certeza que deseja cancelar sua assinatura?',
-      [
-        { text: 'Não', style: 'cancel' },
-        { text: 'Sim', onPress: handleCancel },
-      ]
-    );
-  };
-
-  if (loading) return (
+  if (loading || refreshing) return (
     <>
       <Header title="Assinatura" showBackButton />
       <ActivityIndicator style={{ flex: 1 }} color={colors.primary} size="large" />
@@ -101,41 +97,88 @@ export default function Subscription() {
       <>
         <Header title="Assinatura" showBackButton />
         <Container>
-          <Text style={{ color: colors.textPrimary }}>Você não possui assinatura ativa.</Text>
-          <ActionButton onPress={() => router.replace('/pricing')}>
-            <ButtonText>Ver planos</ButtonText>
+          <Title>Sem assinatura ativa</Title>
+          <InfoText>Você não possui nenhuma assinatura ativa no momento.</InfoText>
+          
+          <ActionButton onPress={goToPlans}>
+            <ButtonText>Ver planos disponíveis</ButtonText>
+          </ActionButton>
+          
+          <ActionButton onPress={handleRestorePurchases} style={{ backgroundColor: colors.secondary }}>
+            <ButtonText>Restaurar compras anteriores</ButtonText>
           </ActionButton>
         </Container>
       </>
     );
   }
 
+  // Verificar se é trial ou assinatura paga
+  const isTrial = sub.status === 'trial';
+  const isActive = sub.status === 'active';
+
   return (
     <>
       <Header title="Assinatura" showBackButton />
-      <Container>
-        <Title>Assinatura</Title>
-        <InfoText>Plano: {sub.plans.name}</InfoText>
-        <InfoText>Status: {sub.status}</InfoText>
-        <InfoText>
-          Início: {new Date(sub.starts_at).toLocaleDateString('pt-BR')}
-        </InfoText>
-        <InfoText>
-          {sub.ends_at
-            ? `Termina: ${new Date(sub.ends_at).toLocaleDateString('pt-BR')}`
-            : 'Sem data de término'}
-        </InfoText>
-        {sub.plans.slug === 'free' && (
-          <ActionButton onPress={() => router.push(`/pricing?currentPlan=${sub.plans.slug}`)}>
-            <ButtonText>Upgrade de conta</ButtonText>
+      <ScrollView>
+        <Container>
+          <Title>Detalhes da Assinatura</Title>
+          
+          <InfoText>Plano: {sub.plan.name}</InfoText>
+          <InfoText>
+            Status: {isTrial ? 'Período de teste' : isActive ? 'Ativa' : 'Cancelada'}
+          </InfoText>
+          <InfoText>
+            Início: {new Date(sub.created_at).toLocaleDateString('pt-BR')}
+          </InfoText>
+          
+          {sub.ends_at && (
+            <>
+              <InfoText>
+                {`Término: ${new Date(sub.ends_at).toLocaleDateString('pt-BR')}`}
+              </InfoText>
+              {(isTrial || sub.canceled_at) && (
+                <InfoText style={{ color: colors.warning }}>
+                  {getRemainingDaysText()}
+                </InfoText>
+              )}
+            </>
+          )}
+          
+          {/* Botões de ação */}
+          {isTrial && (
+            <ActionButton onPress={goToPlans}>
+              <ButtonText>Assinar plano premium</ButtonText>
+            </ActionButton>
+          )}
+          
+          {isActive && (
+            <>
+              <ActionButton onPress={goToPlans}>
+                <ButtonText>
+                  {sub.plan.slug === 'premium_monthly' ? 'Mudar para plano anual' : 'Gerenciar assinatura'}
+                </ButtonText>
+              </ActionButton>
+              
+              <InfoText style={{ marginTop: 20, fontSize: 12, textAlign: 'center' }}>
+                Para cancelar sua assinatura, acesse as configurações da sua conta na Google Play Store.
+              </InfoText>
+            </>
+          )}
+          
+          {!isActive && !isTrial && (
+            <ActionButton onPress={goToPlans}>
+              <ButtonText>Renovar assinatura</ButtonText>
+            </ActionButton>
+          )}
+          
+          <ActionButton 
+            onPress={handleRestorePurchases} 
+            style={{ backgroundColor: colors.secondary, marginTop: 10 }}
+          >
+            <ButtonText>Restaurar compras</ButtonText>
           </ActionButton>
-        )}
-        {sub.plans.slug !== 'free' && (
-          <ActionButton disabled={canceling} onPress={confirmCancel}>
-            <ButtonText>{canceling ? 'Cancelando...' : 'Cancelar assinatura'}</ButtonText>
-          </ActionButton>
-        )}
-      </Container>
+        </Container>
+      </ScrollView>
     </>
   );
 }

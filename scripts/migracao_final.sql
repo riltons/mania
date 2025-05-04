@@ -1,0 +1,244 @@
+-- Migração para suporte a pagamentos via Play Store
+-- Criação de tabela para armazenar assinaturas e períodos de trial
+
+-- Criar enum para status da assinatura (se não existir)
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'subscription_status') THEN
+        CREATE TYPE subscription_status AS ENUM ('active', 'canceled', 'expired', 'trial');
+    END IF;
+END$$;
+
+-- Criar enum para plataforma de pagamento (se não existir)
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'payment_platform') THEN
+        CREATE TYPE payment_platform AS ENUM ('android', 'ios', 'web');
+    END IF;
+END$$;
+
+-- Tabela de assinaturas (se não existir)
+CREATE TABLE IF NOT EXISTS subscriptions (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  plan_id TEXT NOT NULL,
+  status subscription_status NOT NULL DEFAULT 'trial',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  ends_at TIMESTAMPTZ,
+  canceled_at TIMESTAMPTZ,
+  purchase_token TEXT,
+  platform payment_platform NOT NULL DEFAULT 'android',
+  
+  -- Índices para consultas comuns
+  CONSTRAINT idx_subscriptions_user_id_unique UNIQUE (user_id, status)
+);
+
+-- Verificar e adicionar colunas que podem estar faltando
+DO $$
+BEGIN
+    -- Adicionar coluna canceled_at se não existir
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'subscriptions' AND column_name = 'canceled_at') THEN
+        ALTER TABLE subscriptions ADD COLUMN canceled_at TIMESTAMPTZ;
+    END IF;
+    
+    -- Adicionar coluna purchase_token se não existir
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'subscriptions' AND column_name = 'purchase_token') THEN
+        ALTER TABLE subscriptions ADD COLUMN purchase_token TEXT;
+    END IF;
+    
+    -- Adicionar coluna platform se não existir
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'subscriptions' AND column_name = 'platform') THEN
+        ALTER TABLE subscriptions ADD COLUMN platform payment_platform NOT NULL DEFAULT 'android';
+    END IF;
+END$$;
+
+-- Função para atualizar o timestamp de updated_at
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Remover o trigger se já existir
+DROP TRIGGER IF EXISTS update_subscriptions_updated_at ON subscriptions;
+
+-- Criar o trigger para atualizar o timestamp de updated_at
+CREATE TRIGGER update_subscriptions_updated_at
+BEFORE UPDATE ON subscriptions
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+-- Políticas de segurança RLS (Row Level Security)
+ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
+
+-- Remover políticas existentes (exceto a política de admins)
+DROP POLICY IF EXISTS "Usuários podem ver suas próprias assinaturas" ON subscriptions;
+DROP POLICY IF EXISTS "Usuários podem atualizar suas próprias assinaturas" ON subscriptions;
+DROP POLICY IF EXISTS "Usuários podem inserir suas próprias assinaturas" ON subscriptions;
+DROP POLICY IF EXISTS "Service role pode acessar todas as assinaturas" ON subscriptions;
+
+-- Preservar a política de admins (não remover)
+-- "Admins podem ver todas as assinaturas" já existe
+
+-- Verificar e criar políticas apenas se não existirem
+DO $$
+BEGIN
+    -- Política para usuários verem apenas suas próprias assinaturas
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Usuários podem ver suas próprias assinaturas' AND tablename = 'subscriptions') THEN
+        CREATE POLICY "Usuários podem ver suas próprias assinaturas"
+        ON subscriptions
+        FOR SELECT
+        USING (auth.uid() = user_id);
+    END IF;
+    
+    -- Política para usuários atualizarem apenas suas próprias assinaturas
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Usuários podem atualizar suas próprias assinaturas' AND tablename = 'subscriptions') THEN
+        CREATE POLICY "Usuários podem atualizar suas próprias assinaturas"
+        ON subscriptions
+        FOR UPDATE
+        USING (auth.uid() = user_id);
+    END IF;
+    
+    -- Política para permitir inserção de assinaturas pelo próprio usuário
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Usuários podem inserir suas próprias assinaturas' AND tablename = 'subscriptions') THEN
+        CREATE POLICY "Usuários podem inserir suas próprias assinaturas"
+        ON subscriptions
+        FOR INSERT
+        WITH CHECK (auth.uid() = user_id);
+    END IF;
+    
+    -- Política para permitir que o serviço de backend acesse todas as assinaturas
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Service role pode acessar todas as assinaturas' AND tablename = 'subscriptions') THEN
+        CREATE POLICY "Service role pode acessar todas as assinaturas"
+        ON subscriptions
+        FOR ALL
+        USING (auth.role() = 'service_role');
+    END IF;
+END$$;
+
+-- Função para verificar se uma assinatura está ativa
+CREATE OR REPLACE FUNCTION is_subscription_active(user_uuid UUID)
+RETURNS BOOLEAN AS $$
+DECLARE
+  active_count INTEGER;
+BEGIN
+  SELECT COUNT(*) INTO active_count
+  FROM subscriptions
+  WHERE user_id = user_uuid 
+  AND (
+    (status = 'active') OR
+    (status = 'trial' AND (ends_at IS NULL OR ends_at > NOW()))
+  );
+  
+  RETURN active_count > 0;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Função para obter dias restantes de uma assinatura
+CREATE OR REPLACE FUNCTION get_subscription_remaining_days(user_uuid UUID)
+RETURNS INTEGER AS $$
+DECLARE
+  remaining INTEGER;
+  end_date TIMESTAMPTZ;
+BEGIN
+  SELECT ends_at INTO end_date
+  FROM subscriptions
+  WHERE user_id = user_uuid
+  AND (status = 'active' OR status = 'trial')
+  ORDER BY created_at DESC
+  LIMIT 1;
+  
+  IF end_date IS NULL THEN
+    RETURN NULL;
+  ELSE
+    SELECT EXTRACT(DAY FROM (end_date - NOW()))::INTEGER INTO remaining;
+    RETURN GREATEST(0, remaining);
+  END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Verificar se a view existe antes de tentar removê-la
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.views WHERE table_name = 'subscription_details') THEN
+        DROP VIEW subscription_details;
+    END IF;
+END$$;
+
+-- Criar view para facilitar consultas de assinaturas com informações do usuário
+-- Verificar as colunas existentes na tabela subscriptions
+DO $$
+DECLARE
+    has_canceled_at BOOLEAN;
+    has_platform BOOLEAN;
+BEGIN
+    SELECT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'subscriptions' AND column_name = 'canceled_at'
+    ) INTO has_canceled_at;
+    
+    SELECT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'subscriptions' AND column_name = 'platform'
+    ) INTO has_platform;
+    
+    IF has_canceled_at AND has_platform THEN
+        -- Todas as colunas existem, criar a view completa
+        EXECUTE '
+        CREATE OR REPLACE VIEW subscription_details AS
+        SELECT 
+          s.id,
+          s.user_id,
+          s.plan_id,
+          s.status,
+          s.created_at,
+          s.updated_at,
+          s.ends_at,
+          s.canceled_at,
+          s.platform,
+          u.email as user_email,
+          up.full_name as user_name,
+          get_subscription_remaining_days(s.user_id) as remaining_days
+        FROM 
+          subscriptions s
+        JOIN 
+          auth.users u ON s.user_id = u.id
+        LEFT JOIN 
+          user_profiles up ON s.user_id = up.user_id';
+    ELSE
+        -- Algumas colunas estão faltando, criar uma versão simplificada da view
+        EXECUTE '
+        CREATE OR REPLACE VIEW subscription_details AS
+        SELECT 
+          s.id,
+          s.user_id,
+          s.plan_id,
+          s.status,
+          s.created_at,
+          s.updated_at,
+          s.ends_at,
+          ' || CASE WHEN has_canceled_at THEN 's.canceled_at,' ELSE 'NULL as canceled_at,' END || '
+          ' || CASE WHEN has_platform THEN 's.platform,' ELSE '''android''::payment_platform as platform,' END || '
+          u.email as user_email,
+          up.full_name as user_name,
+          get_subscription_remaining_days(s.user_id) as remaining_days
+        FROM 
+          subscriptions s
+        JOIN 
+          auth.users u ON s.user_id = u.id
+        LEFT JOIN 
+          user_profiles up ON s.user_id = up.user_id';
+    END IF;
+END$$;
+
+-- Conceder permissões à role authenticated
+GRANT SELECT, INSERT, UPDATE ON subscriptions TO authenticated;
+GRANT EXECUTE ON FUNCTION is_subscription_active TO authenticated;
+GRANT EXECUTE ON FUNCTION get_subscription_remaining_days TO authenticated;
+GRANT SELECT ON subscription_details TO authenticated;
+
+-- Conceder permissões à role anon para funções específicas
+GRANT EXECUTE ON FUNCTION is_subscription_active TO anon;
