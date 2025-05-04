@@ -2,7 +2,7 @@ import { useState } from "react"
 import { Animated, TouchableWithoutFeedback } from "react-native"
 import styled from "styled-components/native"
 import { MaterialCommunityIcons } from "@expo/vector-icons"
-import { useTheme } from "@/contexts/ThemeProvider"
+import { useTheme } from "@/core/contexts/ThemeProvider"
 
 interface Action {
     icon: keyof typeof MaterialCommunityIcons.glyphMap;
