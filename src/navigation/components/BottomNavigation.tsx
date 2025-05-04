@@ -72,7 +72,7 @@ export function BottomNavigation() {
                     <TabIcon
                         name={tab.icon as any}
                         size={24}
-                        color={activeTab === tab.path ? colors.primary : colors.textSecondary}
+                        color={activeTab === tab.path ? colors.white : colors.textSecondary}
                     />
                     <TabLabel isActive={activeTab === tab.path}>{tab.label}</TabLabel>
                 </TabButton>

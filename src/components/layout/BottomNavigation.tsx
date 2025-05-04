@@ -72,7 +72,7 @@ export function BottomNavigation() {
                     <TabIcon
                         name={tab.icon as any}
                         size={24}
-                        color={activeTab === tab.path ? colors.primary : colors.textSecondary}
+                        color={activeTab === tab.path ? colors.white : colors.textSecondary}
                     />
                     <TabLabel isActive={activeTab === tab.path}>{tab.label}</TabLabel>
                 </TabButton>
@@ -95,7 +95,7 @@ const TabButton = styled.TouchableOpacity<{ isActive: boolean }>`
     align-items: center;
     justify-content: center;
     padding: 10px 0;
-    background-color: ${({ isActive, theme }: { isActive: boolean; theme: any }) => isActive ? theme.colors.primary : 'transparent'};
+    background-color: ${({ isActive, theme }: { isActive: boolean; theme: any }) => isActive ? theme.colors.tertiary : 'transparent'};
     border-radius: 8px;
     margin: 0 5px;
 `;

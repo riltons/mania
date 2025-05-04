@@ -3,7 +3,7 @@ import { TouchableOpacity } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import styled from 'styled-components/native';
 import { Feather } from '@expo/vector-icons';
-import { useTheme } from '../contexts/ThemeProvider';
+import { useTheme } from '@/core/contexts/ThemeProvider';
 
 const tabs = [
     {
@@ -72,7 +72,7 @@ export function BottomNavigation() {
                     <TabIcon
                         name={tab.icon as any}
                         size={24}
-                        color={activeTab === tab.path ? colors.primary : colors.textSecondary}
+                        color={activeTab === tab.path ? colors.white : colors.textSecondary}
                     />
                     <TabLabel isActive={activeTab === tab.path}>{tab.label}</TabLabel>
                 </TabButton>
