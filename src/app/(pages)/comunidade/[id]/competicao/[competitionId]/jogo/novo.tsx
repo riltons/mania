@@ -12,7 +12,7 @@ import { Feather } from '@expo/vector-icons';
 import { competitionService } from '@/services/competitionService';
 import { gameService } from '@/services/gameService';
 import { InternalHeader } from '@/components/InternalHeader';
-import { useTheme } from '@/contexts/ThemeProvider';
+import { useTheme } from '@/core/contexts/ThemeProvider';
 
 interface Player {
     id: string;
