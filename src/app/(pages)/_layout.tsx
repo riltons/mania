@@ -1,7 +1,7 @@
 import React from 'react';
 import { Stack } from 'expo-router';
-import { useTheme } from '@/contexts/ThemeProvider';
-import { BottomNavigation } from '@/components/BottomNavigation';
+import { useTheme } from '@/core/contexts/ThemeProvider';
+import { BottomNavigation } from '@/components/layout/BottomNavigation';
 import styled from 'styled-components/native';
 import { usePathname } from 'expo-router';
 
@@ -95,3 +95,4 @@ const NavigationContainer = styled.View`
     border-top-color: ${({ theme }) => theme.colors.border};
     height: 60px;
 `;
+

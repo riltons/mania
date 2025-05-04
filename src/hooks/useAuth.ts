@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Session } from '@supabase/supabase-js';
-import { authService } from '@/services/authService';
+import { authService } from '@/features/auth/services/authService';
 import { Alert } from 'react-native';
 import { router } from 'expo-router';
 
@@ -169,3 +169,4 @@ export function useAuth() {
 
     return value;
 }
+

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { View, ScrollView, TouchableOpacity, Dimensions, RefreshControl, Alert } from "react-native";
 import styled from "styled-components/native";
-import { useTheme } from "@/contexts/ThemeProvider";
+import { useTheme } from "@/core/contexts/ThemeProvider";
 import { MaterialCommunityIcons, Feather } from "@expo/vector-icons";
 import { PageTransition } from "@/components/Transitions";
 import { Header } from "@/components/Header";

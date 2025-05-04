@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, Button, ActivityIndicator, ScrollView } from 'react-native';
 import styled from 'styled-components/native';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/core/hooks/useAuth';
 
 const Container = styled.View`
   flex: 1;
@@ -107,3 +107,4 @@ export default function TestApi() {
     </Container>
   );
 }
+

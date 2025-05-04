@@ -2,11 +2,11 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { Alert, Modal as RNModal, ActivityIndicator, Pressable, View, ScrollView, RefreshControl, Text, Switch } from 'react-native';
 import styled from 'styled-components/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Community, communityService } from '@/services/communityService';
+import { Community, communityService } from '@/features/communities/services/communityService';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
-import { Header } from '@/components/Header';
-import { useTheme } from '@/contexts/ThemeProvider';
+import { Header } from '@/components/layout/Header';
+import { useTheme } from '@/core/contexts/ThemeProvider';
 
 const Container = styled.View`
     flex: 1;

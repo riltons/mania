@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, ActivityIndicator, Alert } from 'react-native';
 import styled from 'styled-components/native';
-import { useAuth } from '@/hooks/useAuth';
-import { Header } from '@/components/Header';
-import { subscriptionService, SubscriptionWithPlan } from '@/services/subscriptionService';
-import { useTheme } from '@/contexts/ThemeProvider';
+import { useAuth } from '@/core/hooks/useAuth';
+import { Header } from '@/components/layout/Header';
+import { subscriptionService, SubscriptionWithPlan } from '@/features/auth/services/subscriptionService';
+import { useTheme } from '@/core/contexts/ThemeProvider';
 import { useRouter } from 'expo-router';
 
 const Container = styled.View`
@@ -139,3 +139,4 @@ export default function Subscription() {
     </>
   );
 }
+

@@ -1,13 +1,13 @@
 import { Stack } from 'expo-router';
-import { useAuth } from '../hooks/useAuth';
-import { AuthProvider } from '../contexts/AuthProvider';
-import { ThemeProvider, useTheme } from '../contexts/ThemeProvider';
+import { useAuth } from '@/core/hooks/useAuth';
+import { AuthProvider } from '@/core/contexts/AuthProvider';
+import { ThemeProvider, useTheme } from '@/core/contexts/ThemeProvider';
 import { StatusBar, Platform, View, Text, TouchableOpacity } from "react-native";
 import { SafeAreaView } from 'react-native';
 import styled from 'styled-components/native';
 import { enGB, registerTranslation } from 'react-native-paper-dates';
 import { usePathname } from 'expo-router';
-import ErrorBoundary from '../utils/errorBoundary';
+import ErrorBoundary from '@/core/utils/errorBoundary';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import * as NavigationBar from 'expo-navigation-bar';
@@ -60,7 +60,7 @@ function AppLayout() {
     );
 }
 
-import { logEnvironmentInfo } from '../utils/environment';
+import { logEnvironmentInfo } from '@/core/utils/environment';
 
 // Previne que a tela de splash seja escondida automaticamente
 SplashScreen.preventAutoHideAsync().catch(() => {
@@ -103,7 +103,7 @@ export default function RootLayout() {
 
 const SafeContainer = styled(SafeAreaView)<{ statusBarHeight: number }>`
     flex: 1;
-    background-color: ${({ theme }) => theme.colors.backgroundDark};
-    padding-top: ${Platform.OS === 'android' ? props => props.statusBarHeight : 0}px;
+    background-color: ${({ theme }: { theme: any }) => theme.colors.backgroundDark};
+    padding-top: ${Platform.OS === 'android' ? (props: { statusBarHeight: number }) => props.statusBarHeight : 0}px;
     width: 100%;
 `;

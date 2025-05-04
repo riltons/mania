@@ -2,10 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { ScrollView, ActivityIndicator, Alert } from 'react-native';
 import styled from 'styled-components/native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useAuth } from '@/hooks/useAuth';
-import { subscriptionService, Plan } from '@/services/subscriptionService';
-import { useTheme } from '@/contexts/ThemeProvider';
-import { supabaseMCP } from '@/lib/supabaseMCP';
+import { useAuth } from '@/core/hooks/useAuth';
+import { subscriptionService, Plan } from '@/features/auth/services/subscriptionService';
+import { useTheme } from '@/core/contexts/ThemeProvider';
+import { supabaseMCP } from '@/core/lib/supabaseMCP';
 
 const Container = styled.ScrollView`
   flex: 1;
@@ -189,3 +189,4 @@ export default function Pricing() {
     </Container>
   );
 }
+

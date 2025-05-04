@@ -4,8 +4,8 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import styled from 'styled-components/native';
 import { useAuth } from '../hooks/useAuth';
 import { userService } from '../services/userService';
-import { useTheme } from '../contexts/ThemeProvider';
-import { supabase } from '@/lib/supabase';
+import { useTheme } from '@/core/contexts/ThemeProvider';
+import { supabase } from '@/core/lib/supabase';
 import { subscriptionService } from '../services/subscriptionService';
 
 export default function Register() {
@@ -202,3 +202,4 @@ const LinkText = styled.Text`
     color: props => props.theme.colors.primary;
     font-size: 14px;
 `;
+

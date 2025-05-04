@@ -1,14 +1,14 @@
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, Platform } from 'react-native';
 import { useState, useEffect } from 'react';
-import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/core/hooks/useAuth';
+import { supabase } from '@/core/lib/supabase';
 import { Stack, useRouter } from 'expo-router';
 import styled from 'styled-components/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { PageTransition } from '@/components/Transitions';
-import { Header } from '@/components/Header';
+import { Header } from '@/components/layout/Header';
 import { useTheme } from 'styled-components/native';
-import AlertModal from '@/components/AlertModal';
+import AlertModal from '@/components/feedback/AlertModal';
 
 const Container = styled.View`
   flex: 1;
@@ -461,3 +461,4 @@ export default function ProfileScreen() {
     </PageTransition>
   );
 }
+

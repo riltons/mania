@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, TouchableOpacity } from 'react-native';
 import styled from 'styled-components/native';
-import { useTheme } from '@/contexts/ThemeProvider';
-import { InternalHeader } from '@/components/InternalHeader';
-import { activityService, Activity } from '@/services/activityService';
+import { useTheme } from '@/core/contexts/ThemeProvider';
+import { InternalHeader } from '@/components/layout/InternalHeader';
+import { activityService, Activity } from '@/features/statistics/services/activityService';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { format } from 'date-fns';
@@ -228,3 +228,4 @@ export default function ActivityList() {
         </Container>
     );
 }
+

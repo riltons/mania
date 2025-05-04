@@ -3,8 +3,8 @@ import { Alert, ActivityIndicator, TouchableOpacity, Image, Platform, View, Text
 import * as ImagePicker from 'expo-image-picker';
 import styled from 'styled-components/native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Header } from '@/components/Header';
-import { playerService } from '@/services/playerService';
+import { Header } from '@/components/layout/Header';
+import { playerService } from '@/features/players/services/playerService';
 import { Feather } from '@expo/vector-icons';
 import { TextInput } from 'react-native-paper';
 import { colors } from '@/styles/colors';
@@ -308,3 +308,4 @@ export default function EditarJogador() {
         </PageTransition>
     );
 }
+

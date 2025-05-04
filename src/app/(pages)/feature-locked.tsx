@@ -2,7 +2,7 @@ import React from 'react';
 import styled from 'styled-components/native';
 import { Text } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Button } from '@/components/Button';
+import { Button } from '@/components/ui/Button';
 
 const Container = styled.View`
   flex: 1;
@@ -37,3 +37,4 @@ export default function FeatureLocked() {
     </Container>
   );
 }
+

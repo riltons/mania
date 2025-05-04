@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import ListaTabelasSupabase from '@/components/ListaTabelasSupabase';
+import ListaTabelasSupabase from '@/components/data-display/ListaTabelasSupabase';
 import { useRouter } from 'expo-router';
 
 export default function ListaTabelasScreen() {
@@ -19,3 +19,4 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
   },
 });
+

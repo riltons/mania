@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, Button, StyleSheet, ScrollView } from 'react-native';
-import { supabaseMCP, MCP, MCPUtils } from '@/lib/supabaseMCP';
+import { supabaseMCP, MCP, MCPUtils } from '@/core/lib/supabaseMCP';
 
 type Community = {
   id: string;
@@ -233,3 +233,4 @@ const styles = StyleSheet.create({
     color: '#ff4d4f',
   },
 });
+

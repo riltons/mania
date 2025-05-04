@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Alert, FlatList, Image, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import * as Contacts from 'expo-contacts';
 import styled from 'styled-components/native';
-import { useTheme } from '@/contexts/ThemeProvider';
+import { useTheme } from '@/core/contexts/ThemeProvider';
 import { Ionicons } from '@expo/vector-icons';
 import { Button } from './Button';
 import { TextInput } from './TextInput';
@@ -298,3 +298,4 @@ const EmptyText = styled.Text`
   margin-top: 12px;
   margin-bottom: 8px;
 `;
+

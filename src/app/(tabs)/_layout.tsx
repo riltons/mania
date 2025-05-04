@@ -5,9 +5,9 @@ import { Platform } from 'react-native';
 import { useEffect } from 'react';
 import * as NavigationBar from 'expo-navigation-bar';
 import { colors } from '@/styles/colors';
-import { useTheme } from '@/contexts/ThemeProvider';
+import { useTheme } from '@/core/contexts/ThemeProvider';
 import { Feather } from '@expo/vector-icons';
-import { BottomNavigation } from '@/components/BottomNavigation';
+import { BottomNavigation } from '@/components/layout/BottomNavigation';
 import styled from 'styled-components/native';
 
 export default function TabRoutesLayout() {

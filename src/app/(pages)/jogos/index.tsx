@@ -2,10 +2,10 @@ import React, { useEffect, useState, useRef } from 'react';
 import { ActivityIndicator, ScrollView, View, Animated, Dimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import styled from 'styled-components/native';
-import { GameWithDetails, gamesService } from '@/services/gamesService';
+import { GameWithDetails, gamesService } from '@/features/games/services/gamesService';
 import { Feather } from '@expo/vector-icons';
-import { formatDate } from '@/utils/date';
-import { InternalHeader } from '@/components/InternalHeader';
+import { formatDate } from '@/core/utils/date';
+import { InternalHeader } from '@/components/layout/InternalHeader';
 import { useTheme } from 'styled-components/native';
 
 export default function GamesPage() {
@@ -300,3 +300,4 @@ const GameDate = styled.Text`
     color: ${({ theme }) => theme.colors.textSecondary};
     margin-left: auto;
 `;
+

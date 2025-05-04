@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList, ActivityIndicator, TouchableOpacity } from 'react-native';
-import { PlayerAvatar } from '@/components/PlayerAvatar';
+import { PlayerAvatar } from '@/components/data-display/PlayerAvatar';
 import styled from 'styled-components/native';
-import { useTheme } from '@/contexts/ThemeProvider';
-import { InternalHeader } from '@/components/InternalHeader';
+import { useTheme } from '@/core/contexts/ThemeProvider';
+import { InternalHeader } from '@/components/layout/InternalHeader';
 import { PageTransition } from '@/components/Transitions';
 import { Feather } from '@expo/vector-icons';
-import { rankingService, PlayerRanking } from '@/services/rankingService';
+import { rankingService, PlayerRanking } from '@/features/statistics/services/rankingService';
 import { useRouter } from 'expo-router';
 
 const Container = styled.View`
@@ -237,3 +237,4 @@ export default function TopJogadores() {
         </PageTransition>
     );
 }
+

@@ -2,11 +2,11 @@ import React, { useState } from 'react';
 import { Alert, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import styled from 'styled-components/native';
-import { communityService } from '@/services/communityService';
-import { InternalHeader } from '@/components/InternalHeader';
+import { communityService } from '@/features/communities/services/communityService';
+import { InternalHeader } from '@/components/layout/InternalHeader';
 import { Feather } from '@expo/vector-icons';
 import { TextInput } from 'react-native-paper';
-import { useTheme } from '@/contexts/ThemeProvider';
+import { useTheme } from '@/core/contexts/ThemeProvider';
 
 export default function NovaComunidade() {
     const router = useRouter();
@@ -167,3 +167,4 @@ const SaveButtonText = styled.Text<{ colors: any }>`
     font-size: 16px;
     font-weight: bold;
 `;
+

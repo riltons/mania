@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/core/lib/supabase';
 import styled from 'styled-components/native';
 
 export const SupabaseTest = () => {
@@ -137,3 +137,4 @@ const TestButtonText = styled.Text`
     font-size: 16px;
     font-weight: bold;
 `;
+

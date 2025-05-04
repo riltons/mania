@@ -2,6 +2,10 @@ import { colors as darkColors } from './colors';
 
 // Cores para o tema claro
 export const lightColors = {
+    // Cores básicas
+    white: '#FFFFFF',
+    black: '#000000',
+    gray: '#7C7C8A',
     // Cores principais
     primary: '#8257E5', // Mantemos a cor primária para manter a identidade visual
     secondary: '#F5F5FA',
@@ -68,4 +72,5 @@ export const themes = {
 export type ThemeType = 'dark' | 'light';
 
 // Tipo para as cores
-export type ColorType = typeof darkColors;
+// Usando Record<string, string> para permitir qualquer propriedade de string com valor string
+export type ColorType = Record<string, string>;

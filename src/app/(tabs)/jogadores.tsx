@@ -2,12 +2,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Alert, FlatList, RefreshControl, ActivityIndicator, View, Text } from 'react-native';
 import styled from 'styled-components/native';
 import { MaterialCommunityIcons, Feather, FontAwesome5 } from '@expo/vector-icons';
-import { PlayerAvatar } from '@/components/PlayerAvatar';
-import { Player, playerService } from '@/services/playerService';
+import { PlayerAvatar } from '@/components/data-display/PlayerAvatar';
+import { Player, playerService } from '@/features/players/services/playerService';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
-import { Header } from '@/components/Header';
-import { useTheme } from '@/contexts/ThemeProvider';
+import { Header } from '@/components/layout/Header';
+import { useTheme } from '@/core/contexts/ThemeProvider';
 
 const Container = styled.View`
     flex: 1;

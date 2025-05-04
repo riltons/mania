@@ -1,6 +1,6 @@
 import { View, StyleSheet, FlatList, ActivityIndicator } from 'react-native';
 import { useState, useEffect } from 'react';
-import { Activity, activityService } from '@/services/activityService';
+import { Activity, activityService } from '@/features/statistics/services/activityService';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors } from '@/styles/colors';
 import { Text } from 'react-native';

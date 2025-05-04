@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity } from 'react-native';
-import { MCP, MCPUtils } from '@/lib/supabaseMCP';
+import { MCP, MCPUtils } from '@/core/lib/supabaseMCP';
 import { useRouter } from 'expo-router';
 
 // Tipos para as entidades do banco de dados
@@ -334,3 +334,4 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 });
+

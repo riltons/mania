@@ -2,9 +2,9 @@ import React, { useState, useRef } from 'react';
 import { Dimensions, Animated, Image } from 'react-native';
 import styled from 'styled-components/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useTheme } from '@/contexts/ThemeProvider';
+import { useTheme } from '@/core/contexts/ThemeProvider';
 import { useRouter } from 'expo-router';
-import { InternalHeader } from '@/components/InternalHeader';
+import { InternalHeader } from '@/components/layout/InternalHeader';
 
 const { width } = Dimensions.get('window');
 
@@ -186,3 +186,4 @@ export default function Onboarding() {
     </Container>
   );
 }
+

@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/core/lib/supabase';
 import { activityService } from './activityService';
 import { subscriptionService } from './subscriptionService';
 
@@ -437,3 +437,4 @@ class CommunityService {
 }
 
 export const communityService = new CommunityService();
+

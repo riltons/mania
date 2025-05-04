@@ -1,4 +1,4 @@
-import { supabase, supabaseUrl, supabaseAnonKey } from '@/lib/supabase';
+import { supabase, supabaseUrl, supabaseAnonKey } from '@/core/lib/supabase';
 import { activityService } from './activityService';
 import { Platform } from 'react-native';
 import * as FileSystem from 'expo-file-system';
@@ -620,3 +620,4 @@ class PlayerService {
 }
 
 export const playerService = new PlayerService();
+
