@@ -3,7 +3,7 @@ import { Alert, Modal, TouchableOpacity, ActivityIndicator, Text, View, FlatList
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import styled from 'styled-components/native';
-import { useTheme } from '@/contexts/ThemeProvider';
+import { useTheme } from '@/core/contexts/ThemeProvider';
 import { Feather } from '@expo/vector-icons';
 import { competitionService } from '@/services/competitionService';
 import { communityMembersService } from '@/services/communityMembersService';
