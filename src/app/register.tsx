@@ -96,14 +96,14 @@ export default function Register() {
                     <Input
                         placeholder="Nome completo"
                         value={form.fullName}
-                        onChangeText={(text) => setForm({ ...form, fullName: text })}
+                        onChangeText={(text: string) => setForm({ ...form, fullName: text })}
                         placeholderTextColor={colors.gray300}
                     />
 
                     <Input
                         placeholder="E-mail"
                         value={form.email}
-                        onChangeText={(text) => setForm({ ...form, email: text })}
+                        onChangeText={(text: string) => setForm({ ...form, email: text })}
                         keyboardType="email-address"
                         autoCapitalize="none"
                         placeholderTextColor={colors.gray300}
@@ -112,7 +112,7 @@ export default function Register() {
                     <Input
                         placeholder="Senha"
                         value={form.password}
-                        onChangeText={(text) => setForm({ ...form, password: text })}
+                        onChangeText={(text: string) => setForm({ ...form, password: text })}
                         secureTextEntry
                         placeholderTextColor={colors.gray300}
                     />
@@ -120,7 +120,7 @@ export default function Register() {
                     <Input
                         placeholder="Confirmar senha"
                         value={form.confirmPassword}
-                        onChangeText={(text) => setForm({ ...form, confirmPassword: text })}
+                        onChangeText={(text: string) => setForm({ ...form, confirmPassword: text })}
                         secureTextEntry
                         placeholderTextColor={colors.gray300}
                     />
@@ -128,7 +128,7 @@ export default function Register() {
                     <Input
                         placeholder="Apelido (opcional)"
                         value={form.nickname}
-                        onChangeText={(text) => setForm({ ...form, nickname: text })}
+                        onChangeText={(text: string) => setForm({ ...form, nickname: text })}
                         placeholderTextColor={colors.gray300}
                     />
 
@@ -151,7 +151,7 @@ export default function Register() {
 
 const Container = styled.View`
     flex: 1;
-    background-color: ${({ theme }) => theme.colors.backgroundDark};
+    background-color: ${({ props }: { props: { theme: any } }) => props.theme.colors.backgroundDark};
 `;
 
 const ScrollContent = styled.ScrollView`
@@ -165,23 +165,23 @@ const FormContainer = styled.View`
 const Title = styled.Text`
     font-size: 24px;
     font-weight: bold;
-    color: ${({ theme }) => theme.colors.gray100};
+    color: ${({ props }: { props: { theme: any } }) => props.theme.colors.gray100};
     margin-bottom: 24px;
     text-align: center;
 `;
 
 const Input = styled.TextInput`
-    background-color: ${({ theme }) => theme.colors.backgroundMedium};
+    background-color: ${({ props }: { props: { theme: any } }) => props.theme.colors.backgroundMedium};
     border-radius: 8px;
     padding: 12px;
     margin-bottom: 16px;
-    color: ${({ theme }) => theme.colors.gray100};
+    color: ${({ props }: { props: { theme: any } }) => props.theme.colors.gray100};
     font-size: 16px;
 `;
 
 const Button = styled.TouchableOpacity`
-    background-color: ${({ theme, disabled }) => 
-        disabled ? theme.colors.primary + '80' : theme.colors.primary};
+    background-color: ${({ props, disabled }: { props: { theme: any }, disabled: boolean }) => 
+        disabled ? props.theme.colors.primary + '80' : props.theme.colors.primary};
     border-radius: 8px;
     padding: 16px;
     align-items: center;
@@ -189,7 +189,7 @@ const Button = styled.TouchableOpacity`
 `;
 
 const ButtonText = styled.Text`
-    color: ${({ theme }) => theme.colors.white};
+    color: ${({ props }: { props: { theme: any } }) => props.theme.colors.white};
     font-size: 16px;
     font-weight: bold;
 `;
@@ -200,6 +200,6 @@ const LinkButton = styled.TouchableOpacity`
 `;
 
 const LinkText = styled.Text`
-    color: ${({ theme }) => theme.colors.primary};
+    color: ${({ props }: { props: { theme: any } }) => props.theme.colors.primary};
     font-size: 14px;
 `;
