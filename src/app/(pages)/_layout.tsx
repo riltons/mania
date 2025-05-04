@@ -63,6 +63,7 @@ export default function PagesLayout() {
                     <Stack.Screen name="subscription" options={{ headerShown: false }} />
                     <Stack.Screen name="trial-offer" options={{ headerShown: false }} />
                     <Stack.Screen name="feature-locked" options={{ headerShown: false }} />
+                    <Stack.Screen name="onboarding" options={{ headerShown: false }} />
                 </Stack>
             </Content>
             {!hideNav && (

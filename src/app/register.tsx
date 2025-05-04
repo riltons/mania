@@ -151,7 +151,7 @@ export default function Register() {
 
 const Container = styled.View`
     flex: 1;
-    background-color: ${({ props }: { props: { theme: any } }) => props.theme.colors.backgroundDark};
+    background-color: ${props => props.theme.colors.backgroundDark};
 `;
 
 const ScrollContent = styled.ScrollView`
@@ -165,23 +165,22 @@ const FormContainer = styled.View`
 const Title = styled.Text`
     font-size: 24px;
     font-weight: bold;
-    color: ${({ props }: { props: { theme: any } }) => props.theme.colors.gray100};
+    color: props => props.theme.colors.gray100;
     margin-bottom: 24px;
     text-align: center;
 `;
 
 const Input = styled.TextInput`
-    background-color: ${({ props }: { props: { theme: any } }) => props.theme.colors.backgroundMedium};
+    background-color: props => props.theme.colors.backgroundMedium;
     border-radius: 8px;
     padding: 12px;
     margin-bottom: 16px;
-    color: ${({ props }: { props: { theme: any } }) => props.theme.colors.gray100};
+    color: props => props.theme.colors.gray100;
     font-size: 16px;
 `;
 
 const Button = styled.TouchableOpacity`
-    background-color: ${({ props, disabled }: { props: { theme: any }, disabled: boolean }) => 
-        disabled ? props.theme.colors.primary + '80' : props.theme.colors.primary};
+    background-color: ${props => props.disabled ? props.theme.colors.primary + '80' : props.theme.colors.primary};
     border-radius: 8px;
     padding: 16px;
     align-items: center;
@@ -189,7 +188,7 @@ const Button = styled.TouchableOpacity`
 `;
 
 const ButtonText = styled.Text`
-    color: ${({ props }: { props: { theme: any } }) => props.theme.colors.white};
+    color: props => props.theme.colors.white;
     font-size: 16px;
     font-weight: bold;
 `;
@@ -200,6 +199,6 @@ const LinkButton = styled.TouchableOpacity`
 `;
 
 const LinkText = styled.Text`
-    color: ${({ props }: { props: { theme: any } }) => props.theme.colors.primary};
+    color: props => props.theme.colors.primary;
     font-size: 14px;
 `;
