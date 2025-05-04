@@ -8,7 +8,7 @@ import { useCallback, useEffect, useState, useFocusEffect } from "react"
 import { supabase } from "@/lib/supabase"
 import { Competition, competitionService } from "@/services/competitionService"
 import { useRouter } from 'expo-router'
-import { useTheme } from "@/contexts/ThemeProvider"
+import { useTheme } from "@/core/contexts/ThemeProvider"
 import { Feather } from "@expo/vector-icons"
 import { communityService, Community } from "@/services/communityService"
 import { ColorType } from "@/styles/themes"
