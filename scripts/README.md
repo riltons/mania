@@ -1,12 +1,12 @@
-# Scripts de Migração para a Nova Estrutura
+# Scripts do Projeto DominoMania
 
-Este diretório contém scripts para auxiliar na migração do projeto para a nova estrutura de diretórios, seguindo princípios de Arquitetura em Camadas e Domain-Driven Design.
+Este diretório contém scripts para auxiliar no desenvolvimento, manutenção e migração do projeto DominoMania.
 
-## Scripts Disponíveis
+## Scripts de Migração
 
 ### 1. migracao-estrutura.ps1
 
-Este script copia os arquivos da estrutura antiga para a nova estrutura de diretórios.
+Este script copia os arquivos da estrutura antiga para a nova estrutura de diretórios, seguindo princípios de Arquitetura em Camadas e Domain-Driven Design.
 
 **Como executar:**
 
@@ -24,6 +24,50 @@ Este script atualiza as importações nos arquivos migrados para refletir a nova
 ```powershell
 cd c:\Users\rilto\Downloads\meusProjetos\mania
 .\scripts\atualizar-importacoes.ps1
+```
+
+## Scripts de Banco de Dados
+
+### 1. listar_tabelas.js
+
+Script para listar todas as tabelas do banco de dados Supabase e suas estruturas.
+
+**Como executar:**
+
+```bash
+node scripts/listar_tabelas.js
+```
+
+### 2. listar_tabelas_script.js
+
+Versão alternativa para listar tabelas do banco de dados.
+
+**Como executar:**
+
+```bash
+node scripts/listar_tabelas_script.js
+```
+
+### 3. listar_tabelas_supabase.js
+
+Script específico para listar tabelas do Supabase com formatação personalizada.
+
+**Como executar:**
+
+```bash
+node scripts/listar_tabelas_supabase.js
+```
+
+## Ferramentas
+
+### 1. bfg.jar
+
+Ferramenta BFG Repo-Cleaner para limpeza de histórico do Git (remover arquivos grandes, dados sensíveis, etc).
+
+**Como executar:**
+
+```bash
+java -jar scripts/bfg.jar --strip-blobs-bigger-than 10M
 ```
 
 ## Próximos Passos
