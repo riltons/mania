@@ -15,7 +15,7 @@ import { gameService, Game } from '@/services/gameService';
 import { competitionService } from '@/services/competitionService';
 import { useFocusEffect } from '@react-navigation/native';
 import { InternalHeader } from '@/components/InternalHeader';
-import { useTheme } from '@/contexts/ThemeProvider';
+import { useTheme } from '@/core/contexts/ThemeProvider';
 
 interface Player {
     id: string;
