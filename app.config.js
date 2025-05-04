@@ -12,9 +12,6 @@ module.exports = ({ config }) => ({
     supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
     supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
     supabaseFunctionsUrl: process.env.EXPO_PUBLIC_SUPABASE_FUNCTIONS_URL,
-    // Stripe
-    stripePublishableKey: process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY,
-    stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
     // Supabase Service Role
     supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
   },

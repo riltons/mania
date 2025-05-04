@@ -11,7 +11,6 @@ import ErrorBoundary from '../utils/errorBoundary';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import * as NavigationBar from 'expo-navigation-bar';
-import { StripeProvider } from '@stripe/stripe-react-native';
 
 registerTranslation('en-GB', enGB);
 
@@ -95,9 +94,7 @@ export default function RootLayout() {
         <ErrorBoundary>
             <AuthProvider>
                 <ThemeProvider>
-                    <StripeProvider publishableKey={process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY!}>
-                        <AppLayout />
-                    </StripeProvider>
+                    <AppLayout />
                 </ThemeProvider>
             </AuthProvider>
         </ErrorBoundary>

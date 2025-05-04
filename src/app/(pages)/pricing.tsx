@@ -5,7 +5,6 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '@/hooks/useAuth';
 import { subscriptionService, Plan } from '@/services/subscriptionService';
 import { useTheme } from '@/contexts/ThemeProvider';
-import { useStripe } from '@stripe/stripe-react-native';
 import { supabaseMCP } from '@/lib/supabaseMCP';
 
 const Container = styled.ScrollView`
@@ -64,7 +63,6 @@ export default function Pricing() {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState<string | null>(null);
-  const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const planOrder = ['free', 'premium_monthly', 'premium_yearly'];
   let visiblePlans = plans;
   if (currentPlan) {
@@ -147,17 +145,6 @@ export default function Pricing() {
       setSubmitting(slug);
       const plan = plans.find(p => p.slug === slug);
       if (!plan) { Alert.alert('Erro', 'Plano não encontrado'); return; }
-      const { ephemeralKey, setupIntent, customer, publishableKey } = await fetchPaymentSheetParams(plan.id);
-      const { error: initError } = await initPaymentSheet({
-        merchantDisplayName: 'Dominomania',
-        customerId: customer,
-        customerEphemeralKeySecret: ephemeralKey.secret,
-        setupIntentClientSecret: setupIntent.client_secret,
-        defaultBillingDetails: { email: user.email },
-      });
-      if (initError) { Alert.alert('Erro', initError.message); return; }
-      const { error: paymentError } = await presentPaymentSheet();
-      if (paymentError) { Alert.alert('Erro', paymentError.message); return; }
       await subscriptionService.createSubscription(user.id, plan.id);
       Alert.alert('Sucesso', 'Assinatura realizada');
       router.replace('/subscription');
