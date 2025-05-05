@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, ActivityIndicator, Alert, ScrollView } from 'react-native';
 import styled from 'styled-components/native';
 import { useAuth } from '@/core/hooks/useAuth';
@@ -8,35 +8,35 @@ import { useRouter } from 'expo-router';
 import { useSubscription } from '@/hooks/useSubscription';
 import { SubscriptionWithPlan } from '@/services/playBillingService';
 
-const Container = styled.View<{theme?: any}>`
+const Container = styled.View`
   flex: 1;
-  background-color: ${({ theme }) => theme.colors.backgroundDark};
+  background-color: ${({ theme }: { theme: any }) => theme.colors.backgroundDark};
   padding: 20px;
 `;
 
-const Title = styled.Text<{theme?: any}>`
-  color: ${({ theme }) => theme.colors.textPrimary};
+const Title = styled.Text`
+  color: ${({ theme }: { theme: any }) => theme.colors.textPrimary};
   font-size: 20px;
   font-weight: bold;
   margin-bottom: 12px;
 `;
 
-const InfoText = styled.Text<{theme?: any}>`
-  color: ${({ theme }) => theme.colors.textSecondary};
+const InfoText = styled.Text`
+  color: ${({ theme }: { theme: any }) => theme.colors.textSecondary};
   font-size: 16px;
   margin-bottom: 8px;
 `;
 
-const ActionButton = styled.TouchableOpacity<{theme?: any; disabled?: boolean}>`
-  background-color: ${({ theme }) => theme.colors.primary};
+const ActionButton = styled.TouchableOpacity<{disabled?: boolean}>`
+  background-color: ${({ theme }: { theme: any }) => theme.colors.primary};
   padding: 12px;
   border-radius: 8px;
   align-items: center;
   margin-top: 20px;
-  opacity: ${({ disabled }) => (disabled ? 0.6 : 1)};
+  opacity: ${({ disabled }: { disabled?: boolean }) => (disabled ? 0.6 : 1)};
 `;
 
-const ButtonText = styled.Text<{theme?: any}>`
+const ButtonText = styled.Text`
   color: #fff;
   font-weight: bold;
 `;
@@ -53,10 +53,21 @@ export default function Subscription() {
     restorePurchases
   } = useSubscription();
 
-  // Redirecionar para login se não estiver autenticado
+  // Usar useEffect para redirecionar para login se não estiver autenticado
+  useEffect(() => {
+    if (!user) {
+      router.replace('/login');
+    }
+  }, [user, router]);
+  
+  // Retornar null enquanto verifica a autenticação
   if (!user) {
-    router.replace('/login');
-    return null;
+    return (
+      <>
+        <Header title="Assinatura" showBackButton />
+        <ActivityIndicator style={{ flex: 1 }} color={colors.primary} size="large" />
+      </>
+    );
   }
   
   // Função para restaurar compras
@@ -112,8 +123,8 @@ export default function Subscription() {
     );
   }
 
-  // Verificar se é trial ou assinatura paga
-  const isTrial = sub.status === 'trial';
+  // Verificar se é período de teste ou assinatura paga
+  const isTrial = sub.status === 'trialing';
   const isActive = sub.status === 'active';
 
   return (

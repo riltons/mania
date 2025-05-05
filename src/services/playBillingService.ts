@@ -54,7 +54,7 @@ export const PLANS: PlanInfo[] = [
     id: SUBSCRIPTION_SKUS.PREMIUM_MONTHLY,
     name: 'Premium Mensal',
     slug: 'premium_monthly',
-    price_cents: 1990, // R$ 19,90 (será atualizado com o preço real da Play Store)
+    price_cents: 3990, // R$ 39,90
     currency: 'BRL',
     interval: 'month',
     features: [
@@ -67,7 +67,7 @@ export const PLANS: PlanInfo[] = [
     id: SUBSCRIPTION_SKUS.PREMIUM_ANNUAL,
     name: 'Premium Anual',
     slug: 'premium_annual',
-    price_cents: 19900, // R$ 199,00 (será atualizado com o preço real da Play Store)
+    price_cents: 39990, // R$ 399,90
     currency: 'BRL',
     interval: 'year',
     features: [
@@ -84,7 +84,7 @@ export interface UserSubscription {
   id: string;
   user_id: string;
   plan_id: string;
-  status: 'active' | 'canceled' | 'expired' | 'trial';
+  status: 'active' | 'canceled' | 'expired' | 'trialing';
   created_at: string;
   ends_at: string | null;
   canceled_at: string | null;
@@ -104,8 +104,9 @@ class PlayBillingService {
 
   // Inicializar conexão com a Play Store
   async init() {
-    if (Platform.OS !== 'android') {
-      console.log('PlayBillingService: Plataforma não suportada');
+    // Verificar se estamos em um ambiente que suporta IAP
+    if (Platform.OS !== 'android' || __DEV__) {
+      console.log('PlayBillingService: Plataforma não suportada ou ambiente de desenvolvimento');
       return false;
     }
 
@@ -142,14 +143,26 @@ class PlayBillingService {
       return true;
     } catch (error) {
       console.error('Erro ao inicializar Play Billing:', error);
+      // Não tratar como erro fatal, apenas retornar falso
       return false;
     }
   }
 
   // Obter assinaturas disponíveis da Play Store
   async getAvailableSubscriptions() {
+    // Se estamos em ambiente de desenvolvimento ou plataforma não suportada, retornar planos padrão
+    if (Platform.OS !== 'android' || __DEV__) {
+      console.log('PlayBillingService: Usando planos padrão para ambiente não suportado');
+      return PLANS;
+    }
+
+    // Tentar conectar se ainda não estiver conectado
     if (!this.isConnected) {
-      await this.init();
+      const connected = await this.init();
+      if (!connected) {
+        console.log('PlayBillingService: Não foi possível conectar, usando planos padrão');
+        return PLANS;
+      }
     }
 
     try {
@@ -172,7 +185,8 @@ class PlayBillingService {
       return updatedPlans;
     } catch (error) {
       console.error('Erro ao obter assinaturas:', error);
-      return PLANS; // Retorna os planos padrão em caso de erro
+      // Retorna os planos padrão em caso de erro, não tratando como erro fatal
+      return PLANS;
     }
   }
 
@@ -236,12 +250,12 @@ class PlayBillingService {
   // Verificar assinaturas ativas do usuário
   async getUserSubscription(userId: string): Promise<SubscriptionWithPlan | null> {
     try {
-      // Verificar no Supabase
+      // Verificar no Supabase - buscar assinaturas ativas ou em período de teste
       const { data, error } = await supabase
         .from('subscriptions')
         .select('*')
         .eq('user_id', userId)
-        .eq('status', 'active')
+        .in('status', ['active', 'trialing'])
         .order('created_at', { ascending: false })
         .limit(1)
         .single();

@@ -12,7 +12,7 @@ import AlertModal from '@/components/feedback/AlertModal';
 
 const Container = styled.View`
   flex: 1;
-  background-color: ${({ theme }) => theme.colors.backgroundDark};
+  background-color: ${({ theme }: { theme: any }) => theme.colors.backgroundDark};
 `;
 
 const ScrollContent = styled.ScrollView`
@@ -30,30 +30,30 @@ const InputContainer = styled.View`
 
 const Label = styled.Text`
   font-size: 16px;
-  color: ${({ theme }) => theme.colors.textPrimary};
+  color: ${({ theme }: { theme: any }) => theme.colors.textPrimary};
   font-weight: 500;
 `;
 
 const StyledInput = styled.TextInput`
-  background-color: ${({ theme }) => theme.colors.backgroundLight};
+  background-color: ${({ theme }: { theme: any }) => theme.colors.backgroundLight};
   padding: 16px;
   border-radius: 8px;
-  color: ${({ theme }) => theme.colors.textPrimary};
+  color: ${({ theme }: { theme: any }) => theme.colors.textPrimary};
   font-size: 16px;
 `;
 
-const SaveButton = styled.TouchableOpacity`
-  background-color: ${({ theme }) => theme.colors.accent};
+const SaveButton = styled.TouchableOpacity<{disabled?: boolean}>`
+  background-color: ${({ theme }: { theme: any }) => theme.colors.accent};
   padding: 16px;
   border-radius: 8px;
   align-items: center;
   justify-content: center;
   margin-top: 16px;
-  opacity: ${props => props.disabled ? 0.7 : 1};
+  opacity: ${(props: {disabled?: boolean}) => props.disabled ? 0.7 : 1};
 `;
 
 const SubscriptionButton = styled.TouchableOpacity`
-  background-color: ${({ theme }) => theme.colors.primary};
+  background-color: ${({ theme }: { theme: any }) => theme.colors.primary};
   padding: 16px;
   border-radius: 8px;
   align-items: center;
@@ -62,7 +62,7 @@ const SubscriptionButton = styled.TouchableOpacity`
 `;
 
 const ButtonText = styled.Text`
-  color: ${({ theme }) => theme.colors.white};
+  color: ${({ theme }: { theme: any }) => theme.colors.white};
   font-size: 16px;
   font-weight: 600;
 `;
@@ -452,8 +452,8 @@ export default function ProfileScreen() {
                 {loading ? 'Salvando...' : 'Salvar Alterações'}
               </ButtonText>
             </SaveButton>
-            <SubscriptionButton onPress={() => router.push('/subscription')}>
-              <ButtonText>Gerenciar Assinatura</ButtonText>
+            <SubscriptionButton onPress={() => router.push('/mensalidade')}>
+              <ButtonText>Gerenciar Mensalidade</ButtonText>
             </SubscriptionButton>
           </Content>
         </ScrollContent>

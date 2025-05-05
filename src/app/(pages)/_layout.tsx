@@ -1,15 +1,21 @@
 import React from 'react';
-import { Stack } from 'expo-router';
+import { Stack, usePathname } from 'expo-router';
 import { useTheme } from '@/core/contexts/ThemeProvider';
 import { BottomNavigation } from '@/components/layout/BottomNavigation';
 import styled from 'styled-components/native';
-import { usePathname } from 'expo-router';
+import { View } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import { ColorType } from '@/styles/themes';
 
 export default function PagesLayout() {
     const { colors } = useTheme();
     const pathname = usePathname();
-    // Oculta bottom nav em /subscription e /pricing
-    const hideNav = Boolean(pathname?.startsWith('/subscription') || pathname?.startsWith('/pricing'));
+    // Oculta bottom nav em /subscription, /pricing e /mensalidade
+    const hideNav = Boolean(
+        pathname?.startsWith('/subscription') || 
+        pathname?.startsWith('/pricing') || 
+        pathname?.startsWith('/mensalidade')
+    );
     
     return (
         <Container>
@@ -48,7 +54,7 @@ export default function PagesLayout() {
                         }} 
                     />
                     <Stack.Screen 
-                        name="jogador/jogador/[id]" 
+                        name="jogador/editar" 
                         options={{
                             headerShown: false
                         }} 
@@ -61,6 +67,7 @@ export default function PagesLayout() {
                     />
                     <Stack.Screen name="pricing" options={{ headerShown: false }} />
                     <Stack.Screen name="subscription" options={{ headerShown: false }} />
+                    <Stack.Screen name="mensalidade" options={{ headerShown: false }} />
                     <Stack.Screen name="trial-offer" options={{ headerShown: false }} />
                     <Stack.Screen name="feature-locked" options={{ headerShown: false }} />
                     <Stack.Screen name="onboarding" options={{ headerShown: false }} />
@@ -90,9 +97,9 @@ const NavigationContainer = styled.View`
     bottom: 0;
     left: 0;
     right: 0;
-    background-color: ${({ theme }) => theme.colors.backgroundMedium};
+    background-color: ${({ theme }: { theme: any }) => theme.colors.backgroundMedium};
     border-top-width: 1px;
-    border-top-color: ${({ theme }) => theme.colors.border};
+    border-top-color: ${({ theme }: { theme: any }) => theme.colors.border};
     height: 60px;
 `;
 

@@ -75,16 +75,16 @@ class AuthService {
                 };
             }
 
-            // Criar perfil na tabela profile
+            // Criar perfil na tabela user_profiles
             if (data?.user) {
                 try {
                     const { error: profileError } = await supabase
-                        .from('profiles')
+                        .from('user_profiles')
                         .insert([
                             {
-                                id: data.user.id,
-                                name: name || email.split('@')[0],
-                                email: email.trim().toLowerCase(),
+                                user_id: data.user.id,
+                                full_name: name || email.split('@')[0],
+                                avatar_url: '',
                                 updated_at: new Date().toISOString()
                             }
                         ]);
