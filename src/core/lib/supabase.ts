@@ -6,8 +6,9 @@ import Constants from 'expo-constants';
 import { Database } from '@/types';
 
 // Valores de fallback para quando as variáveis de ambiente não estiverem disponíveis no APK
-const FALLBACK_SUPABASE_URL = 'https://evakdtqrtpqiuqhetkqr.supabase.co';
-const FALLBACK_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV2YWtkdHFydHBxaXVxaGV0a3FyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzkzNjk1MjQsImV4cCI6MjA1NDk0NTUyNH0.Ms4VB9QGBBcWMZPJ5j5Oanl3RD1SeECp7twFb_riPAI';
+// Usando valores do ambiente de produção
+const FALLBACK_SUPABASE_URL = 'https://euqnfrvptiriujrdebpr.supabase.co';
+const FALLBACK_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV1cW5mcnZwdGlyaXVqcmRlYnByIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDUwNDk4MjQsImV4cCI6MjA2MDYyNTgyNH0.67e4m4mT2CjxgrWoSbYnhubXt3GcweQgdPhq2oalKuM';
 
 // Pega do extra do Expo (app.json) ou, se não definido, do env ou fallback
 const expoExtra = (Constants.expoConfig?.extra ?? {}) as Record<string, string>;

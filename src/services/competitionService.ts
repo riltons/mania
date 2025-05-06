@@ -1,7 +1,6 @@
 // @ts-nocheck
 import { supabase } from '@/core/lib/supabase';
 import { activityService } from './activityService';
-import { subscriptionService } from './subscriptionService';
 
 export interface Competition {
     id: string;
@@ -62,25 +61,22 @@ export const competitionService = {
                 throw new Error('Usuário não autenticado');
             }
 
-            // Limitar competições ativas: free plan só 2 por comunidade
-            const subscription = await subscriptionService.getUserSubscription(user.user.id);
-            if (subscription?.plans.slug === 'free') {
-                const { count, error: countError } = await supabase
-                    .from('competitions')
-                    .select('id', { count: 'exact', head: true })
-                    .eq('community_id', formattedData.community_id)
-                    .in('status', ['pending', 'in_progress']);
-                if (countError) throw countError;
-                if ((count || 0) >= 2) {
-                    // Retornar um objeto de erro em vez de lançar uma exceção
-                    console.log('[DEBUG] Limite de plano atingido, retornando erro');
-                    return { 
-                        error: true, 
-                        planLimit: true, 
-                        message: 'Plano gratuito permite no máximo 2 competições ativas por comunidade',
-                        success: false // Garantir que success seja false
-                    };
-                }
+            // Limitar competições ativas: máximo 5 por comunidade
+            const { count, error: countError } = await supabase
+                .from('competitions')
+                .select('id', { count: 'exact', head: true })
+                .eq('community_id', formattedData.community_id)
+                .in('status', ['pending', 'in_progress']);
+            if (countError) throw countError;
+            if ((count || 0) >= 5) {
+                // Retornar um objeto de erro em vez de lançar uma exceção
+                console.log('[DEBUG] Limite de competições atingido, retornando erro');
+                return { 
+                    error: true, 
+                    planLimit: true, 
+                    message: 'Limite máximo de 5 competições ativas por comunidade atingido',
+                    success: false // Garantir que success seja false
+                };
             }
 
             // Verifica se o usuário tem permissão para criar competição nesta comunidade
@@ -111,8 +107,8 @@ export const competitionService = {
                     p_name: formattedData.name,
                     p_description: formattedData.description,
                     p_community_id: formattedData.community_id,
-                    p_created_by: user.user.id,
-                    p_start_date: formattedData.start_date
+                    p_created_by: user.user.id
+                    // p_start_date removido pois a função no banco não aceita este parâmetro
                 }
             );
 

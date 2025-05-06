@@ -617,6 +617,64 @@ class PlayerService {
             throw error;
         }
     }
+    /**
+     * Garante que existe um player vinculado ao usuário autenticado.
+     * Se não existir, cria um novo player usando os dados do perfil (user_profiles).
+     * Retorna o player encontrado ou criado.
+     */
+    async getOrCreatePlayerForCurrentUser(): Promise<Player> {
+        // Busca usuário autenticado
+        const { data: userData, error: userError } = await supabase.auth.getUser();
+        if (userError || !userData?.user?.id) {
+            throw new Error('Usuário não autenticado');
+        }
+        const userId = userData.user.id;
+
+        // Busca perfil do usuário
+        // Importação dinâmica para evitar dependência circular
+        const { userService } = await import('./userService');
+        const { data: profile, error: profileError } = await userService.getProfile(userId);
+        if (profileError || !profile) {
+            throw new Error('Perfil do usuário não encontrado');
+        }
+        if (!profile.phone_number || !profile.full_name) {
+            throw new Error('Perfil do usuário está incompleto (nome ou telefone ausente)');
+        }
+
+        // Busca player pelo telefone
+        let player = await this.getByPhone(profile.phone_number);
+        if (player) {
+            // Garante que a relação user_player_relations existe
+            const { data: relData, error: relError } = await supabase
+                .from('user_player_relations')
+                .select('*')
+                .eq('user_id', userId)
+                .eq('player_id', player.id)
+                .single();
+            if (relError && relError.code !== 'PGRST116') {
+                throw new Error('Erro ao verificar relação user-player');
+            }
+            if (!relData) {
+                // Cria relação se não existe
+                const { error: insertRelError } = await supabase
+                    .from('user_player_relations')
+                    .insert([{ user_id: userId, player_id: player.id }]);
+                if (insertRelError && insertRelError.code !== '23505') {
+                    throw new Error('Erro ao criar relação user-player');
+                }
+            }
+            return player;
+        }
+
+        // Se não existe, cria novo player
+        const createDto: CreatePlayerDTO = {
+            name: profile.full_name,
+            phone: profile.phone_number,
+            nickname: profile.nickname,
+        };
+        player = await this.create(createDto);
+        return player;
+    }
 }
 
 export const playerService = new PlayerService();

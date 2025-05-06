@@ -1,6 +1,6 @@
 import { supabase } from '@/core/lib/supabase';
 import { activityService } from './activityService';
-import { subscriptionService } from './subscriptionService';
+import { playerService } from './playerService';
 
 export type VictoryType = 
     | 'simple' // 1 ponto
@@ -46,19 +46,55 @@ export const gameService = {
             const session = await supabase.auth.getSession();
             console.log('Sessão atual:', session);
 
-            // Limitar jogos: free plan só 10 por competição
             const { data: user } = await supabase.auth.getUser();
             if (!user?.user?.id) throw new Error('Usuário não autenticado');
-            const subscription = await subscriptionService.getUserSubscription(user.user.id);
-            if (subscription?.plans.slug === 'free') {
-                const { count, error: countError } = await supabase
-                    .from('games')
-                    .select('id', { count: 'exact', head: true })
-                    .eq('competition_id', data.competition_id);
-                if (countError) throw countError;
-                if ((count || 0) >= 10) throw new Error('Plano gratuito permite no máximo 10 jogos por competição');
+
+            // Obter ou criar o player para o usuário atual PRIMEIRO
+            let player;
+            try {
+                player = await playerService.getOrCreatePlayerForCurrentUser();
+            } catch (playerError) {
+                console.error('Erro ao obter/criar player para o usuário:', playerError);
+                throw new Error('Não foi possível obter seu perfil de jogador para criar o jogo');
             }
 
+            // Limitar jogos: máximo 50 por competição
+            const { count, error: countError } = await supabase
+                .from('games')
+                .select('id', { count: 'exact', head: true })
+                .eq('competition_id', data.competition_id);
+            if (countError) throw countError;
+            if ((count || 0) >= 50) throw new Error('Limite máximo de 50 jogos por competição atingido');
+
+            // Verificar se o PLAYER é membro da competição usando player.id
+            const { data: memberCheck, error: memberError } = await supabase
+                .from('competition_members')
+                .select('id')
+                .eq('competition_id', data.competition_id)
+                .eq('player_id', player.id) // Usar player.id para a verificação
+                .maybeSingle();
+                
+            if (memberError) throw memberError;
+            
+            // Se o player não for membro da competição, adicioná-lo
+            if (!memberCheck) {
+                console.log('Player não é membro da competição. Adicionando...');
+                
+                // Adicionar o player como membro da competição
+                const { error: addError } = await supabase
+                    .from('competition_members')
+                    .insert([{
+                        competition_id: data.competition_id,
+                        player_id: player.id // Usar o ID do player
+                    }]);
+                        
+                if (addError) {
+                    console.error('Erro ao adicionar player como membro da competição:', addError);
+                    throw new Error('Não foi possível adicionar você como membro da competição');
+                }
+            }
+
+            // Criar o jogo
             const { data: newGame, error } = await supabase
                 .from('games')
                 .insert([{
@@ -713,4 +749,3 @@ export const gameService = {
         }
     }
 };
-

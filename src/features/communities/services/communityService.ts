@@ -1,6 +1,5 @@
 import { supabase } from '@/core/lib/supabase';
 import { activityService } from '@/services/activityService';
-import { subscriptionService } from '@/services/subscriptionService';
 
 export interface Community {
     id: string;
@@ -169,16 +168,14 @@ class CommunityService {
             const { data: userData, error: userError } = await supabase.auth.getUser();
             if (userError) throw userError;
 
-            // Limitar criação de comunidades: free plan só 1
-            const subscription = await subscriptionService.getUserSubscription(userData.user.id);
-            if (subscription?.plans.slug === 'free') {
-                const { count, error: countError } = await supabase
-                    .from('communities')
-                    .select('id', { count: 'exact', head: true })
-                    .eq('created_by', userData.user.id);
-                if (countError) throw countError;
-                if ((count || 0) >= 1) throw new Error('Plano gratuito permite criar apenas 1 comunidade');
-            }
+            // Verificar se o usuário já tem comunidades criadas
+            const { count, error: countError } = await supabase
+                .from('communities')
+                .select('id', { count: 'exact', head: true })
+                .eq('created_by', userData.user.id);
+            if (countError) throw countError;
+            // Permitir até 3 comunidades por usuário
+            if ((count || 0) >= 3) throw new Error('Você atingiu o limite máximo de 3 comunidades');
 
             const now = new Date().toISOString();
             const { data, error } = await supabase
@@ -212,16 +209,14 @@ class CommunityService {
             const userId = (await supabase.auth.getUser()).data.user?.id;
             if (!userId) throw new Error('Usuário não autenticado');
 
-            // Limitar criação de comunidades: free plan só 1
-            const subscription = await subscriptionService.getUserSubscription(userId);
-            if (subscription?.plans.slug === 'free') {
-                const { count, error: countError } = await supabase
-                    .from('communities')
-                    .select('id', { count: 'exact', head: true })
-                    .eq('created_by', userId);
-                if (countError) throw countError;
-                if ((count || 0) >= 1) throw new Error('Plano gratuito permite criar apenas 1 comunidade');
-            }
+            // Verificar se o usuário já tem comunidades criadas
+            const { count, error: countError } = await supabase
+                .from('communities')
+                .select('id', { count: 'exact', head: true })
+                .eq('created_by', userId);
+            if (countError) throw countError;
+            // Permitir até 3 comunidades por usuário
+            if ((count || 0) >= 3) throw new Error('Você atingiu o limite máximo de 3 comunidades');
 
             const { data: community, error } = await supabase
                 .from('communities')

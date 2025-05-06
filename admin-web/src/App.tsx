@@ -58,52 +58,42 @@ function App() {
 
   // Função para tentar buscar dados reais via Edge Function
   async function fetchStats() {
-    console.log('[App] fetchStats iniciada - session:', session);
-    setLoading(true);
-    setError(null);
-    const adminClient = getAdminClient();
-    console.log('[App] fetchStats - adminClient obtido');
     try {
-      const { count: subsCount, error: countError } = await adminClient
-        .from('subscriptions')
-        .select('*', { count: 'exact', head: true });
-      if (countError) throw countError;
-
-      const { data: subscriptions, error: subsError } = await adminClient
-        .from('subscriptions')
-        .select('status');
-      if (subsError) throw subsError;
-
-      const byStatus = subscriptions.reduce((acc, sub) => {
-        const status = sub.status || 'unknown';
-        acc[status] = (acc[status] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>);
-
-      const { data: recentUsers, error: usersError } = await adminClient
-        .from('profiles')
-        .select('email,created_at')
-        .order('created_at', { ascending: false })
-        .limit(5);
-      if (usersError) throw usersError;
-
-      // Contagem de usuários únicos por user_id via PostgREST distinct
-      // @ts-ignore: distinct não presente em tipos oficiais, mas funciona em runtime
-      const { count: uniqueUserCount, error: uniqueCountError } = await adminClient
-        .from('subscriptions')
-        .select('user_id', { head: true, count: 'exact', distinct: ['user_id'] } as any);
-      if (uniqueCountError) throw uniqueCountError;
-
-      const statsData: Stats = {
-        totalUsers: uniqueUserCount || 0,
-        totalSubscriptions: subsCount || 0,
-        byStatus,
-        recentUsers: recentUsers || [],
-      };
-      setStats(statsData);
-    } catch (error) {
-      console.error('Erro ao buscar dados administrativos:', error);
-      setError('Não foi possível buscar dados reais. Usando dados de demonstração.');
+      setLoading(true);
+      setError(null);
+      
+      // Obter token de acesso para chamar Edge Function
+      const adminClient = await getAdminClient();
+      if (!adminClient) {
+        throw new Error('Não foi possível obter credenciais de administrador');
+      }
+      
+      // Chamar Edge Function para obter estatísticas
+      const { data, error } = await adminClient.functions.invoke('admin-stats');
+      
+      if (error) {
+        console.error('Erro ao buscar estatísticas:', error);
+        throw new Error(`Erro ao buscar estatísticas: ${error.message}`);
+      }
+      
+      if (!data) {
+        throw new Error('Nenhum dado retornado pela função');
+      }
+      
+      // Atualizar estado com dados recebidos
+      setStats({
+        totalUsers: data.totalUsers || 0,
+        totalSubscriptions: data.totalSubscriptions || 0,
+        byStatus: data.byStatus || {},
+        recentUsers: data.recentUsers || []
+      });
+      
+      console.log('Dados carregados com sucesso:', data);
+    } catch (err: any) {
+      console.error('Erro ao carregar dados:', err);
+      setError(err.message || 'Erro desconhecido ao buscar dados');
+      
+      // Usar dados de demonstração em caso de erro
       setDemoData();
     } finally {
       setLoading(false);
@@ -117,7 +107,10 @@ function App() {
     localStorage.setItem('theme', theme);
   }, [theme]);
 
-  // Se não autenticado, mostrar tela de login
+  const toggleTheme = () => {
+    setTheme(prev => prev === 'light' ? 'dark' : 'light');
+  };
+
   if (!session) {
     return <LoginPage onLogin={() => {}} />;
   }
@@ -148,108 +141,108 @@ function App() {
             </button>
           </div>
         </div>
+      )}
         
-        <div className="dashboard-grid">
-          <div className="stat-card primary">
-            <p className="stat-title">Total de Usuários</p>
-            <p className="stat-value">{stats.totalUsers}</p>
-            <div className="stat-icon">
-              <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-              </svg>
-            </div>
+      <div className="dashboard-grid">
+        <div className="stat-card primary">
+          <p className="stat-title">Total de Usuários</p>
+          <p className="stat-value">{stats.totalUsers}</p>
+          <div className="stat-icon">
+            <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+            </svg>
           </div>
-          
-          <div className="stat-card success">
-            <p className="stat-title">Total de Assinaturas</p>
-            <p className="stat-value">{stats.totalSubscriptions}</p>
-            <div className="stat-icon">
-              <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-              </svg>
-            </div>
-          </div>
-          
-          {stats.byStatus.active && (
-            <div className="stat-card">
-              <p className="stat-title">Assinaturas Ativas</p>
-              <p className="stat-value">{stats.byStatus.active}</p>
-              <div className="stat-icon">
-                <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-            </div>
-          )}
-          
-          {stats.byStatus.canceled && (
-            <div className="stat-card warning">
-              <p className="stat-title">Assinaturas Canceladas</p>
-              <p className="stat-value">{stats.byStatus.canceled}</p>
-              <div className="stat-icon">
-                <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-            </div>
-          )}
-          
-          {stats.byStatus.trial && (
-            <div className="stat-card danger">
-              <p className="stat-title">Período de Teste</p>
-              <p className="stat-value">{stats.byStatus.trial}</p>
-              <div className="stat-icon">
-                <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-            </div>
-          )}
         </div>
         
-        <div style={{display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '1.5rem'}}>
-          <div className="stat-card">
-            <p className="stat-title">Taxa de Conversão</p>
-            <div className="donut-chart">
-              <div className="donut-chart-value">
-                {Math.round((stats.byStatus.active || 0) / (stats.totalSubscriptions || 1) * 100)}%
-              </div>
-            </div>
-            <div className="donut-chart-label">Assinaturas ativas / Total</div>
+        <div className="stat-card success">
+          <p className="stat-title">Total de Assinaturas</p>
+          <p className="stat-value">{stats.totalSubscriptions}</p>
+          <div className="stat-icon">
+            <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+            </svg>
           </div>
-          
-          <div>
-            <h2 className="section-title">Usuários Recentes</h2>
-            <div className="data-table">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Email</th>
-                    <th>Data de Cadastro</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {stats.recentUsers.map((u,i) => (
-                    <tr key={i}>
-                      <td>
-                        <span className="user-email">{u.email}</span>
-                      </td>
-                      <td>
-                        <span className="user-date">
-                          {new Date(u.created_at).toLocaleDateString('pt-BR')}
-                        </span>
-                      </td>
-                      <td>
-                        <span className="badge" style={{background: 'rgba(78, 205, 196, 0.1)', color: '#4ecdc4', padding: '0.25rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem'}}>
-                          Ativo
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+        </div>
+        
+        {stats.byStatus.active && (
+          <div className="stat-card">
+            <p className="stat-title">Assinaturas Ativas</p>
+            <p className="stat-value">{stats.byStatus.active}</p>
+            <div className="stat-icon">
+              <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
             </div>
+          </div>
+        )}
+        
+        {stats.byStatus.canceled && (
+          <div className="stat-card warning">
+            <p className="stat-title">Assinaturas Canceladas</p>
+            <p className="stat-value">{stats.byStatus.canceled}</p>
+            <div className="stat-icon">
+              <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+          </div>
+        )}
+        
+        {stats.byStatus.trial && (
+          <div className="stat-card danger">
+            <p className="stat-title">Período de Teste</p>
+            <p className="stat-value">{stats.byStatus.trial}</p>
+            <div className="stat-icon">
+              <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+          </div>
+        )}
+      </div>
+      
+      <div style={{display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '1.5rem'}}>
+        <div className="stat-card">
+          <p className="stat-title">Taxa de Conversão</p>
+          <div className="donut-chart">
+            <div className="donut-chart-value">
+              {Math.round((stats.byStatus.active || 0) / (stats.totalSubscriptions || 1) * 100)}%
+            </div>
+          </div>
+          <div className="donut-chart-label">Assinaturas ativas / Total</div>
+        </div>
+        
+        <div>
+          <h2 className="section-title">Usuários Recentes</h2>
+          <div className="data-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>Email</th>
+                  <th>Data de Cadastro</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {stats.recentUsers.map((u,i) => (
+                  <tr key={i}>
+                    <td>
+                      <span className="user-email">{u.email}</span>
+                    </td>
+                    <td>
+                      <span className="user-date">
+                        {new Date(u.created_at).toLocaleDateString('pt-BR')}
+                      </span>
+                    </td>
+                    <td>
+                      <span className="badge" style={{background: 'rgba(78, 205, 196, 0.1)', color: '#4ecdc4', padding: '0.25rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem'}}>
+                        Ativo
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
