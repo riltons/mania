@@ -156,25 +156,57 @@ export const gameService = {
                 const team1Names = team1Players.map(p => p?.name || 'Desconhecido').join(' e ');
                 const team2Names = team2Players.map(p => p?.name || 'Desconhecido').join(' e ');
 
-                // Usar import estático
-                await activityService.createActivity({
-                    type: 'game',
-                    description: `Novo jogo criado na Comunidade ${communityName}, Competição ${competitionName} entre as duplas ${team1Names} vs ${team2Names}`,
-                    metadata: {
-                        game_id: newGame.id,
-                        competition_id: newGame.competition_id,
-                        competition_name: competitionName,
-                        community_id: competition.community_id,
-                        community_name: communityName,
-                        team1: {
-                            ids: newGame.team1 || [],
-                            names: team1Players?.map(p => p.name) || []
-                        },
-                        team2: {
-                            ids: newGame.team2 || [],
-                            names: team2Players?.map(p => p.name) || []
+                // Sistema de retry para criação de atividade
+                const maxRetries = 3;
+                const baseDelay = 1000; // 1 segundo
+
+                const createActivityWithRetry = async (attempt: number) => {
+                    try {
+                        console.log(`Tentativa ${attempt} de criar atividade para jogo...`);
+                        await activityService.createActivity({
+                            type: 'game',
+                            description: `Novo jogo criado na Comunidade ${communityName}, Competição ${competitionName} entre as duplas ${team1Names} vs ${team2Names}`,
+                            metadata: {
+                                game_id: newGame.id,
+                                competition_id: newGame.competition_id,
+                                competition_name: competitionName,
+                                community_id: competition.community_id,
+                                community_name: communityName,
+                                team1: {
+                                    ids: newGame.team1 || [],
+                                    names: team1Players?.map(p => p.name) || []
+                                },
+                                team2: {
+                                    ids: newGame.team2 || [],
+                                    names: team2Players?.map(p => p.name) || []
+                                }
+                            }
+                        });
+                        console.log('Atividade para jogo criada com sucesso!');
+                        return true;
+                    } catch (activityError) {
+                        console.error(`Erro na tentativa ${attempt} de criar atividade para jogo:`, activityError);
+                        
+                        if (attempt < maxRetries) {
+                            const delay = baseDelay * Math.pow(2, attempt - 1); // Exponential backoff
+                            console.log(`Aguardando ${delay}ms antes da próxima tentativa...`);
+                            await new Promise(resolve => setTimeout(resolve, delay));
+                            return createActivityWithRetry(attempt + 1);
                         }
+                        
+                        console.error('Todas as tentativas de criar atividade para jogo falharam');
+                        // Em produção, não queremos que falhas no registro de atividades interrompam o fluxo principal
+                        if (process.env.NODE_ENV === 'production') {
+                            console.warn('Ignorando erro de atividade em produção para não interromper o fluxo principal');
+                            return false;
+                        }
+                        throw activityError;
                     }
+                };
+
+                // Inicia o processo de retry em background para não bloquear a criação do jogo
+                createActivityWithRetry(1).catch(error => {
+                    console.error('Erro no processo de retry para criação de atividade de jogo:', error);
                 });
 
             } catch (activityError) {

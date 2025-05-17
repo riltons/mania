@@ -51,31 +51,51 @@ export const activityService = {
             }
 
             console.log('Inserindo atividade no banco...');
-            const { data, error } = await supabase
-                .from('activities')
-                .insert([
-                    {
-                        ...activity,
-                        created_at: new Date(),
-                        created_by: userData.user.id
-                    }
-                ])
-                .select()
-                .single();
+            try {
+                const { data, error } = await supabase
+                    .from('activities')
+                    .insert([
+                        {
+                            ...activity,
+                            created_at: new Date(),
+                            created_by: userData.user.id
+                        }
+                    ])
+                    .select()
+                    .single();
 
-            if (error) {
-                console.error('Erro ao inserir atividade:', error);
-                throw new Error(`Erro ao inserir atividade: ${error.message}`);
+                if (error) {
+                    console.error('Erro ao inserir atividade:', error);
+                    throw new Error(`Erro ao inserir atividade: ${error.message}`);
+                }
+
+                console.log('Atividade criada com sucesso:', data);
+                return data;
+            } catch (insertError) {
+                // Tratamento específico para erros de inserção
+                console.error('Erro ao inserir atividade no banco:', insertError);
+                
+                // Em produção, não queremos que falhas no registro de atividades interrompam o fluxo principal
+                if (process.env.NODE_ENV === 'production') {
+                    console.warn('Ignorando erro de atividade em produção para não interromper o fluxo principal');
+                    return null;
+                }
+                
+                throw insertError;
             }
-
-            console.log('Atividade criada com sucesso:', data);
-            return data;
         } catch (error) {
             console.error('Erro detalhado ao criar atividade:', {
                 error,
                 message: error instanceof Error ? error.message : 'Erro desconhecido',
                 activity
             });
+            
+            // Em produção, não queremos que falhas no registro de atividades interrompam o fluxo principal
+            if (process.env.NODE_ENV === 'production') {
+                console.warn('Ignorando erro de atividade em produção para não interromper o fluxo principal');
+                return null;
+            }
+            
             throw error;
         }
     },

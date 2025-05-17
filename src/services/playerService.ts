@@ -623,57 +623,106 @@ class PlayerService {
      * Retorna o player encontrado ou criado.
      */
     async getOrCreatePlayerForCurrentUser(): Promise<Player> {
-        // Busca usuário autenticado
-        const { data: userData, error: userError } = await supabase.auth.getUser();
-        if (userError || !userData?.user?.id) {
-            throw new Error('Usuário não autenticado');
-        }
-        const userId = userData.user.id;
-
-        // Busca perfil do usuário
-        // Importação dinâmica para evitar dependência circular
-        const { userService } = await import('./userService');
-        const { data: profile, error: profileError } = await userService.getProfile(userId);
-        if (profileError || !profile) {
-            throw new Error('Perfil do usuário não encontrado');
-        }
-        if (!profile.phone_number || !profile.full_name) {
-            throw new Error('Perfil do usuário está incompleto (nome ou telefone ausente)');
-        }
-
-        // Busca player pelo telefone
-        let player = await this.getByPhone(profile.phone_number);
-        if (player) {
-            // Garante que a relação user_player_relations existe
-            const { data: relData, error: relError } = await supabase
-                .from('user_player_relations')
-                .select('*')
-                .eq('user_id', userId)
-                .eq('player_id', player.id)
-                .single();
-            if (relError && relError.code !== 'PGRST116') {
-                throw new Error('Erro ao verificar relação user-player');
+        try {
+            // Busca usuário autenticado
+            const { data: userData, error: userError } = await supabase.auth.getUser();
+            if (userError || !userData?.user?.id) {
+                console.error('[playerService] Erro de autenticação:', userError);
+                throw new Error('Usuário não autenticado');
             }
-            if (!relData) {
-                // Cria relação se não existe
-                const { error: insertRelError } = await supabase
+            const userId = userData.user.id;
+            console.log(`[playerService] Usuário autenticado: ${userId}`);
+
+            // Busca perfil do usuário
+            // Importação dinâmica para evitar dependência circular
+            const { userService } = await import('./userService');
+            const { data: profile, error: profileError } = await userService.getProfile(userId);
+            
+            if (profileError) {
+                console.error('[playerService] Erro ao buscar perfil do usuário:', profileError);
+                throw new Error(`Perfil do usuário não encontrado: ${profileError.message}`);
+            }
+            
+            if (!profile) {
+                console.error('[playerService] Perfil do usuário não encontrado (nulo)');
+                throw new Error('Perfil do usuário não encontrado. Por favor, complete seu cadastro.');
+            }
+            
+            // Log detalhado do perfil para depuração
+            console.log(`[playerService] Perfil encontrado:`, {
+                nome: profile.full_name || 'Ausente',
+                telefone: profile.phone_number ? 'Presente' : 'Ausente',
+                nickname: profile.nickname || 'Ausente'
+            });
+            
+            // Verificação detalhada dos campos obrigatórios com mensagens específicas
+            const camposFaltantes = [];
+            
+            if (!profile.full_name || profile.full_name.trim() === '') {
+                camposFaltantes.push('nome');
+            }
+            
+            if (!profile.phone_number || profile.phone_number.trim() === '') {
+                camposFaltantes.push('telefone');
+            }
+            
+            if (camposFaltantes.length > 0) {
+                const camposStr = camposFaltantes.join(' e ');
+                const mensagem = `Seu perfil está incompleto. Por favor, adicione seu ${camposStr} nas configurações.`;
+                console.error(`[playerService] Perfil incompleto: faltando ${camposStr}`);
+                throw new Error(mensagem);
+            }
+
+            // Busca player pelo telefone
+            let player = await this.getByPhone(profile.phone_number);
+            if (player) {
+                console.log(`[playerService] Player encontrado pelo telefone: ${player.id}`);
+                
+                // Garante que a relação user_player_relations existe
+                const { data: relData, error: relError } = await supabase
                     .from('user_player_relations')
-                    .insert([{ user_id: userId, player_id: player.id }]);
-                if (insertRelError && insertRelError.code !== '23505') {
-                    throw new Error('Erro ao criar relação user-player');
+                    .select('*')
+                    .eq('user_id', userId)
+                    .eq('player_id', player.id)
+                    .single();
+                    
+                if (relError && relError.code !== 'PGRST116') {
+                    console.error('[playerService] Erro ao verificar relação user-player:', relError);
+                    throw new Error(`Erro ao verificar relação user-player: ${relError.message}`);
                 }
+                
+                if (!relData) {
+                    console.log(`[playerService] Criando relação user-player para usuário ${userId} e player ${player.id}`);
+                    // Cria relação se não existe
+                    const { error: insertRelError } = await supabase
+                        .from('user_player_relations')
+                        .insert([{ user_id: userId, player_id: player.id }]);
+                        
+                    if (insertRelError && insertRelError.code !== '23505') {
+                        console.error('[playerService] Erro ao criar relação user-player:', insertRelError);
+                        throw new Error(`Erro ao criar relação user-player: ${insertRelError.message}`);
+                    }
+                }
+                
+                return player;
             }
-            return player;
-        }
 
-        // Se não existe, cria novo player
-        const createDto: CreatePlayerDTO = {
-            name: profile.full_name,
-            phone: profile.phone_number,
-            nickname: profile.nickname,
-        };
-        player = await this.create(createDto);
-        return player;
+            // Se não existe, cria novo player
+            console.log(`[playerService] Criando novo player para o usuário ${userId}`);
+            const createDto: CreatePlayerDTO = {
+                name: profile.full_name.trim(),
+                phone: profile.phone_number.trim(),
+                nickname: profile.nickname?.trim(),
+            };
+            
+            player = await this.create(createDto);
+            console.log(`[playerService] Novo player criado: ${player.id}`);
+            return player;
+        } catch (error) {
+            console.error('[playerService] Erro em getOrCreatePlayerForCurrentUser:', error);
+            // Repassar o erro original para manter a mensagem específica
+            throw error;
+        }
     }
 }
 

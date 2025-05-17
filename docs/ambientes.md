@@ -1,5 +1,8 @@
 # Ambientes de Desenvolvimento e Produção
 
+email: rilt.ons@gmail.com's Org
+Organização: rilt.ons@gmail.com's Org
+
 Neste projeto usamos dois ambientes no Supabase:
 
 - **Desenvolvimento**: `dominomaniaApp_dev`

@@ -120,6 +120,16 @@ export const competitionService = {
                 const maxRetries = 3;
                 const baseDelay = 1000;
 
+                // Adiciona o usuário atual como membro da competição
+                try {
+                    // Usa o método que criamos para adicionar o usuário como membro
+                    await this.addCurrentUserAsMember(newCompetition.id);
+                    console.log('[competitionService] Usuário adicionado como membro da competição');
+                } catch (memberError) {
+                    console.error('[competitionService] Erro ao adicionar usuário como membro:', memberError);
+                    // Não interrompe o fluxo, apenas loga o erro
+                }
+
                 const createActivityWithRetry = async (attempt: number) => {
                     try {
                         console.log(`[competitionService] Tentativa ${attempt} de criar atividade...`);
@@ -293,6 +303,25 @@ export const competitionService = {
             return data;
         } catch (error) {
             console.error('Erro ao adicionar membro à competição:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Adiciona o usuário atual como membro da competição, garantindo que o perfil de jogador exista
+     */
+    async addCurrentUserAsMember(competitionId: string) {
+        try {
+            // Importação dinâmica para evitar dependência circular
+            const { competitionPlayerService } = await import('./competitionPlayerService');
+            
+            // Adiciona o usuário atual como membro da competição
+            // Isso garante que o perfil de jogador existe antes de adicionar como membro
+            const result = await competitionPlayerService.addCurrentUserToCompetition(competitionId);
+            console.log('[competitionService] Usuário adicionado como membro da competição');
+            return result;
+        } catch (error) {
+            console.error('[competitionService] Erro ao adicionar usuário como membro:', error);
             throw error;
         }
     },

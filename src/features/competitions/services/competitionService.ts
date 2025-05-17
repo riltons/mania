@@ -120,6 +120,19 @@ export const competitionService = {
                 const maxRetries = 3;
                 const baseDelay = 1000;
 
+                // Importação dinâmica para evitar dependência circular
+                const { competitionPlayerService } = await import('@/services/competitionPlayerService');
+                
+                try {
+                    // Adiciona o usuário atual como membro da competição
+                    // Isso garante que o perfil de jogador existe antes de adicionar como membro
+                    await competitionPlayerService.addCurrentUserToCompetition(newCompetition.id);
+                    console.log('[competitionService] Usuário adicionado como membro da competição');
+                } catch (memberError) {
+                    console.error('[competitionService] Erro ao adicionar usuário como membro:', memberError);
+                    // Não interrompe o fluxo, apenas loga o erro
+                }
+
                 const createActivityWithRetry = async (attempt: number) => {
                     try {
                         console.log(`[competitionService] Tentativa ${attempt} de criar atividade...`);
