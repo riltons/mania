@@ -1,0 +1,160 @@
+/* Estilos básicos */
+body {
+  font-family: 'Roboto', 'Segoe UI', sans-serif;
+  background-color: #1e2a3a;
+  color: #fff;
+  margin: 0;
+  padding: 0;
+}
+
+.container {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  min-height: 100vh;
+}
+
+.sidebar {
+  background: #3a6ea5;
+  padding: 2rem;
+  color: white;
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.sidebar-header h1 {
+  font-size: 1.5rem;
+  margin: 0;
+  margin-left: 1rem;
+}
+
+.main-content {
+  padding: 2rem;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.stat-card {
+  background: #fff;
+  border-radius: 8px;
+  padding: 1.5rem;
+  color: #333;
+  position: relative;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: #4ecdc4;
+  border-radius: 8px 0 0 8px;
+}
+
+.stat-title {
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  color: #a0aec0;
+  margin-bottom: 0.5rem;
+}
+
+.stat-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #333;
+}
+
+.btn {
+  background: rgba(255,255,255,0.1);
+  color: white;
+  border: none;
+  padding: 0.6rem 1.2rem;
+  border-radius: 4px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+}
+
+.btn-primary {
+  background: #3a6ea5;
+}
+
+.section-title {
+  font-size: 1.25rem;
+  margin: 2rem 0 1rem;
+  color: white;
+}
+
+.data-table {
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  color: #333;
+}
+
+.data-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table th {
+  text-align: left;
+  padding: 1rem;
+  border-bottom: 1px solid #eee;
+}
+
+.data-table td {
+  padding: 1rem;
+  border-bottom: 1px solid #eee;
+}
+
+.nav-menu {
+  margin-top: 2rem;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  color: rgba(255,255,255,0.7);
+  margin-bottom: 0.5rem;
+  cursor: pointer;
+}
+
+.nav-item.active {
+  background: rgba(255,255,255,0.15);
+  border-radius: 4px;
+}
+
+.nav-item svg {
+  margin-right: 0.75rem;
+}
+
+.nav-section {
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+  color: rgba(255,255,255,0.5);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+}
+
+@media (max-width: 768px) {
+  .container {
+    grid-template-columns: 1fr;
+  }
+  
+  .sidebar {
+    display: none;
+  }
+}
