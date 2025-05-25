@@ -173,7 +173,7 @@ export default function TopDuplas() {
                 <PlayersContainer>
                     <PlayerInfo>
                         <PlayerAvatar 
-                            avatarUrl={item.player1.avatar_url} 
+                            avatarUrl={undefined} 
                             name={item.player1.name} 
                             size={32} 
                         />
@@ -182,7 +182,7 @@ export default function TopDuplas() {
                     <View style={{ height: 8 }} />
                     <PlayerInfo>
                         <PlayerAvatar 
-                            avatarUrl={item.player2.avatar_url} 
+                            avatarUrl={undefined} 
                             name={item.player2.name} 
                             size={32} 
                         />
@@ -257,7 +257,7 @@ export default function TopDuplas() {
                             <FlatList
                                 data={pairs}
                                 renderItem={renderPair}
-                                keyExtractor={(item, index) => item.player1Id && item.player2Id ? `${item.player1Id}-${item.player2Id}` : `pair-${index}`}
+                                keyExtractor={(item, index) => item.player1?.id && item.player2?.id ? `${item.player1.id}-${item.player2.id}` : `pair-${index}`}
                             />
                         ) : (
                             <EmptyContainer>

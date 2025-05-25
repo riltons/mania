@@ -13,7 +13,6 @@ export interface PlayerRanking {
     buchudasTaken: number;
     buchudasDeRe: number;
     buchudasDeReTaken: number;
-    avatar_url?: string;
 }
 
 export interface PairRanking {
@@ -21,12 +20,10 @@ export interface PairRanking {
     player1: {
         id: string;
         name: string;
-        avatar_url?: string;
     };
     player2: {
         id: string;
         name: string;
-        avatar_url?: string;
     };
     wins: number;
     losses: number;
@@ -52,43 +49,89 @@ export const rankingService = {
 
         let communityIds: string[] = [];
         
-        if (communityId) {
-            // Se um ID de comunidade específico foi fornecido, use apenas ele
-            communityIds = [communityId];
-        } else {
-            // Caso contrário, busque todas as comunidades do usuário
-            const { data: memberCommunities } = await supabase
-                .from('community_members')
-                .select('community_id')
-                .eq('player_id', userId);
+        try {
+            if (communityId) {
+                // Se um ID de comunidade específico foi fornecido, use apenas ele
+                communityIds = [communityId];
+            } else {
+                // Caso contrário, busque todas as comunidades do usuário
+                const { data: memberCommunities, error: memberError } = await supabase
+                    .from('community_members')
+                    .select('community_id')
+                    .eq('player_id', userId);
 
-            const { data: organizerCommunities } = await supabase
-                .from('community_organizers')
-                .select('community_id')
-                .eq('user_id', userId);
+                if (memberError) {
+                    console.error('Erro ao buscar comunidades do membro:', memberError.message);
+                }
 
-            communityIds = [
-                ...(memberCommunities?.map(c => c.community_id) || []),
-                ...(organizerCommunities?.map(c => c.community_id) || [])
-            ];
-        }
+                const { data: organizerCommunities, error: organizerError } = await supabase
+                    .from('community_organizers')
+                    .select('community_id')
+                    .eq('user_id', userId);
 
-        if (communityIds.length === 0) {
-            console.log('RankingService: Usuário não pertence a nenhuma comunidade');
-            return [];
+                if (organizerError) {
+                    console.error('Erro ao buscar comunidades do organizador:', organizerError.message);
+                }
+
+                communityIds = [
+                    ...(memberCommunities?.map(c => c.community_id) || []),
+                    ...(organizerCommunities?.map(c => c.community_id) || [])
+                ];
+            }
+
+            // Se não encontrou comunidades, busque todos os jogos do usuário
+            if (communityIds.length === 0) {
+                console.log('RankingService: Usuário não pertence a nenhuma comunidade, buscando todos os jogos');
+                // Continuar mesmo sem comunidades
+            }
+        } catch (error) {
+            console.error('Erro ao buscar comunidades:', error);
+            // Continuar mesmo com erro
         }
 
         // Buscar jogadores das comunidades
-        const { data: communityMembers } = await supabase
-            .from('community_members')
-            .select(`
-                player_id,
-                players (id, name, avatar_url)
-            `)
-            .in('community_id', communityIds);
-
+        let communityMembers = [];
+        
+        try {
+            if (communityIds.length > 0) {
+                const { data: members, error: membersError } = await supabase
+                    .from('community_members')
+                    .select(`
+                        player_id,
+                        players (id, name)
+                    `)
+                    .in('community_id', communityIds);
+                
+                if (membersError) {
+                    console.error('Erro ao buscar membros das comunidades:', membersError.message);
+                } else {
+                    communityMembers = members || [];
+                }
+            }
+            
+            // Se não encontrou jogadores nas comunidades, busque todos os jogadores
+            if (!communityMembers || communityMembers.length === 0) {
+                console.log('RankingService: Buscando todos os jogadores...');
+                const { data: allPlayers, error: playersError } = await supabase
+                    .from('players')
+                    .select('id, name');
+                
+                if (playersError) {
+                    console.error('Erro ao buscar todos os jogadores:', playersError.message);
+                } else if (allPlayers) {
+                    // Adaptar o formato para corresponder ao esperado
+                    communityMembers = allPlayers.map(player => ({
+                        player_id: player.id,
+                        players: player
+                    }));
+                }
+            }
+        } catch (error) {
+            console.error('Erro ao buscar jogadores:', error);
+        }
+        
         if (!communityMembers || communityMembers.length === 0) {
-            console.log('RankingService: Nenhum jogador encontrado nas comunidades');
+            console.log('RankingService: Nenhum jogador encontrado');
             return [];
         }
 
@@ -100,14 +143,27 @@ export const rankingService = {
         // Buscar estatísticas dos jogadores
         console.log('PlayerIds para busca:', playerIds);
         
-        const { data: games, error: gamesError } = await supabase
-            .from('games')
-            .select('*')
-            .neq('status', 'pending')
-            .order('created_at', { ascending: false });
+        let games = [];
+        try {
+            // Buscar todos os jogos, independente dos jogadores
+            const { data: allGames, error: gamesError } = await supabase
+                .from('games')
+                .select('*')
+                .neq('status', 'pending')
+                .order('created_at', { ascending: false });
 
-        if (gamesError) {
-            console.error('Erro ao buscar jogos:', gamesError);
+            if (gamesError) {
+                console.error('Erro ao buscar jogos:', gamesError);
+            } else {
+                games = allGames || [];
+                console.log(`Encontrados ${games.length} jogos no total`);
+            }
+        } catch (error) {
+            console.error('Erro ao buscar jogos:', error);
+        }
+        
+        if (!games || games.length === 0) {
+            console.log('RankingService: Nenhum jogo encontrado');
             return [];
         }
 
@@ -274,8 +330,7 @@ export const rankingService = {
                 buchudasTaken,
                 buchudasDeRe,
                 buchudasDeReTaken,
-                winRate: totalGames > 0 ? (wins / totalGames) * 100 : 0,
-                avatar_url: player?.avatar_url
+                winRate: totalGames > 0 ? (wins / totalGames) * 100 : 0
             };
         });
 
@@ -300,43 +355,71 @@ export const rankingService = {
 
             let communityIds: string[] = [];
             
-            if (communityId) {
-                // Se um ID de comunidade específico foi fornecido, use apenas ele
-                communityIds = [communityId];
-            } else {
-                // Caso contrário, busque todas as comunidades do usuário
-                const { data: memberCommunities } = await supabase
-                    .from('community_members')
-                    .select('community_id')
-                    .eq('player_id', userId);
+            try {
+                if (communityId) {
+                    // Se um ID de comunidade específico foi fornecido, use apenas ele
+                    communityIds = [communityId];
+                } else {
+                    // Caso contrário, busque todas as comunidades do usuário
+                    const { data: memberCommunities, error: memberError } = await supabase
+                        .from('community_members')
+                        .select('community_id')
+                        .eq('player_id', userId);
 
-                const { data: organizerCommunities } = await supabase
-                    .from('community_organizers')
-                    .select('community_id')
-                    .eq('user_id', userId);
+                    if (memberError) {
+                        console.error('Erro ao buscar comunidades do membro:', memberError.message);
+                    }
 
-                communityIds = [
-                    ...(memberCommunities?.map(c => c.community_id) || []),
-                    ...(organizerCommunities?.map(c => c.community_id) || [])
-                ];
-            }
+                    const { data: organizerCommunities, error: organizerError } = await supabase
+                        .from('community_organizers')
+                        .select('community_id')
+                        .eq('user_id', userId);
 
-            if (communityIds.length === 0) {
-                console.log('RankingService: Usuário não pertence a nenhuma comunidade');
-                return [];
+                    if (organizerError) {
+                        console.error('Erro ao buscar comunidades do organizador:', organizerError.message);
+                    }
+
+                    communityIds = [
+                        ...(memberCommunities?.map(c => c.community_id) || []),
+                        ...(organizerCommunities?.map(c => c.community_id) || [])
+                    ];
+                }
+
+                // Se não encontrou comunidades, busque todos os jogos do usuário
+                if (communityIds.length === 0) {
+                    console.log('RankingService: Usuário não pertence a nenhuma comunidade, buscando todos os jogos');
+                    // Continuar mesmo sem comunidades
+                }
+            } catch (error) {
+                console.error('Erro ao buscar comunidades:', error);
+                // Continuar mesmo com erro
             }
 
             // Buscar jogadores das comunidades
-            const { data: communityMembers } = await supabase
-                .from('community_members')
-                .select(`
-                    player_id,
-                    players (id, name, avatar_url)
-                `)
-                .in('community_id', communityIds);
-
+            let communityMembers = [];
+            
+            try {
+                if (communityIds.length > 0) {
+                    const { data: members, error: membersError } = await supabase
+                        .from('community_members')
+                        .select(`
+                            player_id,
+                            players (id, name)
+                        `)
+                        .in('community_id', communityIds);
+                    
+                    if (membersError) {
+                        console.error('Erro ao buscar membros das comunidades:', membersError.message);
+                    } else {
+                        communityMembers = members || [];
+                    }
+                }
+            } catch (error) {
+                console.error('Erro ao buscar jogadores:', error);
+            }
+            
             if (!communityMembers || communityMembers.length === 0) {
-                console.log('RankingService: Nenhum jogador encontrado nas comunidades');
+                console.log('RankingService: Nenhum jogador encontrado');
                 return [];
             }
 
@@ -346,16 +429,25 @@ export const rankingService = {
                 .map(member => member.players.id))];
 
             // Buscar todos os jogos
-            const { data: games, error: gamesError } = await supabase
-                .from('games')
-                .select('*')
-                .neq('status', 'pending');
+            let games = [];
+            try {
+                // Buscar todos os jogos, independente dos jogadores
+                const { data: allGames, error: gamesError } = await supabase
+                    .from('games')
+                    .select('*')
+                    .neq('status', 'pending')
+                    .order('created_at', { ascending: false });
 
-            if (gamesError) {
-                console.error('RankingService: Erro ao buscar jogos:', gamesError.message);
-                throw gamesError;
+                if (gamesError) {
+                    console.error('RankingService: Erro ao buscar jogos:', gamesError.message);
+                } else {
+                    games = allGames || [];
+                    console.log(`Encontrados ${games.length} jogos no total`);
+                }
+            } catch (error) {
+                console.error('Erro ao buscar jogos:', error);
             }
-
+            
             if (!games || games.length === 0) {
                 console.log('RankingService: Nenhum jogo encontrado');
                 return [];
@@ -364,8 +456,8 @@ export const rankingService = {
             // Processar estatísticas por dupla
             const pairStats = new Map<string, {
                 id: string;
-                player1: { id: string; name: string; avatar_url?: string; };
-                player2: { id: string; name: string; avatar_url?: string; };
+                player1: { id: string; name: string; };
+                player2: { id: string; name: string; };
                 wins: number;
                 losses: number;
                 totalGames: number;
@@ -394,8 +486,8 @@ export const rankingService = {
                             const pairId = [player1Id, player2Id].sort().join('-');
                             const stats = pairStats.get(pairId) || {
                                 id: pairId,
-                                player1: { id: player1.id, name: player1.name, avatar_url: player1.avatar_url },
-                                player2: { id: player2.id, name: player2.name, avatar_url: player2.avatar_url },
+                                player1: { id: player1.id, name: player1.name },
+                                player2: { id: player2.id, name: player2.name },
                                 wins: 0,
                                 losses: 0,
                                 totalGames: 0,

@@ -178,7 +178,7 @@ export default function TopJogadores() {
             <CardHeader>
                 <Position>{calculatePosition(index, players)}º</Position>
                 <PlayerAvatar 
-                    avatarUrl={item.avatar_url} 
+                    avatarUrl={undefined} 
                     name={item.name} 
                     size={40} 
                 />
