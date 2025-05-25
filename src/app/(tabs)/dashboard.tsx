@@ -31,7 +31,6 @@ interface Player {
     buchudas: number;
     buchudasDeRe: number;
     winRate: number;
-    avatar_url?: string;
 }
 
 interface Pair {
@@ -39,12 +38,10 @@ interface Pair {
     player1: {
         id: string;
         name: string;
-        avatar_url?: string;
     };
     player2: {
         id: string;
         name: string;
-        avatar_url?: string;
     };
     wins: number;
     buchudas: number;
@@ -294,60 +291,7 @@ const Dashboard: React.FC = () => {
     });
 
     const [topPlayers, setTopPlayers] = useState<Player[]>([]);
-
-    useEffect(() => {
-        async function loadTopPlayers() {
-            try {
-                const rankings = await rankingService.getTopPlayers();
-                const top4Players = rankings.slice(0, 4).map(player => ({
-                    id: player.id,
-                    name: player.name,
-                    wins: player.wins,
-                    buchudas: player.buchudas,
-                    buchudasDeRe: player.buchudasDeRe,
-                    winRate: player.winRate,
-                    avatar_url: player.avatar_url
-                }));
-                setTopPlayers(top4Players);
-            } catch (error) {
-                console.error('Dashboard: Erro ao carregar top jogadores:', error);
-            }
-        }
-
-        loadTopPlayers();
-    }, []);
-
     const [topPairs, setTopPairs] = useState<Pair[]>([]);
-
-    useEffect(() => {
-        async function loadTopPairs() {
-            try {
-                const rankings = await rankingService.getTopPairs();
-                const top4Pairs = rankings.slice(0, 4).map(pair => ({
-                    id: pair.id,
-                    player1: {
-                        id: pair.player1.id,
-                        name: pair.player1.name,
-                        avatar_url: pair.player1.avatar_url
-                    },
-                    player2: {
-                        id: pair.player2.id,
-                        name: pair.player2.name,
-                        avatar_url: pair.player2.avatar_url
-                    },
-                    wins: pair.wins,
-                    buchudas: pair.buchudas,
-                    buchudasDeRe: pair.buchudasDeRe,
-                    winRate: pair.winRate
-                }));
-                setTopPairs(top4Pairs);
-            } catch (error) {
-                console.error('Dashboard: Erro ao carregar top duplas:', error);
-            }
-        }
-
-        loadTopPairs();
-    }, []);
 
     const [recentActivities, setRecentActivities] = useState<Activity[]>([]);
 
@@ -466,9 +410,48 @@ const Dashboard: React.FC = () => {
                 const recentActivities = await activityService.getRecentActivities();
                 setRecentActivities(recentActivities);
                 
-                // Carregar ranking
-                const topPlayers = await rankingService.getTopPlayers();
-                setTopPlayers(topPlayers);
+                // Carregar ranking de jogadores
+                try {
+                    const rankings = await rankingService.getTopPlayers();
+                    console.log('[Dashboard] Top jogadores carregados:', rankings.length);
+                    
+                    const top4Players = rankings.slice(0, 4).map(player => ({
+                        id: player.id,
+                        name: player.name,
+                        wins: player.wins,
+                        buchudas: player.buchudas,
+                        buchudasDeRe: player.buchudasDeRe,
+                        winRate: player.winRate
+                    }));
+                    setTopPlayers(top4Players);
+                } catch (playerError) {
+                    console.error('[Dashboard] Erro ao carregar top jogadores:', playerError);
+                }
+                
+                // Carregar ranking de duplas
+                try {
+                    const rankings = await rankingService.getTopPairs();
+                    console.log('[Dashboard] Top duplas carregadas:', rankings.length);
+                    
+                    const top4Pairs = rankings.slice(0, 4).map(pair => ({
+                        id: pair.id,
+                        player1: {
+                            id: pair.player1.id,
+                            name: pair.player1.name
+                        },
+                        player2: {
+                            id: pair.player2.id,
+                            name: pair.player2.name
+                        },
+                        wins: pair.wins,
+                        buchudas: pair.buchudas,
+                        buchudasDeRe: pair.buchudasDeRe,
+                        winRate: pair.winRate
+                    }));
+                    setTopPairs(top4Pairs);
+                } catch (pairError) {
+                    console.error('[Dashboard] Erro ao carregar top duplas:', pairError);
+                }
             } catch (serviceError) {
                 console.error('[Dashboard] Erro no serviço de estatísticas:', serviceError);
                 
@@ -606,7 +589,7 @@ const Dashboard: React.FC = () => {
                                         color={position === 1 ? "#FFD700" : colors.textSecondary} 
                                     />
                                     <PlayerAvatar 
-                                        avatarUrl={player.avatar_url} 
+                                        avatarUrl={undefined} 
                                         name={player.name} 
                                         size={40} 
                                     />
@@ -640,13 +623,13 @@ const Dashboard: React.FC = () => {
                                     />
                                     <View style={{ flexDirection: 'column', alignItems: 'center', marginRight: 8 }}>
                                         <PlayerAvatar 
-                                            avatarUrl={pair.player1.avatar_url} 
+                                            avatarUrl={undefined} 
                                             name={pair.player1.name} 
                                             size={32} 
                                         />
                                         <View style={{ height: 4 }} />
                                         <PlayerAvatar 
-                                            avatarUrl={pair.player2.avatar_url} 
+                                            avatarUrl={undefined} 
                                             name={pair.player2.name} 
                                             size={32} 
                                         />
