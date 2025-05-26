@@ -2,6 +2,7 @@ import { supabase, supabaseUrl, supabaseAnonKey } from '@/core/lib/supabase';
 import { activityService } from './activityService';
 import { Platform } from 'react-native';
 import * as FileSystem from 'expo-file-system';
+import { decode } from 'base64-arraybuffer';
 
 export interface Player {
     id: string;
@@ -13,6 +14,7 @@ export interface Player {
     avatar_url?: string;
     isLinkedUser?: boolean;
     isMine?: boolean;
+    isPrimaryUser?: boolean;
     stats?: PlayerStats;
     user_player_relations?: Array<{
         is_primary: boolean;
@@ -128,7 +130,7 @@ class PlayerService {
         }
     }
 
-    async getPlayerStats(playerId: string) {
+    async getPlayerStats(playerId: string): Promise<PlayerStats> {
         try {
             const { count: totalGames, error: gamesError } = await supabase
                 .from('game_players')
@@ -143,15 +145,15 @@ class PlayerService {
                 .eq('player_id', playerId)
                 .eq('is_winner', true);
 
-            if (winsError) throw winsError;
-
             const { count: buchudas, error: buchudasError } = await supabase
                 .from('game_players')
                 .select('*', { count: 'exact', head: true })
                 .eq('player_id', playerId)
                 .eq('is_buchuda', true);
 
-            if (buchudasError) throw buchudasError;
+            if (winsError || buchudasError) {
+                throw winsError || buchudasError;
+            }
 
             return {
                 total_games: totalGames || 0,
@@ -170,51 +172,66 @@ class PlayerService {
         }
     }
 
+    // Função auxiliar para converter base64 em ArrayBuffer
+    private base64ToArrayBuffer(base64: string): ArrayBuffer {
+        const binaryString = atob(base64);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+        }
+        return bytes.buffer;
+    }
+
     async list(fetchStats = false) {
         try {
             const { data: userData, error: userError } = await supabase.auth.getUser();
-            if (userError) {
-                console.error('Erro ao obter usuário:', userError);
-                throw userError;
-            }
             
-            console.log('Buscando jogadores para o usuário:', userData.user.id);
+            console.log('Buscando jogadores...');
+            console.log('Dados do usuário:', userData);
+            console.log('Erro ao obter usuário:', userError);
+            
+            if (userError || !userData.user) {
+                console.error('Erro de autenticação:', userError || 'Usuário não autenticado');
+                throw userError || new Error('Usuário não autenticado');
+            }
+
+            console.log('Usuário autenticado:', userData.user.id);
+            console.log('E-mail do usuário:', userData.user.email);
 
             // Buscar jogadores criados pelo usuário
-            console.log('Buscando jogadores criados pelo usuário...');
             const { data: myPlayers, error: myPlayersError } = await supabase
                 .from('players')
-                .select('*, user_player_relations!inner(user_id, is_primary)')
+                .select(`
+                    *,
+                    user_player_relations!left(
+                        is_primary,
+                        user_id
+                    )
+                `)
                 .eq('created_by', userData.user.id)
                 .order('name');
+
+            console.log('Jogadores criados pelo usuário:', myPlayers);
 
             if (myPlayersError) {
                 console.error('Erro ao buscar jogadores criados:', myPlayersError);
                 throw new Error('Erro ao listar jogadores');
             }
-            
-            console.log('Jogadores criados pelo usuário encontrados:', myPlayers?.length || 0);
-            if (myPlayers && myPlayers.length > 0) {
-                console.log('Exemplo de jogador criado:', {
-                    id: myPlayers[0].id,
-                    name: myPlayers[0].name,
-                    created_by: myPlayers[0].created_by,
-                    relations: myPlayers[0].user_player_relations
-                });
-            }
 
             // Buscar jogadores das comunidades onde sou organizador
-            console.log('Buscando jogadores das comunidades...');
             const { data: communityPlayers, error: communityPlayersError } = await supabase
                 .from('players')
                 .select(`
                     *,
-                    user_player_relations!inner(user_id, is_primary),
-                    community_members!inner (
+                    user_player_relations!left(
+                        is_primary,
+                        user_id
+                    ),
+                    community_members!inner(
                         community_id,
-                        communities!inner (
+                        communities!inner(
                             id,
-                            community_organizers!inner (
+                            community_organizers!inner(
                                 user_id
                             )
                         )
@@ -224,59 +241,75 @@ class PlayerService {
                 .neq('created_by', userData.user.id)
                 .order('name');
 
+            console.log('Jogadores da comunidade:', communityPlayers);
+
             if (communityPlayersError) {
                 console.error('Erro ao buscar jogadores da comunidade:', communityPlayersError);
                 throw new Error('Erro ao listar jogadores');
             }
-            
-            console.log('Jogadores das comunidades encontrados:', communityPlayers?.length || 0);
 
-            // Processar jogadores com ou sem estatísticas
+            // Processar jogadores
+            const players: Player[] = [];
+
+            // Adicionar jogadores criados pelo usuário
+            if (myPlayers) {
+                myPlayers.forEach((player: any) => {
+                    const relations = Array.isArray(player.user_player_relations) ? player.user_player_relations : [];
+                    const isPrimary = relations.some((rel: any) => rel?.is_primary);
+                    
+                    players.push({
+                        ...player,
+                        isMine: true,
+                        isLinkedUser: true,
+                        isPrimaryUser: isPrimary,
+                        user_player_relations: relations
+                    });
+                });
+            }
+
+            // Adicionar jogadores da comunidade
+            if (communityPlayers) {
+                communityPlayers.forEach((player: any) => {
+                    const relations = Array.isArray(player.user_player_relations) ? player.user_player_relations : [];
+                    const isPrimary = relations.some((rel: { is_primary: boolean }) => rel?.is_primary);
+                    
+                    players.push({
+                        ...player,
+                        isMine: false,
+                        isLinkedUser: true,
+                        isPrimaryUser: isPrimary,
+                        user_player_relations: relations
+                    });
+                });
+            }
+
+            // Separar jogadores próprios e da comunidade
+            const myPlayersList = players.filter(player => player.isMine);
+            const communityPlayersList = players.filter(player => !player.isMine);
+
+            // Se necessário, buscar estatísticas para cada jogador
             if (fetchStats) {
-                // Adicionar estatísticas aos jogadores
-                const myPlayersWithStats = await Promise.all((myPlayers || []).map(async (player) => {
-                    const stats = await this.getPlayerStats(player.id);
-                    return {
+                const [myPlayersWithStats, communityPlayersWithStats] = await Promise.all([
+                    Promise.all(myPlayersList.map(async player => ({
                         ...player,
-                        stats,
-                        isLinkedUser: player.user_player_relations?.some(rel => rel.is_primary),
-                        isMine: true
-                    };
-                }));
-
-                const communityPlayersWithStats = await Promise.all((communityPlayers || []).map(async (player) => {
-                    const stats = await this.getPlayerStats(player.id);
-                    return {
+                        stats: await this.getPlayerStats(player.id)
+                    }))),
+                    Promise.all(communityPlayersList.map(async player => ({
                         ...player,
-                        stats,
-                        isLinkedUser: player.user_player_relations?.some(rel => rel.is_primary),
-                        isMine: false
-                    };
-                }));
+                        stats: await this.getPlayerStats(player.id)
+                    })))
+                ]);
 
                 return {
                     myPlayers: myPlayersWithStats,
                     communityPlayers: communityPlayersWithStats
                 };
-            } else {
-                // Retornar jogadores sem estatísticas
-                const myPlayersWithoutStats = (myPlayers || []).map(player => ({
-                    ...player,
-                    isLinkedUser: player.user_player_relations?.some(rel => rel.is_primary),
-                    isMine: true
-                }));
-
-                const communityPlayersWithoutStats = (communityPlayers || []).map(player => ({
-                    ...player,
-                    isLinkedUser: player.user_player_relations?.some(rel => rel.is_primary),
-                    isMine: false
-                }));
-
-                return {
-                    myPlayers: myPlayersWithoutStats,
-                    communityPlayers: communityPlayersWithoutStats
-                };
             }
+
+            return {
+                myPlayers: myPlayersList,
+                communityPlayers: communityPlayersList
+            };
         } catch (error) {
             console.error('Erro ao listar jogadores:', error);
             throw error;
@@ -326,11 +359,158 @@ class PlayerService {
         }
     }
 
-    async uploadAvatar(playerId: string, uri: string) {
+    async uploadAvatar(playerId: string, uri: string): Promise<string> {
         try {
-            // Implementação do upload de avatar
-            // ...
-            throw new Error('Método não implementado');
+            console.log('Iniciando upload do avatar para o jogador:', playerId);
+            
+            // Verifica se a URI é uma imagem base64 (web) ou um caminho de arquivo (mobile)
+            const isWeb = Platform.OS === 'web';
+            let base64Data = '';
+            
+            if (isWeb) {
+                // Para web, a imagem já deve vir em base64
+                console.log('Processando imagem da web');
+                base64Data = uri.split(',')[1];
+            } else {
+                // Para mobile, lê o arquivo e converte para base64
+                console.log('Processando imagem do mobile, URI:', uri);
+                const fileInfo = await FileSystem.getInfoAsync(uri);
+                console.log('Informações do arquivo:', fileInfo);
+                
+                if (!fileInfo.exists) {
+                    throw new Error('Arquivo de imagem não encontrado');
+                }
+                
+                const base64 = await FileSystem.readAsStringAsync(uri, {
+                    encoding: FileSystem.EncodingType.Base64,
+                });
+                base64Data = base64;
+                console.log('Imagem convertida para base64 com sucesso');
+            }
+            
+            if (!base64Data) {
+                throw new Error('Não foi possível processar a imagem');
+            }
+            
+            // Define o caminho no storage do Supabase
+            const fileExt = 'jpg';
+            const fileName = `${playerId}-${Date.now()}.${fileExt}`;
+            const contentType = 'image/jpeg';
+            
+            console.log('Convertendo base64 para ArrayBuffer...');
+            // Converte base64 para ArrayBuffer
+            const arrayBuffer = this.base64ToArrayBuffer(base64Data);
+            
+            console.log('Tentando fazer upload para o bucket player-avatars com o arquivo:', fileName);
+            console.log('URL do Supabase:', supabaseUrl);
+            
+            // Verifica se o bucket existe
+            try {
+                const { data: buckets, error: bucketsError } = await supabase
+                    .storage
+                    .listBuckets();
+                    
+                if (bucketsError) {
+                    console.error('Erro ao listar buckets:', bucketsError);
+                } else {
+                    console.log('Buckets disponíveis:', buckets.map(b => b.name));
+                    
+                    // Verifica se o bucket player-avatars existe
+                    const playerAvatarsBucket = buckets.find(b => b.name === 'player-avatars');
+                    if (!playerAvatarsBucket) {
+                        console.error('Bucket player-avatars não encontrado! Tentando criar...');
+                    }
+                }
+            } catch (bucketError) {
+                console.error('Erro ao verificar buckets:', bucketError);
+            }
+            
+            // Faz o upload para o storage do Supabase
+            console.log('Iniciando upload do arquivo...');
+            
+            // Tenta fazer o upload com um caminho diferente
+            let uploadResult;
+            
+            try {
+                // Primeira tentativa: usando o nome do arquivo diretamente
+                uploadResult = await supabase.storage
+                    .from('player-avatars')
+                    .upload(fileName, arrayBuffer, {
+                        contentType,
+                        upsert: true,
+                        cacheControl: '3600'
+                    });
+                    
+                console.log('Resultado da primeira tentativa:', uploadResult);
+                
+                // Se falhou, tenta com um caminho diferente
+                if (uploadResult.error && uploadResult.error.toString().includes('Bucket not found')) {
+                    console.log('Tentando upload com bucket alternativo...');
+                    
+                    // Tenta com o bucket padrão 'avatars' se existir
+                    uploadResult = await supabase.storage
+                        .from('avatars')
+                        .upload(`players/${fileName}`, arrayBuffer, {
+                            contentType,
+                            upsert: true,
+                            cacheControl: '3600'
+                        });
+                        
+                    console.log('Resultado da segunda tentativa:', uploadResult);
+                }
+            } catch (e) {
+                console.error('Erro inesperado durante o upload:', e);
+                uploadResult = { error: e, data: null };
+            }
+            
+            const { data: uploadData, error: uploadError } = uploadResult;
+            
+            console.log('Resultado do upload:', uploadData);
+            
+            if (uploadError) {
+                console.error('Erro ao fazer upload para o storage:', uploadError);
+                throw new Error('Falha ao enviar a imagem');
+            }
+            
+            // Obtém a URL pública da imagem
+            console.log('Obtendo URL pública da imagem...');
+            let publicUrl = '';
+            
+            if (uploadError && uploadError.toString().includes('Bucket not found')) {
+                // Se o upload foi para o bucket alternativo
+                const { data } = supabase.storage
+                    .from('avatars')
+                    .getPublicUrl(`players/${fileName}`);
+                publicUrl = data.publicUrl;
+            } else {
+                // Se o upload foi para o bucket original
+                const { data } = supabase.storage
+                    .from('player-avatars')
+                    .getPublicUrl(fileName);
+                publicUrl = data.publicUrl;
+            }
+            
+            console.log('URL pública obtida:', publicUrl);
+            
+            if (!publicUrl) {
+                throw new Error('Não foi possível obter a URL pública da imagem');
+            }
+            
+            // Atualiza o jogador com a nova URL do avatar
+            console.log('Atualizando jogador com a nova URL do avatar...');
+            const { error: updateError } = await supabase
+                .from('players')
+                .update({ avatar_url: publicUrl })
+                .eq('id', playerId);
+            
+            if (updateError) {
+                console.error('Erro ao atualizar o jogador com o novo avatar:', updateError);
+                throw new Error('Falha ao atualizar o perfil do jogador');
+            }
+            
+            console.log('Avatar atualizado com sucesso:', publicUrl);
+            return publicUrl;
+            
         } catch (error) {
             console.error('Erro ao fazer upload do avatar:', error);
             throw error;
@@ -372,7 +552,7 @@ class PlayerService {
 
             return data?.map(item => ({
                 ...item.player,
-                isLinkedUser: item.player.user_player_relations?.some(rel => rel.is_primary)
+                isLinkedUser: item.player.user_player_relations?.some((rel: { is_primary: boolean }) => rel.is_primary)
             })) || [];
         } catch (error) {
             console.error('Erro ao listar membros da competição:', error);
@@ -399,9 +579,12 @@ class PlayerService {
 
             // Se encontrou um jogador vinculado, retorna
             if (relations?.player) {
+                const playerData = relations.player as Player;
                 return {
-                    ...relations.player,
-                    isLinkedUser: true
+                    ...playerData,
+                    isLinkedUser: true,
+                    isMine: true,
+                    isPrimaryUser: true
                 };
             }
 

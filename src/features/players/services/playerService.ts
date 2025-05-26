@@ -1,3 +1,4 @@
+
 import { supabase } from '@/core/lib/supabase';
 import { activityService } from '@/services/activityService';
 import { Database } from '@/types/database.types';
