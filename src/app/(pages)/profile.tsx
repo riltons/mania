@@ -250,7 +250,7 @@ export default function ProfileScreen() {
                   user_id: user?.id,
                   player_id: existingPlayer.id,
                   created_at: new Date().toISOString(),
-                  is_primary_user: true // Indica que este usuário é o dono principal do perfil do jogador
+                  is_primary: true // Indica que este usuário é o dono principal do perfil do jogador
                 });
 
               if (relationError) {
@@ -316,7 +316,7 @@ export default function ProfileScreen() {
               user_id: user?.id,
               player_id: newPlayer.id,
               created_at: new Date().toISOString(),
-              is_primary_user: true // Indica que este usuário é o dono principal do perfil do jogador
+              is_primary: true // Indica que este usuário é o dono principal do perfil do jogador
             });
 
           if (relationError) {

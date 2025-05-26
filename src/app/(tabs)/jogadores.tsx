@@ -1,49 +1,99 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Alert, FlatList, RefreshControl, ActivityIndicator, View, Text } from 'react-native';
+import { Alert, FlatList, RefreshControl, ActivityIndicator, View, Text, TouchableOpacity, Pressable } from 'react-native';
 import styled from 'styled-components/native';
 import { MaterialCommunityIcons, Feather, FontAwesome5 } from '@expo/vector-icons';
 import { PlayerAvatar } from '@/components/data-display/PlayerAvatar';
+import { supabase } from '@/core/lib/supabase';
 import { Player, playerService } from '@/features/players/services/playerService';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { Header } from '@/components/layout/Header';
-import { useTheme } from '@/core/contexts/ThemeProvider';
+import { useTheme } from 'styled-components/native';
+import theme from '@/theme';
 
-const Container = styled.View`
+// Importando o tipo do tema
+import type { DefaultTheme } from 'styled-components/native';
+
+// Definindo as props para os componentes estilizados
+interface StyledProps {
+  theme: DefaultTheme;
+  section?: 'myPlayers' | 'communityPlayers';
+  emptyMessage?: string;
+}
+
+// Estendendo o módulo styled-components para incluir o tema personalizado
+declare module 'styled-components' {
+  export interface DefaultTheme {
+    colors: {
+      background: string;
+      card: string;
+      text: string;
+      textSecondary: string;
+      success: string;
+      backgroundLight: string;
+      textPrimary: string;
+      accent: string;
+      error: string;
+      white: string;
+    };
+    spacing: {
+      small: number;
+      medium: number;
+      large: number;
+    };
+    borderRadius: {
+      small: number;
+      medium: number;
+      large: number;
+    };
+  }
+}
+
+const Container = styled.View<StyledProps>`
     flex: 1;
-    background-color: ${({ theme }) => theme.colors.backgroundDark};
+    background-color: ${(props: StyledProps) => props.theme.colors.background};
 `;
 
-const Content = styled.View`
+const Content = styled.View<StyledProps>`
     flex: 1;
-    padding: 8px;
+    padding: 16px;
+    background-color: ${(props: StyledProps) => props.theme.colors.background};
 `;
 
-const LoadingContainer = styled.View`
+const LoadingContainer = styled.View<StyledProps>`
     flex: 1;
     justify-content: center;
     align-items: center;
+    background-color: ${(props: StyledProps) => props.theme.colors.background};
 `;
 
-const PlayerCard = styled.TouchableOpacity`
-    background-color: ${({ theme }) => theme.colors.secondary};
-    border-radius: 12px;
-    padding: 16px;
-    margin-bottom: 8px;
-    elevation: 3;
+const EmptyState = styled.View<StyledProps>`
+    flex: 1;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    background-color: ${(props: StyledProps) => props.theme.colors.background};
+`;
+
+const PlayerCard = styled.View<StyledProps>`
+    background-color: ${(props: StyledProps) => props.theme.colors.card};
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 12px;
 `;
 
 const PlayerHeader = styled.View`
     flex-direction: row;
     align-items: flex-start;
     margin-bottom: 16px;
+    width: 100%;
 `;
 
-const Avatar = styled.View`
+const Avatar = styled.View<StyledProps>`
     width: 60px;
     height: 60px;
     border-radius: 30px;
-    background-color: ${({ theme }) => theme.colors.accent}20;
+    background-color: ${(props: StyledProps) => props.theme.colors.accent}20;
     justify-content: center;
     align-items: center;
     margin-right: 15px;
@@ -52,6 +102,7 @@ const Avatar = styled.View`
 const PlayerInfo = styled.View`
     flex: 1;
     justify-content: center;
+    flex-shrink: 1;
 `;
 
 const PlayerNameContainer = styled.View`
@@ -59,71 +110,70 @@ const PlayerNameContainer = styled.View`
     align-items: center;
     flex-wrap: wrap;
     margin-bottom: 8px;
-    margin-left: 15px;
 `;
 
-const PlayerName = styled.Text`
-    font-size: 18px;
-    font-weight: bold;
-    color: ${({ theme }) => theme.colors.textPrimary};
+const PlayerName = styled.Text<StyledProps>`
+    font-size: 16px;
+    font-weight: 600;
+    color: ${(props: StyledProps) => props.theme.colors.text};
     margin-right: 8px;
 `;
 
-const PlayerNickname = styled.Text`
+const PlayerNickname = styled.Text<StyledProps>`
     font-size: 14px;
-    color: ${({ theme }) => theme.colors.textSecondary};
+    color: ${(props: StyledProps) => props.theme.colors.textSecondary};
     margin-top: 2px;
     margin-bottom: 8px;
-    margin-left: 15px;
 `;
 
-const PlayerPhone = styled.Text`
+const PlayerPhone = styled.Text<StyledProps>`
     font-size: 14px;
-    color: ${({ theme }) => theme.colors.textSecondary};
+    color: ${(props: StyledProps) => props.theme.colors.textSecondary};
     margin-top: 2px;
-    
 `;
 
-const LinkedUserBadge = styled.View`
+const LinkedUserBadge = styled.View<StyledProps>`
     flex-direction: row;
     align-items: center;
-    background-color: ${({ theme }) => theme.colors.successLight};
-    padding: 4px 8px;
-    border-radius: 8px;
+    background-color: ${(props: StyledProps) => props.theme.colors.success}20;
+    padding: 2px 8px;
+    border-radius: 10px;
     margin-left: 8px;
 `;
 
-const LinkedUserText = styled.Text`
+const LinkedUserText = styled.Text<StyledProps>`
     font-size: 12px;
-    color: ${({ theme }) => theme.colors.success};
+    color: ${(props: StyledProps) => props.theme.colors.success};
     margin-left: 4px;
 `;
 
-const StatsContainer = styled.View`
+const StatsContainer = styled.View<StyledProps>`
     flex-direction: row;
     justify-content: space-between;
-    margin-top: 0;
+    margin-top: 10px;
     padding-top: 10px;
     border-top-width: 1px;
-    border-top-color: ${({ theme }) => theme.colors.backgroundLight}40;
+    border-top-color: ${(props: StyledProps) => props.theme.colors.backgroundLight}40;
 `;
 
 const StatItem = styled.View`
     align-items: center;
     flex: 1;
     padding: 0 5px;
+    min-width: 0;
 `;
 
-const StatValue = styled.Text`
+const StatValue = styled.Text<StyledProps>`
     font-size: 16px;
     font-weight: bold;
-    color: ${({ theme }) => theme.colors.textPrimary};
+    color: ${(props: StyledProps) => props.theme.colors.text};
     margin-bottom: 4px;
 `;
 
-const StatLabel = styled.Text`
+const StatLabel = styled.Text<StyledProps>`
     font-size: 12px;
-    color: ${({ theme }) => theme.colors.textSecondary};
+    color: ${(props: StyledProps) => props.theme.colors.textSecondary};
+    text-align: center;
 `;
 
 const ActionsContainer = styled.View`
@@ -131,60 +181,104 @@ const ActionsContainer = styled.View`
     align-items: center;
     justify-content: flex-end;
     margin-top: 12px;
+    width: 100%;
+    padding-top: 8px;
+    border-top-width: 1px;
+    border-top-color: #e9ecef;
 `;
 
 const ActionButton = styled.Pressable`
-    padding: 8px;
-    margin-left: 8px;
+    padding: 10px;
+    margin-left: 10px;
+    border-radius: 20px;
+    background-color: #e9ecef;
+    align-items: center;
+    justify-content: center;
+    min-width: 40px;
+    min-height: 40px;
 `;
 
-const SectionTitle = styled.Text`
-    font-size: 20px;
-    font-weight: bold;
-    color: ${({ theme }) => theme.colors.textPrimary};
-    margin-bottom: 16px;
-    margin-top: 24px;
+const SectionTitle = styled.Text<StyledProps>`
+    font-size: 18px;
+    font-weight: 700;
+    color: ${(props: StyledProps) => props.theme.colors.text};
+    margin: 20px 0 10px 0;
 `;
 
-const EmptyText = styled.Text`
+const EmptyStateText = styled.Text<StyledProps>`
     font-size: 16px;
-    color: ${({ theme }) => theme.colors.textSecondary};
+    color: ${(props: StyledProps) => props.theme.colors.textSecondary};
     text-align: center;
     margin: 24px 0;
 `;
 
-const FAB = styled.Pressable`
+const FAB = styled.Pressable<StyledProps>`
     position: absolute;
     right: 20px;
     bottom: 20px;
     width: 56px;
     height: 56px;
     border-radius: 28px;
-    background-color: ${({ theme }) => theme.colors.accent};
+    background-color: ${(props: StyledProps) => props.theme.colors.accent};
     justify-content: center;
     align-items: center;
     elevation: 4;
 `;
 
-export default function Jogadores() {
+interface SectionItem extends Partial<Player> {
+    id?: string;
+    sectionTitle?: string;
+    emptyMessage?: string;
+    section?: 'myPlayers' | 'communityPlayers';
+    [key: string]: any; 
+}
+
+// Componente principal
+function JogadoresScreen() {
+    // Obtendo o tema atual
+    const theme = useTheme();
     const router = useRouter();
     const [myPlayers, setMyPlayers] = useState<Player[]>([]);
     const [communityPlayers, setCommunityPlayers] = useState<Player[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    const { theme, colors } = useTheme();
 
     const loadPlayers = async () => {
         try {
-            setLoading(true);
-            const { myPlayers: my, communityPlayers: community } = await playerService.list();
-            setMyPlayers(my || []);
-            setCommunityPlayers(community || []);
+            console.log('Iniciando carregamento de jogadores...');
+            
+            // Verificar a sessão atual
+            const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+            console.log('Sessão no componente Jogadores:', sessionData.session);
+            
+            // Verificar se o usuário está autenticado
+            const { data: userData, error: userError } = await supabase.auth.getUser();
+            console.log('Usuário no componente Jogadores:', userData.user);
+            
+            if (userError || !userData.user) {
+                console.error('Erro de autenticação no componente Jogadores:', userError || 'Usuário não autenticado');
+                Alert.alert('Erro', 'Você precisa estar autenticado para ver os jogadores');
+                return;
+            }
+            
+            console.log('Chamando playerService.list()...');
+            const result = await playerService.list();
+            console.log('Resultado do playerService.list():', result);
+            
+            // Garantir que os arrays não sejam nulos
+            const myPlayersList = Array.isArray(result?.myPlayers) ? result.myPlayers : [];
+            const communityPlayersList = Array.isArray(result?.communityPlayers) ? result.communityPlayers : [];
+            
+            console.log(`Encontrados ${myPlayersList.length} jogadores próprios e ${communityPlayersList.length} jogadores da comunidade`);
+            
+            setMyPlayers(myPlayersList);
+            setCommunityPlayers(communityPlayersList);
         } catch (error) {
             console.error('Erro ao carregar jogadores:', error);
             Alert.alert('Erro', 'Não foi possível carregar os jogadores');
         } finally {
             setLoading(false);
+            console.log('Finalizado carregamento de jogadores');
         }
     };
 
@@ -230,89 +324,210 @@ export default function Jogadores() {
         );
     };
 
-    const renderPlayerItem = ({ item, isMyPlayer }: { item: Player; isMyPlayer: boolean }) => (
-        <PlayerCard onPress={() => router.push(`/jogador/jogador/${item.id}/jogos`)}>        
-            <PlayerHeader>
-                <PlayerAvatar 
-                    avatarUrl={item.avatar_url} 
-                    name={item.name} 
-                    size={50} 
-                />
-                <PlayerInfo>
-                    <PlayerNameContainer>
-                        <PlayerName>{item.name}</PlayerName>
-                        {item.isLinkedUser && (
-                            <LinkedUserBadge>
-                                <MaterialCommunityIcons
-                                    name="account-check"
-                                    size={16}
-                                    color={colors.success}
-                                />
-                                <LinkedUserText>Vinculado</LinkedUserText>
-                            </LinkedUserBadge>
-                        )}
-                    </PlayerNameContainer>
-                    {item.nickname && (
-                        <PlayerNickname>@{item.nickname}</PlayerNickname>
-                    )}
-                    {item.phone && (
-                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                            <MaterialCommunityIcons name="phone" size={16} color={colors.textSecondary} style={{ marginRight: 6 }} />
-                            <PlayerPhone>{item.phone}</PlayerPhone>
+    const renderPlayerItem = ({
+        item,
+        isMyPlayer
+    }: {
+        item: Player & { section?: string };
+        isMyPlayer: boolean;
+    }) => (
+        <View style={{
+            backgroundColor: '#f8f9fa',
+            borderRadius: 8,
+            padding: 15,
+            marginBottom: 12
+        }}>
+            {/* Área de informações do jogador */}
+            <Pressable onPress={() => router.push(`/jogador/jogador/${item.id}/jogos`)}>
+                <View style={{
+                    flexDirection: 'row',
+                    alignItems: 'flex-start',
+                    marginBottom: 16,
+                    width: '100%'
+                }}>
+                    <PlayerAvatar 
+                        avatarUrl={item.avatar_url} 
+                        name={item.name} 
+                        size={50} 
+                    />
+                    <View style={{
+                        flex: 1,
+                        justifyContent: 'center',
+                        marginLeft: 15
+                    }}>
+                        <View style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            flexWrap: 'wrap',
+                            marginBottom: 8
+                        }}>
+                            <Text style={{
+                                fontSize: 16,
+                                fontWeight: '600',
+                                color: '#212529',
+                                marginRight: 8
+                            }}>{item.name}</Text>
+                            {item.isLinkedUser && (
+                                <View style={{
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    backgroundColor: '#28a74520',
+                                    padding: 2,
+                                    paddingHorizontal: 8,
+                                    borderRadius: 10,
+                                    marginLeft: 8
+                                }}>
+                                    <MaterialCommunityIcons
+                                        name="account-check"
+                                        size={16}
+                                        color="#28a745"
+                                    />
+                                    <Text style={{
+                                        fontSize: 12,
+                                        color: '#28a745',
+                                        marginLeft: 4
+                                    }}>Vinculado</Text>
+                                </View>
+                            )}
                         </View>
-                    )}
-                </PlayerInfo>
-            </PlayerHeader>
+                        {item.nickname && (
+                            <Text style={{
+                                fontSize: 14,
+                                color: '#6c757d',
+                                marginTop: 2,
+                                marginBottom: 8
+                            }}>@{item.nickname}</Text>
+                        )}
+                        {item.phone && (
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                <MaterialCommunityIcons name="phone" size={16} color="#6c757d" style={{ marginRight: 6 }} />
+                                <Text style={{
+                                    fontSize: 14,
+                                    color: '#6c757d',
+                                    marginTop: 2
+                                }}>{item.phone}</Text>
+                            </View>
+                        )}
+                    </View>
+                </View>
+            </Pressable>
 
-            {isMyPlayer && (
-                <ActionsContainer>
-                    <ActionButton onPress={() => router.push(`/jogador/jogador/${item.id}/editar`)}>
-                        <Feather name="edit" size={20} color={colors.accent} />
-                    </ActionButton>
-                    <ActionButton onPress={() => handleDelete(item)}>
-                        <Feather name="trash-2" size={20} color={colors.error} />
-                    </ActionButton>
-                </ActionsContainer>
-            )}
-        </PlayerCard>
+            {/* Área de ações */}
+            <View style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'flex-end',
+                marginTop: 12,
+                width: '100%',
+                paddingTop: 8,
+                borderTopWidth: 1,
+                borderTopColor: '#e9ecef'
+            }}>
+                {/* Botão de edição */}
+                <Pressable 
+                    onPress={() => router.push(`/jogador/jogador/${item.id}/editar`)}
+                    style={{
+                        padding: 10,
+                        marginLeft: 10,
+                        borderRadius: 20,
+                        backgroundColor: '#e9ecef',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        minWidth: 40,
+                        minHeight: 40
+                    }}
+                >
+                    <Feather name="edit-2" size={20} color="#007bff" />
+                </Pressable>
+                
+                {/* Botão de exclusão (apenas para jogadores do usuário) */}
+                {isMyPlayer && (
+                    <Pressable 
+                        onPress={() => handleDelete(item)}
+                        style={{
+                            padding: 10,
+                            marginLeft: 10,
+                            borderRadius: 20,
+                            backgroundColor: '#e9ecef',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            minWidth: 40,
+                            minHeight: 40
+                        }}
+                    >
+                        <Feather name="trash-2" size={20} color="#dc3545" />
+                    </Pressable>
+                )}
+            </View>
+        </View>
     );
 
     const renderSectionHeader = (title: string) => (
         <SectionTitle>{title}</SectionTitle>
     );
 
-    const renderItem = ({ item }: { item: any }) => {
-        if (item.sectionTitle) {
-            return renderSectionHeader(item.sectionTitle);
+    const renderItem = ({ item }: { item: SectionItem }) => {
+        if ('sectionTitle' in item && item.sectionTitle) {
+            return <SectionTitle>{item.sectionTitle}</SectionTitle>;
         }
 
-        if (item.emptyMessage) {
-            return <EmptyText>{item.emptyMessage}</EmptyText>;
+        if ('emptyMessage' in item && item.emptyMessage) {
+            return <EmptyStateText>{item.emptyMessage}</EmptyStateText>;
         }
 
         return renderPlayerItem({
-            item,
+            item: item as Player,
             isMyPlayer: item.section === 'myPlayers'
         });
     };
 
     // Preparar dados para a FlatList
-    const sections = [];
+    const sections: SectionItem[] = [];
     
     // Seção "Meus Jogadores"
-    sections.push({ sectionTitle: 'Meus Jogadores' });
-    if (myPlayers.length === 0) {
-        sections.push({ emptyMessage: 'Você ainda não criou nenhum jogador' });
+    sections.push({ 
+        id: 'my-players-header', 
+        sectionTitle: 'Meus Jogadores' 
+    });
+    
+    if (!myPlayers || myPlayers.length === 0) {
+        sections.push({ 
+            id: 'no-my-players', 
+            emptyMessage: 'Você ainda não criou nenhum jogador' 
+        });
     } else {
-        myPlayers.forEach(player => sections.push({ ...player, section: 'myPlayers' }));
+        myPlayers.forEach((player, index) => {
+            if (player && player.id) {
+                sections.push({ 
+                    ...player, 
+                    id: player.id || `my-player-${index}`, 
+                    section: 'myPlayers' as const 
+                });
+            }
+        });
     }
 
     // Seção "Jogadores das Comunidades"
-    sections.push({ sectionTitle: 'Jogadores das Comunidades' });
-    if (communityPlayers.length === 0) {
-        sections.push({ emptyMessage: 'Nenhum jogador disponível nas suas comunidades' });
+    sections.push({ 
+        id: 'community-players-header', 
+        sectionTitle: 'Jogadores das Comunidades' 
+    });
+    
+    if (!communityPlayers || communityPlayers.length === 0) {
+        sections.push({ 
+            id: 'no-community-players', 
+            emptyMessage: 'Nenhum jogador disponível nas suas comunidades' 
+        });
     } else {
-        communityPlayers.forEach(player => sections.push({ ...player, section: 'communityPlayers' }));
+        communityPlayers.forEach((player, index) => {
+            if (player && player.id) {
+                sections.push({ 
+                    ...player, 
+                    id: player.id || `community-player-${index}`, 
+                    section: 'communityPlayers' as const 
+                });
+            }
+        });
     }
 
     if (loading) {
@@ -320,7 +535,7 @@ export default function Jogadores() {
             <Container>
                 <Header />
                 <LoadingContainer>
-                    <ActivityIndicator size="large" color={colors.accent} />
+                    <ActivityIndicator size="large" color={theme.colors.accent} />
                 </LoadingContainer>
             </Container>
         );
@@ -330,7 +545,7 @@ export default function Jogadores() {
         <Container>
             <Header title="JOGADORES" />
             <Content>
-                <FlatList
+                <FlatList<SectionItem>
                     data={sections}
                     renderItem={renderItem}
                     keyExtractor={(item, index) => item.id || `section-${index}`}
@@ -339,15 +554,22 @@ export default function Jogadores() {
                         <RefreshControl
                             refreshing={refreshing}
                             onRefresh={handleRefresh}
-                            colors={[colors.accent]}
+                            colors={[theme.colors.accent]}
                         />
                     }
                 />
 
                 <FAB onPress={() => router.push('/jogadores/new')}>
-                    <Feather name="plus" size={24} color={colors.backgroundLight} />
+                    <Feather name="plus" size={24} color="white" />
                 </FAB>
             </Content>
         </Container>
+    );
+}
+
+// Exportação padrão
+export default function Jogadores() {
+    return (
+        <JogadoresScreen />
     );
 }
