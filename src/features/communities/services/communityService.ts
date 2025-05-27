@@ -12,6 +12,8 @@ export interface Community {
     members_count: number;
     competitions_count: number;
     is_organizer?: boolean;
+    members?: Array<{ count: number }>;
+    competitions?: Array<{ count: number }>;
 }
 
 export interface CreateCommunityDTO {
@@ -40,14 +42,34 @@ class CommunityService {
                 throw error;
             }
 
-            return { data, error: null };
+            return data as Community[];
         } catch (error) {
             console.error('Erro ao listar comunidades:', error);
-            return { data: null, error };
+            throw error;
         }
     }
 
-    async list(includeDisabled: boolean = false) {
+    async searchCommunities(query: string): Promise<Community[]> {
+        try {
+            const { data, error } = await supabase
+                .from('communities')
+                .select('*')
+                .ilike('name', `%${query}%`)
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                console.error('Erro ao pesquisar comunidades:', error);
+                throw error;
+            }
+
+            return data as Community[];
+        } catch (error) {
+            console.error('Erro ao pesquisar comunidades:', error);
+            throw error;
+        }
+    }
+
+    async list(includeDisabled: boolean = false): Promise<{ created: Community[]; organized: Community[] }> {
         try {
             const userId = (await supabase.auth.getUser()).data.user?.id;
             if (!userId) throw new Error('Usuário não autenticado');
@@ -63,6 +85,12 @@ class CommunityService {
                     competitions:competitions(count)
                 `)
                 .eq('created_by', userId);
+                
+            // Se não incluir desabilitadas, filtra apenas as ativas
+            if (!includeDisabled) {
+                createdQuery = createdQuery.eq('disabled', false);
+            }
+                
             const { data: createdCommunities = [], error: createdError } = await createdQuery;
 
             if (createdError) {
@@ -70,19 +98,44 @@ class CommunityService {
                 throw new Error('Erro ao listar comunidades');
             }
 
+            // Processa as comunidades criadas
+            const processedCreatedCommunities = (createdCommunities || []).map(c => ({ 
+                id: c.id,
+                name: c.name,
+                description: c.description,
+                created_by: c.created_by,
+                created_at: c.created_at,
+                updated_at: c.updated_at,
+                is_organizer: true,
+                members_count: c.members?.[0]?.count || 0,
+                competitions_count: c.competitions?.[0]?.count || 0,
+                disabled: c.disabled || false
+            }) as Community);
+
             // IDs das comunidades que o usuário criou
-            const createdIds = createdCommunities.map(c => c.id);
+            const createdIds = processedCreatedCommunities.map(c => c.id);
 
             // Primeiro busca os IDs das comunidades onde o usuário é organizador
             const { data: organizedIds = [], error: organizedIdsError } = await supabase
                 .from('community_organizers')
                 .select('community_id')
                 .eq('user_id', userId)
-                .not('community_id', 'in', `(${createdIds.join(',')})`); // Excluir comunidades que já é criador
+                .not('community_id', 'in', createdIds.length > 0 ? `(${createdIds.join(',')})` : '(00000000-0000-0000-0000-000000000000)'); // Excluir comunidades que já é criador
 
             if (organizedIdsError) {
                 console.error('Erro ao buscar IDs de comunidades organizadas:', organizedIdsError);
                 throw new Error('Erro ao listar comunidades');
+            }
+
+            // Se não há comunidades organizadas, retorna apenas as criadas
+            if (!organizedIds.length) {
+                // Atualiza a lista em memória
+                this.communities = processedCreatedCommunities;
+                
+                return {
+                    created: processedCreatedCommunities,
+                    organized: []
+                };
             }
 
             // Depois busca os detalhes dessas comunidades
@@ -94,6 +147,12 @@ class CommunityService {
                     competitions:competitions(count)
                 `)
                 .in('id', organizedIds.map(org => org.community_id));
+                
+            // Se não incluir desabilitadas, filtra apenas as ativas
+            if (!includeDisabled) {
+                organizedQuery = organizedQuery.eq('disabled', false);
+            }
+                
             const { data: organizedCommunities = [], error: organizedError } = await organizedQuery;
 
             if (organizedError) {
@@ -101,38 +160,32 @@ class CommunityService {
                 throw new Error('Erro ao listar comunidades');
             }
 
-            console.log('Comunidades encontradas:', {
-                criadas: createdCommunities.length,
-                organizadas: organizedCommunities.length
-            });
-
-            // Assume que todas as comunidades estão habilitadas se não tiver a coluna disabled
-            const processedCreatedCommunities = createdCommunities.map(c => ({
-                ...c,
+            // Processa as comunidades organizadas
+            const processedOrganizedCommunities = (organizedCommunities || []).map(c => ({ 
+                id: c.id,
+                name: c.name,
+                description: c.description,
+                created_by: c.created_by,
+                created_at: c.created_at,
+                updated_at: c.updated_at,
+                is_organizer: true,
                 members_count: c.members?.[0]?.count || 0,
                 competitions_count: c.competitions?.[0]?.count || 0,
                 disabled: c.disabled || false
-            }));
-            
-            const processedOrganizedCommunities = organizedCommunities.map(c => ({
-                ...c,
-                members_count: c.members?.[0]?.count || 0,
-                competitions_count: c.competitions?.[0]?.count || 0,
-                disabled: c.disabled || false
-            }));
-            
-            // Se includeDisabled for false, filtra as comunidades desabilitadas no lado do cliente
-            const filteredCreated = includeDisabled 
-                ? processedCreatedCommunities 
-                : processedCreatedCommunities.filter(c => !c.disabled);
-                
-            const filteredOrganized = includeDisabled 
-                ? processedOrganizedCommunities 
-                : processedOrganizedCommunities.filter(c => !c.disabled);
+            }) as Community);
 
+            // Combina todas as comunidades para a lista em memória
+            const allCommunities = [
+                ...processedCreatedCommunities,
+                ...processedOrganizedCommunities
+            ];
+
+            // Atualiza a lista em memória
+            this.communities = allCommunities;
+            
             return {
-                created: filteredCreated,
-                organized: filteredOrganized
+                created: processedCreatedCommunities,
+                organized: processedOrganizedCommunities
             };
         } catch (error) {
             console.error('Erro ao listar comunidades:', error);
@@ -144,7 +197,7 @@ class CommunityService {
         try {
             console.log('Buscando comunidade por ID:', id);
             
-            const { data, error } = await supabase
+            const { data: community, error } = await supabase
                 .from('communities')
                 .select('*')
                 .eq('id', id)
@@ -154,9 +207,8 @@ class CommunityService {
                 console.error('Erro ao buscar comunidade:', error);
                 throw error;
             }
-            
-            console.log('Comunidade encontrada:', data);
-            return data;
+
+            return community as Community;
         } catch (error) {
             console.error('Erro ao buscar comunidade:', error);
             throw error;
@@ -197,127 +249,115 @@ class CommunityService {
             // Atualiza a lista de comunidades em memória
             await this.list();
 
-            return { data, error: null };
+            return data as Community;
         } catch (error) {
             console.error('Erro ao criar comunidade:', error);
-            return { data: null, error };
+            throw error;
         }
     }
 
-    async create(data: CreateCommunityDTO) {
+    async create(data: CreateCommunityDTO): Promise<Community> {
         try {
-            const userId = (await supabase.auth.getUser()).data.user?.id;
-            if (!userId) throw new Error('Usuário não autenticado');
-
+            console.log('Iniciando criação de comunidade:', data.name);
+            
+            // Verificar autenticação do usuário
+            const { data: userData, error: authError } = await supabase.auth.getUser();
+            if (authError || !userData.user?.id) {
+                console.error('Erro de autenticação:', authError);
+                throw new Error('Usuário não autenticado');
+            }
+            
+            const userId = userData.user.id;
+            console.log('Usuário autenticado:', userId);
+            
             // Verificar se o usuário já tem comunidades criadas
+            console.log('Verificando limite de comunidades...');
             const { count, error: countError } = await supabase
                 .from('communities')
                 .select('id', { count: 'exact', head: true })
                 .eq('created_by', userId);
-            if (countError) throw countError;
+                
+            if (countError) {
+                console.error('Erro ao verificar limite de comunidades:', countError);
+                throw countError;
+            }
+            
             // Permitir até 3 comunidades por usuário
-            if ((count || 0) >= 3) throw new Error('Você atingiu o limite máximo de 3 comunidades');
-
+            if ((count || 0) >= 3) {
+                console.error('Limite de comunidades atingido:', count);
+                throw new Error('Você atingiu o limite máximo de 3 comunidades');
+            }
+            
+            console.log('Chamando função create_community_direct...');
+            // Usar a função create_community_direct para criar a comunidade
             const { data: community, error } = await supabase
-                .from('communities')
-                .insert([
-                    {
-                        ...data,
-                        created_by: userId
-                    }
-                ])
-                .select()
+                .rpc('create_community_direct', {
+                    p_name: data.name,
+                    p_description: data.description
+                })
                 .single();
-
+            
             if (error) {
-                console.error('Erro ao criar comunidade:', error);
+                console.error('Erro ao criar comunidade via RPC:', error);
                 throw error;
             }
-
-            // Adicionar o criador como organizador
-            // Primeiro, verificar se já existe como organizador
-            const { data: existingOrganizer, error: checkError } = await supabase
-                .from('community_organizers')
-                .select('id')
-                .eq('community_id', community.id)
-                .eq('user_id', userId)
-                .maybeSingle();
-
-            if (checkError) {
-                console.error('Erro ao verificar organizador existente:', checkError);
-                // Não vamos lançar o erro aqui para não impedir a criação da comunidade
+            
+            if (!community) {
+                console.error('Comunidade não foi criada, mas não houve erro');
+                throw new Error('Falha ao criar comunidade');
             }
-
-            // Só adiciona se não existir ainda
-            if (!existingOrganizer) {
-                const { error: organizerError } = await supabase
-                    .from('community_organizers')
-                    .insert([
-                        {
-                            community_id: community.id,
-                            user_id: userId,
-                            created_by: userId
-                        }
-                    ]);
-
-                if (organizerError) {
-                    console.error('Erro ao adicionar criador como organizador:', organizerError);
-                    // Não vamos lançar o erro aqui para não impedir a criação da comunidade
-                }
-            }
-
+            
+            console.log('Comunidade criada com sucesso:', community.id);
+            
             // Registrar a atividade de criação da comunidade com sistema de retry
-            if (community) {
-                const maxRetries = 3;
-                const baseDelay = 1000; // 1 segundo
-
-                const createActivityWithRetry = async (attempt: number) => {
-                    try {
-                        console.log(`Tentativa ${attempt} de criar atividade...`);
-                        await activityService.createActivity({
-                            type: 'community',
-                            description: `Nova comunidade "${data.name}" foi criada`,
-                            metadata: {
-                                community_id: community.id,
-                                name: community.name,
-                                description: community.description
-                            }
-                        });
-                        console.log('Atividade criada com sucesso!');
-                        return true;
-                    } catch (activityError) {
-                        console.error(`Erro na tentativa ${attempt}:`, activityError);
-                        
-                        if (attempt < maxRetries) {
-                            const delay = baseDelay * Math.pow(2, attempt - 1); // Exponential backoff
-                            console.log(`Aguardando ${delay}ms antes da próxima tentativa...`);
-                            await new Promise(resolve => setTimeout(resolve, delay));
-                            return createActivityWithRetry(attempt + 1);
+            const maxRetries = 3;
+            const baseDelay = 1000; // 1 segundo
+            
+            const createActivityWithRetry = async (attempt: number) => {
+                try {
+                    console.log(`Tentativa ${attempt} de criar atividade...`);
+                    await activityService.createActivity({
+                        type: 'community',
+                        description: `Nova comunidade "${data.name}" foi criada`,
+                        metadata: {
+                            community_id: community.id,
+                            name: community.name
                         }
-                        
-                        console.error('Todas as tentativas de criar atividade falharam');
-                        return false;
+                    });
+                    console.log('Atividade criada com sucesso!');
+                    return true;
+                } catch (activityError) {
+                    console.error(`Erro na tentativa ${attempt}:`, activityError);
+                    
+                    if (attempt < maxRetries) {
+                        const delay = baseDelay * Math.pow(2, attempt - 1); // Exponential backoff
+                        console.log(`Aguardando ${delay}ms antes da próxima tentativa...`);
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                        return createActivityWithRetry(attempt + 1);
                     }
-                };
-
-                // Inicia o processo de retry em background
-                createActivityWithRetry(1).catch(error => {
-                    console.error('Erro no processo de retry:', error);
-                });
-            }
-
-            return community;
+                    
+                    console.error('Todas as tentativas de criar atividade falharam');
+                    return false;
+                }
+            };
+            
+            // Iniciar o processo de criação da atividade em background
+            createActivityWithRetry(1).catch(error => {
+                console.error('Erro ao criar atividade:', error);
+            });
+            
+            return community as Community;
         } catch (error: any) {
             // Propaga erro de limite free para UI tratar
             if (error?.message?.includes('Plano gratuito permite criar apenas 1 comunidade')) {
                 throw error;
             }
             console.error('Erro ao criar comunidade:', error);
-            return { data: null, error };
+            throw error;
         }
     }
 
-    async updateCommunity(id: string, updates: UpdateCommunityDTO) {
+    async updateCommunity(id: string, updates: UpdateCommunityDTO): Promise<Community | null> {
         try {
             // Se temos a propriedade disabled, vamos tentar atualizar diretamente
             if (updates.disabled !== undefined) {
@@ -332,7 +372,7 @@ class CommunityService {
                     if (!error) {
                         // Atualiza a lista de comunidades em memória
                         await this.list();
-                        return { data, error: null };
+                        return data as Community;
                     }
                     
                     // Se o erro for relacionado à coluna disabled, vamos continuar com as outras atualizações
@@ -344,13 +384,17 @@ class CommunityService {
                         // Se não temos mais nada para atualizar, retornamos sucesso
                         if (Object.keys(otherUpdates).length === 0) {
                             // Buscamos a comunidade atual para retornar
-                            const { data: community } = await supabase
+                            const { data: community, error } = await supabase
                                 .from('communities')
                                 .select('*')
                                 .eq('id', id)
                                 .single();
                                 
-                            return { data: community, error: null };
+                            if (error) {
+                                throw error;
+                            }
+                            
+                            return community as Community;
                         }
                         
                         // Atualizamos o resto
@@ -365,11 +409,12 @@ class CommunityService {
                 }
             } else {
                 // Caso não tenha a propriedade disabled, atualiza normalmente
-                const { data, error } = await supabase
+                const { name, description } = updates;
+                const { data: community, error } = await supabase
                     .from('communities')
-                    .update(updates)
+                    .update({ name, description })
                     .eq('id', id)
-                    .select()
+                    .select('*')
                     .single();
 
                 if (error) {
@@ -380,15 +425,15 @@ class CommunityService {
                 // Atualiza a lista de comunidades em memória
                 await this.list();
 
-                return { data, error: null };
+                return community as Community;
             }
         } catch (error) {
             console.error('Erro ao atualizar comunidade:', error);
-            return { data: null, error };
+            return null;
         }
     }
 
-    async deleteCommunity(id: string) {
+    async deleteCommunity(id: string): Promise<void> {
         try {
             const { error } = await supabase
                 .from('communities')
@@ -402,34 +447,11 @@ class CommunityService {
 
             // Atualiza a lista de comunidades em memória
             await this.list();
-
-            return { error: null };
         } catch (error) {
             console.error('Erro ao excluir comunidade:', error);
-            return { error };
-        }
-    }
-
-    async searchCommunities(query: string) {
-        try {
-            const { data, error } = await supabase
-                .from('communities')
-                .select('*')
-                .ilike('name', `%${query}%`)
-                .order('created_at', { ascending: false });
-
-            if (error) {
-                console.error('Erro ao pesquisar comunidades:', error);
-                throw error;
-            }
-
-            return { data, error: null };
-        } catch (error) {
-            console.error('Erro ao pesquisar comunidades:', error);
-            return { data: null, error };
+            throw error;
         }
     }
 }
 
 export const communityService = new CommunityService();
-

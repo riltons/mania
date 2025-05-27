@@ -1,438 +1,301 @@
-
 import { supabase } from '@/core/lib/supabase';
 import { activityService } from '@/services/activityService';
-import { Database } from '@/types/database.types';
-import { Platform } from 'react-native';
-import * as FileSystem from 'expo-file-system';
 
-type Tables = Database['public']['Tables'];
-type PlayersRow = Tables['players']['Row'];
-type PlayersInsert = Tables['players']['Insert'];
-type PlayersUpdate = Tables['players']['Update'];
-type UserPlayerRelationsInsert = Tables['user_player_relations']['Insert'];
+// Definições de tipos
+interface UserPlayerRelation {
+    is_primary: boolean;
+    user_id: string;
+    player_id: string;
+}
 
-export interface Player {
+interface Player {
     id: string;
     name: string;
     phone: string;
     created_at: string;
-    nickname?: string;
     created_by: string;
+    nickname?: string;
     avatar_url?: string;
     isLinkedUser?: boolean;
     isMine?: boolean;
-    isExistingPlayer?: boolean;
     isPrimaryUser?: boolean;
     stats?: PlayerStats;
-    user_player_relations?: Array<{
-        is_primary: boolean;
-        user_id: string;
-    }>;
+    message?: string;
+    user_player_relations?: UserPlayerRelation[];
 }
 
-export interface PlayerStats {
-    total_games: number;
+interface PlayerStats {
+    total_matches: number;
     wins: number;
     losses: number;
-    buchudas: number;
+    win_rate: number;
 }
 
-interface CreatePlayerDTO {
+export interface CreatePlayerDTO {
     name: string;
     phone: string;
     nickname?: string;
     avatar_url?: string;
 }
 
-class PlayerService {
-    private players: Player[] = [];
+export class PlayerService {
+    private myPlayers: Player[] = [];
+    private communityPlayers: Player[] = [];
+    
+    constructor() {}
 
-    async getByPhone(phone: string): Promise<Player | null> {
+    private async getCurrentUserId(): Promise<string | null> {
+        const { data: authData } = await supabase.auth.getSession();
+        return authData?.session?.user?.id || null;
+    }
+
+    private normalizePhoneNumber(phone: string): string {
+        return phone.replace(/\D/g, '');
+    }
+
+    /**
+     * Busca um jogador pelo número de telefone
+     * @param phone Número do telefone a ser buscado
+     * @returns Jogador encontrado ou lança erro se não encontrado
+     */
+    async findByPhone(phone: string | null): Promise<Player> {
+        if (!phone) throw new Error('Telefone não fornecido');
+
         try {
-            const { data, error } = await supabase
-                .from('players')
-                .select('*')
-                .eq('phone', phone as any) // Usando type assertion para evitar erro de tipo
-                .single() as { data: Player | null, error: any };
+            const userId = await this.getCurrentUserId();
 
-            if (error && error.code !== 'PGRST116') {
-                console.error('Erro ao buscar jogador por telefone:', error);
-                throw new Error('Erro ao buscar jogador por telefone');
+            const { data: player, error: findError } = await supabase
+                .from('players')
+                .select('*, user_player_relations(*)')
+                .eq('phone', this.normalizePhoneNumber(phone))
+                .single();
+
+            if (findError) {
+                console.error('Erro ao buscar jogador por telefone:', findError);
+                throw new Error('Jogador não encontrado');
             }
 
-            return data;
-        } catch (error) {
+            if (!player) {
+                throw new Error('Jogador não encontrado');
+            }
+
+            return {
+                ...player,
+                isMine: player.created_by === userId,
+                isPrimaryUser: player.user_player_relations?.some(
+                    (rel: UserPlayerRelation) => rel.user_id === userId && rel.is_primary
+                ) || false
+            } as Player;
+        } catch (error: unknown) {
             console.error('Erro ao buscar jogador por telefone:', error);
+            throw new Error(`Erro ao buscar jogador: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+        }
+    }
+
+    /**
+     * Cria um novo jogador ou retorna um jogador existente
+     * @param data Dados do jogador a ser criado
+     * @param maxRetries Número máximo de tentativas em caso de concorrência
+     * @returns O jogador criado ou existente
+     */
+    async create(data: CreatePlayerDTO, maxRetries: number = 2): Promise<Player> {
+        const log = (message: string, logData?: any) => {
+            const timestamp = new Date().toISOString();
+            const formattedData = logData ? ` | ${JSON.stringify(logData)}` : '';
+            console.log(`[${timestamp}] [CreatePlayer] ${message}${formattedData}`);
+        };
+
+        try {
+            log('Iniciando processo de criação de jogador', {
+                name: data.name,
+                phone: data.phone,
+                maxRetries
+            });
+
+            // Verificar autenticação
+            const currentUserId = await this.getCurrentUserId();
+            if (!currentUserId) {
+                const authError = new Error('Usuário não autenticado');
+                log('Erro de autenticação', { error: authError.message });
+                throw authError;
+            }
+
+            // Normaliza o telefone para busca e armazenamento
+            const normalizedPhone = this.normalizePhoneNumber(data.phone);
+
+            // Validação do telefone
+            if (!normalizedPhone || normalizedPhone.length < 10) {
+                const validationError = new Error('Número de telefone inválido');
+                log('Erro de validação', { 
+                    phone: data.phone, 
+                    normalizedPhone,
+                    error: validationError.message 
+                });
+                throw validationError;
+            }
+
+            // Tenta encontrar um jogador existente
+            try {
+                log('Buscando jogador existente para o telefone', { normalizedPhone });
+                const existingPlayer = await this.findByPhone(normalizedPhone);
+
+                if (existingPlayer) {
+                    log('Jogador existente encontrado', { 
+                        id: existingPlayer.id, 
+                        name: existingPlayer.name, 
+                        phone: existingPlayer.phone 
+                    });
+                    
+                    log('Retornando jogador existente', { 
+                        playerId: existingPlayer.id 
+                    });
+                    return existingPlayer;
+                }
+            } catch (error) {
+                // Se não encontrar jogador existente, continua para criar um novo
+                log('Nenhum jogador existente encontrado', { error: error instanceof Error ? error.message : 'Erro desconhecido' });
+            }
+
+            // Se não encontrou jogador existente, tenta criar um novo
+            log('Criando novo jogador', {
+                name: data.name,
+                phone: normalizedPhone
+            });
+
+            const { data: newPlayer, error } = await supabase
+                .from('players')
+                .insert({
+                    name: data.name,
+                    phone: normalizedPhone,
+                    nickname: data.nickname || '',
+                    avatar_url: data.avatar_url || '',
+                    created_by: currentUserId
+                })
+                .select('*')
+                .single();
+
+            if (error) {
+                log('Erro ao criar jogador', { error: error.message });
+                throw error;
+            }
+
+            if (!newPlayer) {
+                const unexpectedError = new Error('Erro inesperado ao criar jogador');
+                log('Erro inesperado', { error: unexpectedError.message });
+                throw unexpectedError;
+            }
+
+            log('Jogador criado com sucesso', { 
+                id: newPlayer.id, 
+                name: newPlayer.name, 
+                phone: newPlayer.phone 
+            });
+
+            // Adicionar relação entre usuário e jogador
+            try {
+                log('Adicionando relação entre usuário e jogador', {
+                    userId: currentUserId,
+                    playerId: newPlayer.id,
+                    isPrimary: true
+                });
+
+                const { error: relationError } = await supabase
+                    .from('user_player_relations')
+                    .insert({
+                        user_id: currentUserId,
+                        player_id: newPlayer.id,
+                        is_primary: true
+                    });
+
+                if (relationError) {
+                    log('Erro ao adicionar relação', { error: relationError.message });
+                    // Não interrompe o fluxo se falhar ao adicionar relação
+                }
+            } catch (relationErr) {
+                log('Exceção ao adicionar relação', { error: relationErr instanceof Error ? relationErr.message : 'Erro desconhecido' });
+                // Não interrompe o fluxo se falhar ao adicionar relação
+            }
+
+            // Registrar atividade de criação de jogador
+            try {
+                log('Registrando atividade de criação de jogador');
+                await activityService.createActivity({
+                    type: 'player',
+                    description: `Novo jogador "${data.name}" foi criado`,
+                    metadata: {
+                        player_id: newPlayer.id,
+                        name: newPlayer.name
+                    }
+                });
+            } catch (activityErr) {
+                log('Erro ao registrar atividade', { error: activityErr instanceof Error ? activityErr.message : 'Erro desconhecido' });
+                // Não interrompe o fluxo se falhar ao registrar atividade
+            }
+
+            return {
+                ...newPlayer,
+                isMine: true,
+                isPrimaryUser: true
+            } as Player;
+        } catch (error) {
+            log('Erro final ao criar jogador', { error: error instanceof Error ? error.message : 'Erro desconhecido' });
             throw error;
         }
     }
 
-    async create(data: CreatePlayerDTO): Promise<Player> {
+    /**
+     * Lista os jogadores do usuário e da comunidade
+     */
+    async list(): Promise<{ myPlayers: Player[]; communityPlayers: Player[]; }> {
         try {
-            const existingPlayer = await this.getByPhone(data.phone);
-            const { data: { session } } = await supabase.auth.getSession();
-            const currentUserId = session?.user?.id;
-
-            if (!currentUserId) {
+            const userId = await this.getCurrentUserId();
+            if (!userId) {
                 throw new Error('Usuário não autenticado');
             }
 
-            if (existingPlayer) {
-                // Verifica se o usuário atual já tem relação com este jogador
-                const { data: existingRelation } = await supabase
-                    .from('user_player_relations')
-                    .select('*')
-                    .eq('user_id', currentUserId as any) // Usando type assertion
-                    .eq('player_id', existingPlayer.id as any) // Usando type assertion
-                    .maybeSingle();
-
-                if (!existingRelation) {
-                    // Cria uma nova relação sem marcar como primária
-                    const relationData: UserPlayerRelationsInsert = {
-                        user_id: currentUserId,
-                        player_id: existingPlayer.id,
-                        is_primary: false,
-                        created_at: new Date().toISOString()
-                    };
-                    
-                    const { error } = await supabase
-                        .from('user_player_relations')
-                        .upsert([relationData] as any); // Usando type assertion para evitar erro de tipo
-
-                    if (error) {
-                        console.error('Erro ao criar relação com jogador existente:', error);
-                        throw error;
-                    }
-                }
-                
-                // Retorna o jogador existente com informações adicionais
-                return {
-                    ...existingPlayer,
-                    isExistingPlayer: true,
-                    isPrimaryUser: existingPlayer.created_by === currentUserId,
-                    isLinkedUser: true
-                };
-            }
-
-            // Cria um novo jogador
-            const newPlayerData = {
-                name: data.name,
-                phone: data.phone,
-                nickname: data.nickname,
-                created_by: currentUserId,
-                avatar_url: data.avatar_url,
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
-            };
-
-            const { data: createdPlayer, error: createError } = await supabase
-                .from('players')
-                .insert([newPlayerData] as any)
-                .select()
-                .single() as { data: Player | null, error: any };
-
-            if (createError) {
-                if (createError.code === '23505') {
-                    throw new Error('Já existe um jogador cadastrado com este telefone');
-                }
-                console.error('Erro ao criar jogador:', createError);
-                throw new Error('Erro ao criar jogador');
-            }
-
-            if (!createdPlayer) {
-                throw new Error('Falha ao criar jogador: nenhum dado retornado');
-            }
-
-            if (!createdPlayer) {
-                throw new Error('Falha ao criar jogador: nenhum dado retornado');
-            }
-
-            // Criar a relação na tabela user_player_relations
-            const relationData = {
-                user_id: currentUserId,
-                player_id: createdPlayer.id,
-                is_primary: true,
-                created_at: new Date().toISOString()
-            };
-
-            const { error: relationError } = await supabase
-                .from('user_player_relations')
-                .insert([relationData] as any);
-
-            if (relationError) {
-                console.error('Erro ao criar relação com o jogador:', relationError);
-                throw new Error('Erro ao criar relação com o jogador');
-            }
-
-            // Registrar a atividade de criação do jogador
-            try {
-                if (createdPlayer) {
-                    await activityService.createActivity({
-                        type: 'player',
-                        description: `Novo jogador "${data.name}" foi criado`,
-                        metadata: {
-                            player_id: createdPlayer.id,
-                            name: createdPlayer.name
-                        }
-                    });
-                }
-            } catch (activityError) {
-                console.error('Erro ao registrar atividade:', activityError);
-                // Não interrompe o fluxo principal em caso de falha no registro de atividade
-            }
-
-            // Atualiza a lista de jogadores em memória
-            await this.list();
-
-            return createdPlayer;
-        } catch (error) {
-            console.error('Erro ao criar jogador:', error);
-            throw error;
-        }
-    }
-
-    async list(fetchStats = false): Promise<{ myPlayers: Player[], communityPlayers: Player[] }> {
-        try {
-            // Verificar a sessão atual
-            const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-            console.log('Sessão atual:', sessionData.session);
-            console.log('Erro na sessão:', sessionError);
-
-            const { data: userData, error: userError } = await supabase.auth.getUser();
-            console.log('Dados do usuário:', userData);
-            console.log('Erro ao obter usuário:', userError);
-            
-            if (userError || !userData.user) {
-                console.error('Erro de autenticação:', userError || 'Usuário não autenticado');
-                throw userError || new Error('Usuário não autenticado');
-            }
-
-            console.log('Usuário autenticado:', userData.user.id);
-            console.log('E-mail do usuário:', userData.user.email);
-
-            // Buscar jogadores criados pelo usuário
             const { data: myPlayers, error: myPlayersError } = await supabase
                 .from('players')
-                .select(`
-                    *,
-                    user_player_relations(
-                        user_id,
-                        is_primary
-                    )
-                `)
-                .eq('created_by', userData.user.id as any) // Usando type assertion
-                .order('name');
-
-            console.log('Jogadores criados pelo usuário:', myPlayers);
+                .select('*, user_player_relations(*)')
+                .eq('created_by', userId);
 
             if (myPlayersError) {
-                console.error('Erro ao buscar jogadores criados:', myPlayersError);
-                throw new Error('Erro ao listar jogadores');
+                console.error('Erro ao buscar jogadores do usuário:', myPlayersError);
+                throw new Error('Erro ao buscar jogadores do usuário');
             }
 
-            // Buscar jogadores das comunidades onde sou organizador
             const { data: communityPlayers, error: communityPlayersError } = await supabase
                 .from('players')
-                .select(`
-                    *,
-                    user_player_relations(
-                        user_id,
-                        is_primary
-                    ),
-                    community_members!inner(
-                        community_id,
-                        communities!inner(
-                            id,
-                            community_organizers!inner(
-                                user_id
-                            )
-                        )
-                    )
-                `)
-                .eq('community_members.communities.community_organizers.user_id', userData.user.id as any) // Usando type assertion
-                .neq('created_by', userData.user.id as any) // Usando type assertion
-                .order('name');
-
-            console.log('Jogadores da comunidade:', communityPlayers);
+                .select('*, user_player_relations(*)')
+                .neq('created_by', userId);
 
             if (communityPlayersError) {
                 console.error('Erro ao buscar jogadores da comunidade:', communityPlayersError);
-                throw new Error('Erro ao listar jogadores');
+                throw new Error('Erro ao buscar jogadores da comunidade');
             }
 
-            // Processar jogadores
-            let players: Player[] = [];
+            const processedMyPlayers = (myPlayers || []).map((player: Player) => ({
+                ...player,
+                isMine: true,
+                isPrimaryUser: player.user_player_relations?.some(
+                    (rel: UserPlayerRelation) => rel.user_id === userId && rel.is_primary
+                ) || false
+            }));
 
-            // Adiciona os jogadores criados pelo usuário
-            if (myPlayers) {
-                console.log('Processando jogadores criados pelo usuário:', myPlayers);
-                players = (myPlayers as any[])
-                    .filter(playerData => {
-                        const isValid = playerData && 
-                                      typeof playerData === 'object' && 
-                                      playerData.id && 
-                                      playerData.name;
-                        if (!isValid) {
-                            console.log('Jogador inválido filtrado:', playerData);
-                        }
-                        return isValid;
-                    })
-                    .map(playerData => {
-                        const playerObj = playerData as any;
-                        const relations = Array.isArray(playerObj.user_player_relations)
-                            ? playerObj.user_player_relations 
-                            : [];
-                        
-                        console.log('Processando jogador:', playerObj.id, playerObj.name, 'Relações:', relations);
-                        
-                        return {
-                            id: playerObj.id,
-                            name: playerObj.name,
-                            phone: playerObj.phone || '',
-                            created_at: playerObj.created_at || new Date().toISOString(),
-                            created_by: playerObj.created_by || '',
-                            isMine: true,
-                            isLinkedUser: true,
-                            isPrimaryUser: relations.some((rel: any) => rel?.is_primary) || false,
-                            user_player_relations: relations,
-                            nickname: playerObj.nickname || undefined,
-                            avatar_url: playerObj.avatar_url || undefined,
-                            stats: playerObj.stats || undefined
-                        } as Player;
-                    });
-                
-                console.log('Jogadores processados:', players);
-            }
-
-            // Adiciona os jogadores da comunidade
-            if (communityPlayers) {
-                console.log('Processando jogadores da comunidade:', communityPlayers);
-                const communityPlayersMapped = (communityPlayers as any[])
-                    .filter(playerData => {
-                        const isValid = playerData && 
-                                      typeof playerData === 'object' && 
-                                      playerData.id && 
-                                      playerData.name;
-                        if (!isValid) {
-                            console.log('Jogador da comunidade inválido filtrado:', playerData);
-                        }
-                        return isValid;
-                    })
-                    .map(playerData => {
-                        const playerObj = playerData as any;
-                        const relations = Array.isArray(playerObj.user_player_relations)
-                            ? playerObj.user_player_relations 
-                            : [];
-                        
-                        console.log('Processando jogador da comunidade:', playerObj.id, playerObj.name, 'Relações:', relations);
-                        
-                        return {
-                            id: playerObj.id,
-                            name: playerObj.name,
-                            phone: playerObj.phone || '',
-                            created_at: playerObj.created_at || new Date().toISOString(),
-                            created_by: playerObj.created_by || '',
-                            isMine: false,
-                            isLinkedUser: true,
-                            isPrimaryUser: relations.some((rel: any) => rel?.is_primary) || false,
-                            nickname: playerObj.nickname || undefined,
-                            avatar_url: playerObj.avatar_url || undefined,
-                            stats: playerObj.stats || undefined,
-                            user_player_relations: relations
-                        } as Player;
-                    });
-                
-                console.log('Jogadores da comunidade processados:', communityPlayersMapped);
-                players = [...players, ...communityPlayersMapped];
-            }
-
-            // Separar jogadores próprios e da comunidade
-            const myPlayersList = players.filter(player => player.isMine);
-            const communityPlayersList = players.filter(player => !player.isMine);
-
-            // Se necessário, buscar estatísticas para cada jogador
-            if (fetchStats) {
-                const [myPlayersWithStats, communityPlayersWithStats] = await Promise.all([
-                    Promise.all(myPlayersList.map(async player => ({
-                        ...player,
-                        stats: await this.getPlayerStats(player.id)
-                    }))),
-                    Promise.all(communityPlayersList.map(async player => ({
-                        ...player,
-                        stats: await this.getPlayerStats(player.id)
-                    })))
-                ]);
-
-                return {
-                    myPlayers: myPlayersWithStats,
-                    communityPlayers: communityPlayersWithStats
-                };
-            }
+            const processedCommunityPlayers = (communityPlayers || []).map((player: Player) => ({
+                ...player,
+                isMine: false,
+                isPrimaryUser: player.user_player_relations?.some(
+                    (rel: UserPlayerRelation) => rel.user_id === userId && rel.is_primary
+                ) || false
+            }));
 
             return {
-                myPlayers: myPlayersList,
-                communityPlayers: communityPlayersList
+                myPlayers: processedMyPlayers,
+                communityPlayers: processedCommunityPlayers
             };
-        } catch (error) {
+        } catch (error: unknown) {
             console.error('Erro ao listar jogadores:', error);
-            throw error;
-        }
-    }
-
-    async getPlayerStats(playerId: string): Promise<PlayerStats> {
-        try {
-            // Implementação simplificada - você pode adicionar mais lógica conforme necessário
-            return {
-                total_games: 0,
-                wins: 0,
-                losses: 0,
-                buchudas: 0
-            };
-        } catch (error) {
-            console.error('Erro ao buscar estatísticas do jogador:', error);
-            return {
-                total_games: 0,
-                wins: 0,
-                losses: 0,
-                buchudas: 0
-            };
-        }
-    }
-
-    async update(id: string, data: Partial<Player>) {
-        try {
-            const updateData = {
-                ...data,
-                updated_at: new Date().toISOString()
-            } as const;
-            
-            const { data: updatedPlayer, error } = await supabase
-                .from('players')
-                .update(updateData as any) // Usando type assertion
-                .eq('id', id as any) // Usando type assertion
-                .select()
-                .single();
-
-            if (error) throw error;
-            return updatedPlayer;
-        } catch (error) {
-            console.error('Erro ao atualizar jogador:', error);
-            throw error;
-        }
-    }
-
-    async delete(id: string) {
-        try {
-            const { error } = await supabase
-                .from('players')
-                .delete()
-                .eq('id', id as any); // Usando type assertion
-
-            if (error) throw error;
-            return true;
-        } catch (error) {
-            console.error('Erro ao excluir jogador:', error);
-            throw error;
+            throw new Error('Erro ao listar jogadores');
         }
     }
 }

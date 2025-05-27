@@ -1,5 +1,5 @@
 // Definindo o tipo do tema
-interface ThemeType {
+export interface ThemeType {
   colors: {
     background: string;
     card: string;

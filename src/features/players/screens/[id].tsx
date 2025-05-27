@@ -227,7 +227,7 @@ export default function PlayerDetails() {
                             value={formData.phone}
                             onChangeText={(text) => setFormData(prev => ({ ...prev, phone: text }))}
                             keyboardType="phone-pad"
-                            maxLength={11}
+                            maxLength={15}
                         />
 
                         <ButtonsContainer>

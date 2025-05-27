@@ -1,17 +1,21 @@
-import React, { useEffect, useState } from 'react';
-import { Alert, TouchableOpacity } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import { Alert, TouchableOpacity, RefreshControl, FlatList, View, Text, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
-import styled from 'styled-components/native';
 import { useTheme } from '@/core/contexts/ThemeProvider';
-import { colors } from '@/styles/colors';
 import { playersService } from '@/features/players/services/playersService';
 import { PlayerAvatar } from '@/components/data-display/PlayerAvatar';
+import { MaterialIcons } from '@expo/vector-icons';
 
 type Player = {
     id: string;
     name: string;
     avatar_url: string | null;
     created_by: string;
+    isMine?: boolean;
+    isPrimary?: boolean;
+    phone?: string;
+    nickname?: string | null;
+    created_at?: string;
 };
 
 type PlayersListProps = {
@@ -21,16 +25,16 @@ type PlayersListProps = {
 
 export function PlayersList({ excludeIds = [], onSelectPlayer }: PlayersListProps) {
     const router = useRouter();
-    const { colors } = useTheme();
+    const theme = useTheme();
     const [myPlayers, setMyPlayers] = useState<Player[]>([]);
     const [communityPlayers, setCommunityPlayers] = useState<Player[]>([]);
     const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        loadPlayers();
-    }, []);
-
-    const loadPlayers = async () => {
+    const [refreshing, setRefreshing] = useState(false);
+    
+    const loadPlayers = useCallback(async (showLoading = true) => {
+        if (showLoading) setLoading(true);
+        setRefreshing(true);
+        
         try {
             const data = await playersService.list();
             
@@ -50,8 +54,19 @@ export function PlayersList({ excludeIds = [], onSelectPlayer }: PlayersListProp
             console.error(error);
         } finally {
             setLoading(false);
+            setRefreshing(false);
         }
-    };
+    }, [excludeIds]);
+    
+    // Atualiza a lista quando o componente é montado
+    useEffect(() => {
+        loadPlayers();
+    }, [loadPlayers]);
+    
+    // Função para atualizar a lista quando o usuário puxar para baixo
+    const onRefresh = useCallback(() => {
+        loadPlayers(false);
+    }, [loadPlayers]);
 
     const handlePlayerPress = (playerId: string) => {
         if (onSelectPlayer) {
@@ -61,114 +76,185 @@ export function PlayersList({ excludeIds = [], onSelectPlayer }: PlayersListProp
         }
     };
 
-    if (loading) {
+    const renderPlayerItem = useCallback(({ item }: { item: Player }) => (
+        <TouchableOpacity 
+            style={[styles.playerCard, { backgroundColor: theme.colors.card }]}
+            onPress={() => handlePlayerPress(item.id)}
+        >
+            <View style={styles.playerCardContent}>
+                <PlayerAvatar 
+                    avatarUrl={item.avatar_url} 
+                    name={item.name} 
+                    size={40} 
+                />
+                <View style={styles.playerInfo}>
+                    <Text style={[styles.playerName, { color: theme.colors.text }]}>{item.name}</Text>
+                    {item.nickname && (
+                        <Text style={[styles.playerNickname, { color: theme.colors.textSecondary }]}>
+                            @{item.nickname}
+                        </Text>
+                    )}
+                    {item.phone && (
+                        <Text style={[styles.playerPhone, { color: theme.colors.textSecondary }]}>
+                            {item.phone}
+                        </Text>
+                    )}
+                </View>
+                {item.isPrimary && (
+                    <View style={[styles.primaryBadge, { backgroundColor: theme.colors.backgroundLight }]}>
+                        <MaterialIcons name="star" size={16} color="#FFD700" />
+                        <Text style={[styles.primaryText, { color: theme.colors.accent }]}>Principal</Text>
+                    </View>
+                )}
+            </View>
+        </TouchableOpacity>
+    ), [theme]);
+
+    if (loading && !refreshing) {
         return (
-            <LoadingText>Carregando jogadores...</LoadingText>
+            <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+                <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>
+                    Carregando jogadores...
+                </Text>
+            </View>
         );
     }
 
     return (
-        <Container>
-            <Section>
-                <SectionTitle>Meus Jogadores</SectionTitle>
-                {myPlayers.length === 0 ? (
-                    <EmptyText>Você ainda não criou nenhum jogador</EmptyText>
-                ) : (
-                    <PlayerList
-                        data={myPlayers}
-                        keyExtractor={(item) => item.id}
-                        renderItem={({ item }) => (
-                            <PlayerCard onPress={() => handlePlayerPress(item.id)}>
-                                <PlayerCardContent>
-                                    <PlayerAvatar 
-                                        avatarUrl={item.avatar_url} 
-                                        name={item.name} 
-                                        size={40} 
-                                    />
-                                    <PlayerName>{item.name}</PlayerName>
-                                </PlayerCardContent>
-                            </PlayerCard>
-                        )}
-                    />
-                )}
-            </Section>
+        <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+            <RefreshControl 
+                refreshing={refreshing} 
+                onRefresh={onRefresh} 
+                colors={['#007AFF']}
+                tintColor="#007AFF"
+            >
+                <View style={styles.section}>
+                    <View style={styles.sectionHeader}>
+                        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+                            Meus Jogadores
+                        </Text>
+                        <TouchableOpacity 
+                            style={styles.refreshButton} 
+                            onPress={() => loadPlayers(false)}
+                        >
+                            <MaterialIcons name="refresh" size={20} color="#007AFF" />
+                        </TouchableOpacity>
+                    </View>
+                    
+                    {myPlayers.length === 0 ? (
+                        <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
+                            Você ainda não criou nenhum jogador
+                        </Text>
+                    ) : (
+                        <FlatList
+                            data={myPlayers}
+                            keyExtractor={(item) => item.id}
+                            renderItem={renderPlayerItem}
+                            scrollEnabled={false}
+                        />
+                    )}
+                </View>
 
-            <Section>
-                <SectionTitle>Jogadores das Comunidades</SectionTitle>
-                {communityPlayers.length === 0 ? (
-                    <EmptyText>Nenhum jogador disponível nas suas comunidades</EmptyText>
-                ) : (
-                    <PlayerList
-                        data={communityPlayers}
-                        keyExtractor={(item) => item.id}
-                        renderItem={({ item }) => (
-                            <PlayerCard onPress={() => handlePlayerPress(item.id)}>
-                                <PlayerCardContent>
-                                    <PlayerAvatar 
-                                        avatarUrl={item.avatar_url} 
-                                        name={item.name} 
-                                        size={40} 
-                                    />
-                                    <PlayerName>{item.name}</PlayerName>
-                                </PlayerCardContent>
-                            </PlayerCard>
-                        )}
-                    />
-                )}
-            </Section>
-        </Container>
+                <View style={styles.section}>
+                    <View style={styles.sectionHeader}>
+                        <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>
+                            Jogadores das Comunidades
+                        </Text>
+                        <TouchableOpacity 
+                            style={styles.refreshButton} 
+                            onPress={() => loadPlayers(false)}
+                        >
+                            <MaterialIcons name="refresh" size={20} color="#007AFF" />
+                        </TouchableOpacity>
+                    </View>
+                    
+                    {communityPlayers.length === 0 ? (
+                        <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
+                            Nenhum jogador disponível nas suas comunidades
+                        </Text>
+                    ) : (
+                        <FlatList
+                            data={communityPlayers}
+                            keyExtractor={(item) => item.id}
+                            renderItem={renderPlayerItem}
+                            scrollEnabled={false}
+                        />
+                    )}
+                </View>
+            </RefreshControl>
+        </View>
     );
 }
 
-const Container = styled.View`
-    flex: 1;
-    background-color: ${colors.background};
-`;
-
-const Section = styled.View`
-    margin-bottom: 24px;
-`;
-
-const SectionTitle = styled.Text`
-    font-size: 18px;
-    font-weight: bold;
-    color: ${colors.textPrimary};
-    margin-bottom: 12px;
-`;
-
-const PlayerList = styled.FlatList`
-    flex: 1;
-`;
-
-const PlayerCard = styled.TouchableOpacity`
-    padding: 16px;
-    background-color: ${colors.backgroundMedium};
-    border-radius: 8px;
-    margin-bottom: 8px;
-`;
-
-const PlayerCardContent = styled.View`
-    flex-direction: row;
-    align-items: center;
-`;
-
-const PlayerName = styled.Text`
-    font-size: 16px;
-    color: ${colors.textPrimary};
-    margin-left: 12px;
-`;
-
-const LoadingText = styled.Text`
-    color: ${colors.textPrimary};
-    font-size: 16px;
-    text-align: center;
-    margin-top: 20px;
-`;
-
-const EmptyText = styled.Text`
-    color: ${colors.textSecondary};
-    font-size: 14px;
-    text-align: center;
-    margin-top: 12px;
-`;
-
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        padding: 16,
+    },
+    section: {
+        marginBottom: 24,
+    },
+    sectionHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 10,
+    },
+    sectionTitle: {
+        fontSize: 18,
+        fontWeight: '600',
+        marginBottom: 8,
+    },
+    refreshButton: {
+        padding: 5,
+    },
+    playerCard: {
+        borderRadius: 8,
+        padding: 15,
+        marginBottom: 10,
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    playerCardContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+    },
+    playerInfo: {
+        marginLeft: 12,
+        flex: 1,
+    },
+    playerName: {
+        fontSize: 16,
+        fontWeight: '500',
+    },
+    playerNickname: {
+        fontSize: 14,
+        marginTop: 2,
+    },
+    playerPhone: {
+        fontSize: 13,
+        marginTop: 2,
+    },
+    primaryBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 4,
+        borderRadius: 12,
+        marginLeft: 10,
+    },
+    primaryText: {
+        fontSize: 12,
+        fontWeight: '500',
+        marginLeft: 4,
+    },
+    emptyText: {
+        fontStyle: 'italic',
+        textAlign: 'center',
+        marginTop: 10,
+    },
+    loadingText: {
+        textAlign: 'center',
+        marginTop: 20,
+    },
+});

@@ -181,7 +181,7 @@ export default function NewPlayer() {
                         value={formData.phone}
                         onChangeText={(text) => setFormData(prev => ({ ...prev, phone: text }))}
                         keyboardType="phone-pad"
-                        maxLength={11}
+                        maxLength={15}
                     />
                     
                     <ContactButton 

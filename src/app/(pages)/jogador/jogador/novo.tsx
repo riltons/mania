@@ -150,7 +150,7 @@ export default function NovoJogador() {
                         }}
                         placeholder="(00) 00000-0000"
                         keyboardType="phone-pad"
-                        maxLength={11}
+                        maxLength={15}
                         style={{
                             backgroundColor: colors.backgroundDark,
                         }}

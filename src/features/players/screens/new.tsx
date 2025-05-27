@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Alert, Modal, ToastAndroid, Platform, TouchableOpacity, Text } from 'react-native';
 import styled from 'styled-components/native';
 import { useTheme } from '@/core/contexts/ThemeProvider';
 import { playerService } from '@/features/players/services/playerService';
+import { playerRpcService, normalizePhoneNumber } from '@/features/players/services/playerRpcService';
 import { communityService, Community } from '@/features/communities/services/communityService';
 import { communityMembersService } from '@/features/communities/services/communityMembersService';
 import { Header } from '@/components/layout/Header';
@@ -14,6 +15,7 @@ import { BottomNavigation } from '@/components/layout/BottomNavigation';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as Contacts from 'expo-contacts';
+import { supabase } from '@/core/lib/supabase';
 
 export default function NewPlayer() {
     const router = useRouter();
@@ -102,15 +104,55 @@ export default function NewPlayer() {
 
             if (!formData.name.trim()) {
                 Alert.alert('Erro', 'O nome é obrigatório');
+                setLoading(false);
                 return;
             }
 
             if (!formData.phone.trim()) {
                 Alert.alert('Erro', 'O celular é obrigatório');
+                setLoading(false);
                 return;
             }
-
-            // Criar objeto com os dados do jogador
+            
+            // Primeiro verificamos se já existe um jogador com este telefone
+            // usando a busca robusta por RPC
+            console.log('Verificando se jogador já existe antes de criar...');
+            const existingPlayer = await playerRpcService.findPlayerByPhone(formData.phone);
+            
+            if (existingPlayer) {
+                console.log('Jogador encontrado com telefone:', formData.phone, 'ID:', existingPlayer.id);
+                
+                // Obtém a sessão atual para vincular o jogador ao usuário
+                const { data: { session } } = await supabase.auth.getSession();
+                const currentUserId = session?.user?.id;
+                
+                if (!currentUserId) {
+                    Alert.alert('Erro', 'Usuário não autenticado');
+                    setLoading(false);
+                    return;
+                }
+                
+                // Vincula o jogador existente ao usuário atual
+                const linked = await playerRpcService.linkPlayerToUser(
+                    existingPlayer.id,
+                    currentUserId
+                );
+                
+                if (linked) {
+                    Alert.alert('Sucesso', 'Jogador existente vinculado com sucesso!');
+                    setLoading(false);
+                    
+                    // Verificar o tipo de navegação disponível e usar o apropriado
+                    if (router && typeof router.replace === 'function') {
+                        router.replace(`/players/${existingPlayer.id}`);
+                    } else if (navigation && typeof navigation.navigate === 'function') {
+                        navigation.navigate('PlayerDetails', { id: existingPlayer.id });
+                    }
+                    return;
+                }
+            }
+            
+            // Se não encontrou jogador existente, continua com a criação normal
             const playerData: {
                 name: string;
                 nickname?: string;
@@ -181,7 +223,7 @@ export default function NewPlayer() {
                         value={formData.phone}
                         onChangeText={(text) => setFormData(prev => ({ ...prev, phone: text }))}
                         keyboardType="phone-pad"
-                        maxLength={11}
+                        maxLength={15}
                     />
                     
                     <ContactButton 
