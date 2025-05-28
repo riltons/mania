@@ -1,0 +1,572 @@
+import { supabase } from '@/core/lib/supabase';
+import { activityService } from '@/services/activityService';
+import { normalizePhoneNumber } from './playerRpcService';
+import { Platform } from 'react-native';
+import * as FileSystem from 'expo-file-system';
+
+export interface Player {
+    id: string;
+    name: string;
+    phone: string;
+    created_at: string;
+    nickname?: string | null;
+    created_by: string;
+    avatar_url?: string | null;
+    isMine?: boolean;
+    isPrimary?: boolean;
+    isLinkedUser?: boolean;
+    isPrimaryUser?: boolean;
+    user_player_relations?: Array<{
+        user_id: string;
+        is_primary: boolean;
+    }>;
+}
+
+interface RelatedPlayerResponse {
+    player: Player;
+    is_primary: boolean;
+}
+
+interface CommunityOrganizerResponse {
+    community_id: string;
+}
+
+interface CommunityMemberResponse {
+    player_id: string;
+}
+
+interface PlayersListResponse {
+    myPlayers: Player[];
+    communityPlayers: Player[];
+}
+
+export const playersService = {
+    async list(): Promise<PlayersListResponse> {
+        try {
+            console.log('Buscando jogadores...');
+            const { data: { user }, error: userError } = await supabase.auth.getUser();
+            
+            if (userError || !user?.id) {
+                console.error('Erro ao obter usuário:', userError?.message || 'Usuário não autenticado');
+                throw new Error('Erro ao carregar jogadores: usuário não autenticado');
+            }
+            
+            // 1. Busca as comunidades onde o usuário é organizador
+            console.log('Buscando comunidades para o usuário:', user.id);
+            const { data: organizerData, error: organizerError } = await supabase
+                .from('community_organizers')
+                .select('community_id')
+                .eq('user_id', user.id) as { data: CommunityOrganizerResponse[] | null, error: any };
+                
+            if (organizerError) {
+                console.error('Erro ao buscar comunidades do organizador:', organizerError);
+                throw organizerError;
+            }
+            
+            const communityIds = (organizerData || []).map(item => item.community_id);
+            
+            // 2. Busca os jogadores ativos vinculados ao usuário através da tabela user_player_relations
+            console.log('Buscando jogadores do usuário...');
+            const { data: userPlayers, error: userPlayersError } = await supabase
+                .from('user_player_relations')
+                .select(`
+                    player_id,
+                    is_primary,
+                    players!inner (
+                        id,
+                        name,
+                        phone,
+                        nickname,
+                        created_at,
+                        created_by,
+                        avatar_url
+                    )
+                `)
+                .eq('user_id', user.id) as { data: any[] | null, error: any };
+                
+            if (userPlayersError) {
+                console.error('Erro ao buscar jogadores do usuário:', userPlayersError);
+                throw userPlayersError;
+            }
+            
+            // 3. Busca os membros das comunidades onde o usuário é organizador
+            console.log('Buscando membros das comunidades...');
+            let communityPlayers: Player[] = [];
+            
+            if (communityIds.length > 0) {
+                const { data: communityMembersData, error: membersError } = await supabase
+                    .from('community_members')
+                    .select(`
+                        player_id,
+                        players!inner (
+                            id,
+                            name,
+                            phone,
+                            nickname,
+                            created_at,
+                            created_by,
+                            avatar_url
+                        )
+                    `)
+                    .in('community_id', communityIds) as { data: any[] | null, error: any };
+                    
+                if (membersError) {
+                    console.error('Erro ao buscar membros das comunidades:', membersError);
+                    throw membersError;
+                }
+                
+                // Extrai os jogadores dos membros das comunidades
+                const communityMemberPlayers = (communityMembersData || []).map(item => ({
+                    ...item.players,
+                    isMine: false
+                }));
+                
+                // Remove duplicatas baseado no ID do jogador
+                const uniquePlayerIds = new Set();
+                communityPlayers = communityMemberPlayers.filter(player => {
+                    if (uniquePlayerIds.has(player.id)) {
+                        return false;
+                    }
+                    uniquePlayerIds.add(player.id);
+                    return true;
+                });
+            }
+            
+            // 4. Formata os jogadores do usuário
+            const myPlayers = (userPlayers || []).map(item => ({
+                ...item.players,
+                isMine: true,
+                isPrimary: item.is_primary
+            }));
+            
+            // 5. Remove jogadores do usuário da lista de jogadores da comunidade
+            const myPlayerIds = new Set(myPlayers.map(p => p.id));
+            communityPlayers = communityPlayers.filter(p => !myPlayerIds.has(p.id));
+            
+            console.log(`Encontrados ${myPlayers.length} jogadores do usuário e ${communityPlayers.length} jogadores da comunidade`);
+            
+            return {
+                myPlayers,
+                communityPlayers
+            };
+        } catch (error) {
+            console.error('Erro ao listar jogadores:', error);
+            throw error;
+        }
+    },
+
+    async getPlayer(id: string): Promise<Player> {
+        try {
+            console.log(`Buscando jogador ${id}...`);
+            
+            // Busca o jogador pelo ID
+            const { data, error } = await supabase
+                .from('players')
+                .select(`
+                    *,
+                    user_player_relations!left(
+                        user_id,
+                        is_primary
+                    )
+                `)
+                .eq('id', id)
+                .single() as { data: any | null, error: any };
+                
+            if (error) {
+                console.error('Erro ao buscar jogador:', error);
+                throw error;
+            }
+            
+            if (!data) {
+                throw new Error('Jogador não encontrado');
+            }
+            
+            const userPlayerRelations = data.user_player_relations || [];
+            
+            // Verifica se o usuário atual é o dono do jogador
+            const { data: { user } } = await supabase.auth.getUser();
+            const isMine = user?.id ? userPlayerRelations.some(rel => rel.user_id === user.id) : false;
+            
+            // Formata o jogador com informações adicionais
+            const player: Player = {
+                ...data,
+                isMine,
+                user_player_relations: userPlayerRelations
+            };
+            
+            return player;
+        } catch (error) {
+            console.error('Erro ao buscar jogador:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Vincula um jogador existente ao usuário atual
+     * @param playerId ID do jogador a ser vinculado
+     * @param userId ID do usuário ao qual o jogador será vinculado
+     * @returns Promise<boolean> True se o vínculo foi criado/atualizado com sucesso
+     */
+    async linkPlayerToCurrentUser(playerId: string, userId: string): Promise<boolean> {
+        try {
+            console.log(`[PlayerService] Vinculando jogador ${playerId} ao usuário ${userId}`);
+            
+            // Chama a função RPC para vincular o jogador ao usuário
+            const { data: linkResult, error: linkError } = await supabase.rpc(
+                'link_player_to_user',
+                { 
+                    player_id: playerId, 
+                    user_id: userId, 
+                    is_primary: false // Não é o jogador primário por padrão
+                }
+            );
+            
+            if (linkError) {
+                // Se for um erro de chave duplicada, a relação já existe
+                if (linkError.code === '23505') {
+                    console.log('[PlayerService] Relação jogador-usuário já existe');
+                    return true;
+                } else {
+                    console.error('[PlayerService] Erro ao vincular jogador ao usuário:', linkError);
+                    throw linkError;
+                }
+            }
+            
+            console.log('[PlayerService] Jogador vinculado com sucesso ao usuário:', linkResult);
+            return true;
+        } catch (error) {
+            console.error('[PlayerService] Erro ao vincular jogador ao usuário:', error);
+            return false;
+        }
+    },
+
+    async createPlayer(data: { name: string; phone: string; nickname?: string; avatar_url?: string }): Promise<Player> {
+        try {
+            console.log('[PlayerService] Iniciando criação de jogador:', data);
+            
+            // Normaliza o telefone
+            const normalizedPhone = normalizePhoneNumber(data.phone);
+            console.log('[PlayerService] Telefone normalizado:', data.phone, '->', normalizedPhone);
+            
+            if (!normalizedPhone || normalizedPhone.length < 10) {
+                throw new Error('Número de telefone inválido');
+            }
+            
+            // Estratégia 1: Usar a função RPC para buscar jogador por telefone
+            console.log('[PlayerService] Buscando jogador existente com RPC:', normalizedPhone);
+            const playerFromRpc = await supabase.rpc('find_player_by_phone', {
+                search_phone: normalizedPhone
+            });
+            
+            let existingPlayer = null;
+            if (playerFromRpc.data && playerFromRpc.data.length > 0) {
+                console.log('[PlayerService] Jogador encontrado via RPC:', playerFromRpc.data[0]);
+                existingPlayer = playerFromRpc.data[0];
+            } else {
+                // Estratégia 2: Busca direta na tabela players
+                console.log('[PlayerService] Buscando jogador diretamente na tabela players');
+                const { data: playerFromTable, error: findError } = await supabase
+                    .from('players')
+                    .select('*')
+                    .eq('phone', normalizedPhone)
+                    .maybeSingle() as { data: Player | null, error: any };
+                
+                if (findError) {
+                    console.error('Erro ao buscar jogador:', findError);
+                    throw findError;
+                }
+                
+                if (playerFromTable) {
+                    console.log('[PlayerService] Jogador encontrado na tabela:', playerFromTable);
+                    existingPlayer = playerFromTable;
+                }
+            }
+            
+            // Obtém o ID do usuário autenticado
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user?.id) {
+                throw new Error('Usuário não autenticado');
+            }
+            
+            // Se encontrou um jogador existente, vincula ao usuário atual
+            if (existingPlayer) {
+                console.log('[PlayerService] Jogador já existe:', existingPlayer);
+                
+                // Vincula o jogador existente ao usuário atual
+                await this.linkPlayerToCurrentUser(existingPlayer.id, user.id);
+                
+                return existingPlayer;
+            }
+
+            // Tenta criar o novo jogador, mas trata o caso de concorrência
+            try {
+                console.log('[PlayerService] Tentando criar novo jogador:', {
+                    name: data.name,
+                    phone: normalizedPhone
+                });
+                
+                const { data: player, error: playerError } = await supabase
+                    .from('players')
+                    .insert([{ 
+                        name: data.name,
+                        phone: normalizedPhone,
+                        nickname: data.nickname || null,
+                        avatar_url: data.avatar_url || null,
+                        created_by: user.id
+                    }])
+                    .select()
+                    .single() as { data: Player | null, error: any };
+
+                if (playerError) {
+                    // Se for erro de chave duplicada, outro usuário pode ter criado o jogador
+                    // entre nossa verificação e tentativa de criação
+                    if (playerError.code === '23505' && playerError.message.includes('players_phone_key')) {
+                        console.log('[PlayerService] Conflito na criação: jogador com mesmo telefone já existe');
+                        
+                        // Busca novamente o jogador que foi criado por outro usuário
+                        console.log('[PlayerService] Buscando jogador novamente após conflito');
+                        const { data: conflictPlayer } = await supabase
+                            .from('players')
+                            .select('*')
+                            .eq('phone', normalizedPhone)
+                            .single() as { data: Player | null, error: any };
+                            
+                        if (conflictPlayer) {
+                            console.log('[PlayerService] Jogador encontrado após conflito:', conflictPlayer);
+                            
+                            // Vincula o jogador existente ao usuário atual
+                            await this.linkPlayerToCurrentUser(conflictPlayer.id, user.id);
+                            
+                            return conflictPlayer;
+                        } else {
+                            throw new Error('Falha ao recuperar jogador após conflito de criação');
+                        }
+                    } else {
+                        console.error('[PlayerService] Erro ao criar jogador:', playerError);
+                        throw playerError;
+                    }
+                }
+
+                console.log('[PlayerService] Jogador criado com sucesso:', player);
+
+                if (!player) {
+                    throw new Error('Falha ao criar jogador');
+                }
+
+                // Registrar a atividade de criação do jogador com sistema de retry
+                const maxRetries = 3;
+                const baseDelay = 1000; // 1 segundo
+
+                const createActivityWithRetry = async (attempt: number): Promise<boolean> => {
+                    try {
+                        console.log(`Tentativa ${attempt} de criar atividade...`);
+                        await activityService.createActivity({
+                            type: 'player',
+                            description: `Novo jogador "${data.name}" foi criado`,
+                            metadata: {
+                                player_id: player.id,
+                                name: player.name
+                            }
+                        });
+                        console.log('Atividade criada com sucesso!');
+                        return true;
+                    } catch (activityError) {
+                        console.error(`Erro na tentativa ${attempt}:`, activityError);
+                        
+                        if (attempt < maxRetries) {
+                            const delay = baseDelay * Math.pow(2, attempt - 1); // Exponential backoff
+                            console.log(`Aguardando ${delay}ms antes da próxima tentativa...`);
+                            await new Promise<void>(resolve => setTimeout(resolve, delay));
+                            return createActivityWithRetry(attempt + 1);
+                        }
+                        
+                        console.error('Todas as tentativas de criar atividade falharam');
+                        return false;
+                    }
+                };
+
+                // Inicia o processo de retry em background
+                createActivityWithRetry(1).catch(error => {
+                    console.error('Erro no processo de retry:', error);
+                });
+
+                return player;
+            } catch (createError) {
+                console.error('[PlayerService] Erro ao criar jogador:', createError);
+                throw createError;
+            }
+        } catch (error) {
+            console.error('Erro ao criar jogador:', error);
+            throw error;
+        }
+    },
+
+    async deletePlayer(id: string): Promise<boolean> {
+        try {
+            console.log(`Iniciando exclusão do jogador ${id}...`);
+            
+            // 1. Primeiro obtém os dados do jogador para registrar a atividade
+            const { data: player, error: fetchError } = await supabase
+                .from('players')
+                .select('*')
+                .eq('id', id)
+                .single();
+
+            if (fetchError || !player) {
+                console.error('Erro ao buscar jogador para exclusão:', fetchError);
+                throw fetchError || new Error('Jogador não encontrado');
+            }
+
+            // 2. Exclui o jogador
+            const { error: deleteError } = await supabase
+                .from('players')
+                .delete()
+                .eq('id', id);
+
+            if (deleteError) {
+                console.error('Erro ao excluir jogador:', deleteError);
+                throw deleteError;
+            }
+
+            // 3. Registra a atividade de exclusão
+            try {
+                await activityService.createActivity({
+                    type: 'player',
+                    description: `Jogador "${player.name}" foi excluído`,
+                    metadata: {
+                        player_id: player.id,
+                        name: player.name
+                    }
+                });
+                console.log('Atividade de exclusão registrada com sucesso');
+            } catch (activityError) {
+                console.error('Erro ao registrar atividade de exclusão:', activityError);
+                // Não interrompe o fluxo se falhar ao registrar a atividade
+            }
+
+            console.log(`Jogador ${id} excluído com sucesso`);
+            return true;
+        } catch (error) {
+            console.error('Erro ao excluir jogador:', error);
+            throw error;
+        }
+    },
+
+    async uploadAvatar(playerId: string, uri: string): Promise<string> {
+        try {
+            console.log(`Iniciando upload de avatar para o jogador ${playerId}...`);
+            
+            // Gera um nome de arquivo único baseado no ID do jogador e timestamp
+            const timestamp = new Date().getTime();
+            const fileName = `${playerId}_${timestamp}.jpg`;
+            
+            // Converte a URI da imagem para base64 (necessário para upload)
+            console.log('Preparando imagem para upload...');
+            let base64Data = '';
+            
+            // Tratamento diferente para web e mobile
+            if (Platform.OS === 'web') {
+                // Para web, precisamos fazer fetch da imagem e converter para base64
+                const response = await fetch(uri);
+                const blob = await response.blob();
+                
+                // Converte blob para base64
+                const reader = new FileReader();
+                base64Data = await new Promise<string>((resolve, reject) => {
+                    reader.onload = () => resolve(reader.result as string);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(blob);
+                });
+                
+                // Remove o prefixo data:image/jpeg;base64, do base64
+                base64Data = base64Data.split(',')[1];
+            } else {
+                // Para mobile, usamos o Expo FileSystem
+                const fileInfo = await FileSystem.getInfoAsync(uri);
+                
+                if (!fileInfo.exists) {
+                    throw new Error(`Arquivo não encontrado: ${uri}`);
+                }
+                
+                base64Data = await FileSystem.readAsStringAsync(uri, {
+                    encoding: FileSystem.EncodingType.Base64
+                });
+            }
+            
+            if (!base64Data) {
+                throw new Error('Falha ao converter imagem para base64');
+            }
+            
+            // Faz o upload para o bucket de avatares
+            console.log('Enviando imagem para o storage...');
+            const { data: uploadData, error: uploadError } = await supabase.storage
+                .from('player-avatars')
+                .upload(fileName, base64Data, {
+                    contentType: 'image/jpeg',
+                    upsert: true
+                });
+                
+            // Se falhar no bucket principal, tenta no bucket alternativo
+            if (uploadError && uploadError.toString().includes('Bucket not found')) {
+                console.log('Bucket principal não encontrado, tentando bucket alternativo...');
+                const { error: altError } = await supabase.storage
+                    .from('avatars')
+                    .upload(`players/${fileName}`, base64Data, {
+                        contentType: 'image/jpeg',
+                        upsert: true
+                    });
+                    
+                if (altError) {
+                    console.error('Erro ao fazer upload para bucket alternativo:', altError);
+                    throw altError;
+                }
+            } else if (uploadError) {
+                console.error('Erro ao fazer upload do avatar:', uploadError);
+                throw uploadError;
+            }
+            
+            // Obtém a URL pública da imagem
+            console.log('Obtendo URL pública da imagem...');
+            let publicUrl = '';
+            
+            if (uploadError && uploadError.toString().includes('Bucket not found')) {
+                // Se o upload foi para o bucket alternativo
+                const { data } = supabase.storage
+                    .from('avatars')
+                    .getPublicUrl(`players/${fileName}`);
+                publicUrl = data.publicUrl;
+            } else {
+                // Se o upload foi para o bucket original
+                const { data } = supabase.storage
+                    .from('player-avatars')
+                    .getPublicUrl(fileName);
+                publicUrl = data.publicUrl;
+            }
+            
+            console.log('URL pública obtida:', publicUrl);
+            
+            if (!publicUrl) {
+                throw new Error('Não foi possível obter a URL pública da imagem');
+            }
+            
+            // Atualiza o jogador com a nova URL do avatar
+            console.log('Atualizando jogador com a nova URL do avatar...');
+            const { error: updateError } = await supabase
+                .from('players')
+                .update({ avatar_url: publicUrl })
+                .eq('id', playerId);
+            
+            if (updateError) {
+                console.error('Erro ao atualizar o jogador com o novo avatar:', updateError);
+                throw new Error('Falha ao atualizar o perfil do jogador');
+            }
+            
+            console.log('Avatar atualizado com sucesso:', publicUrl);
+            return publicUrl;
+            
+        } catch (error) {
+            console.error('Erro ao fazer upload do avatar:', error);
+            throw error;
+        }
+    }
+};

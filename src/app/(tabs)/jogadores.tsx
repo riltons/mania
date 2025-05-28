@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Alert, FlatList, RefreshControl, ActivityIndicator, View, Text, TouchableOpacity, Pressable } from 'react-native';
+import { Alert, FlatList, RefreshControl, ActivityIndicator, View, TouchableOpacity, Text, Pressable } from 'react-native';
 import styled from 'styled-components/native';
 import { MaterialCommunityIcons, Feather, FontAwesome5 } from '@expo/vector-icons';
 import { PlayerAvatar } from '@/components/data-display/PlayerAvatar';
@@ -26,15 +26,18 @@ declare module 'styled-components' {
   export interface DefaultTheme {
     colors: {
       background: string;
+      backgroundDark: string;
+      backgroundMedium: string;
       card: string;
       text: string;
+      textPrimary: string;
       textSecondary: string;
       success: string;
       backgroundLight: string;
-      textPrimary: string;
       accent: string;
-      error: string;
+      primary: string;
       white: string;
+      tertiary: string;
     };
     spacing: {
       small: number;
@@ -265,14 +268,21 @@ function JogadoresScreen() {
             const result = await playersService.list();
             console.log('Resultado do playersService.list():', result);
             
-            // Garantir que os arrays não sejam nulos
-            const myPlayersList = Array.isArray(result?.myPlayers) ? result.myPlayers : [];
-            const communityPlayersList = Array.isArray(result?.communityPlayers) ? result.communityPlayers : [];
-            
-            console.log(`Encontrados ${myPlayersList.length} jogadores próprios e ${communityPlayersList.length} jogadores da comunidade`);
-            
-            setMyPlayers(myPlayersList);
-            setCommunityPlayers(communityPlayersList);
+            // Processar os jogadores retornados pelo serviço
+            if (result && result.data) {
+                // Separar jogadores próprios e compartilhados
+                const ownPlayers = result.data.filter(player => !player.isCreatedByOtherUser);
+                const sharedPlayers = result.data.filter(player => player.isCreatedByOtherUser);
+                
+                console.log(`Encontrados ${ownPlayers.length} jogadores próprios e ${sharedPlayers.length} jogadores compartilhados`);
+                
+                setMyPlayers(ownPlayers);
+                setCommunityPlayers(sharedPlayers);
+            } else {
+                console.log('Nenhum jogador encontrado ou resultado inválido');
+                setMyPlayers([]);
+                setCommunityPlayers([]);
+            }
         } catch (error) {
             console.error('Erro ao carregar jogadores:', error);
             Alert.alert('Erro', 'Não foi possível carregar os jogadores');
@@ -311,7 +321,7 @@ function JogadoresScreen() {
                     style: 'destructive',
                     onPress: async () => {
                         try {
-                            await playersService.deletePlayer(player.id);
+                            await playersService.delete(player.id);
                             Alert.alert('Sucesso', 'Jogador excluído com sucesso');
                             loadPlayers();
                         } catch (error) {
@@ -544,6 +554,24 @@ function JogadoresScreen() {
     return (
         <Container>
             <Header title="JOGADORES" />
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 16, paddingTop: 8 }}>
+                <TouchableOpacity 
+                    onPress={() => router.push('/jogadores/compartilhados')}
+                    style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        backgroundColor: theme.colors.accent + '20',
+                        paddingVertical: 8,
+                        paddingHorizontal: 12,
+                        borderRadius: 8
+                    }}
+                >
+                    <MaterialCommunityIcons name="account-multiple" size={18} color={theme.colors.accent} />
+                    <Text style={{ marginLeft: 6, color: theme.colors.accent, fontWeight: '500' }}>
+                        Jogadores Compartilhados
+                    </Text>
+                </TouchableOpacity>
+            </View>
             <Content>
                 <FlatList<SectionItem>
                     data={sections}

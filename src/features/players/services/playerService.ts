@@ -1,4 +1,5 @@
 import { supabase } from '@/core/lib/supabase';
+import { findAndLinkPlayerByPhone } from './findAndLinkPlayerService';
 import { activityService } from '@/services/activityService';
 import { normalizePhoneNumber, playerRpcService } from './playerRpcService';
 
@@ -20,6 +21,9 @@ export interface Player {
     isLinkedUser?: boolean;
     isMine?: boolean;
     isPrimaryUser?: boolean;
+    isCreatedByOtherUser?: boolean;
+    sharedPlayer?: boolean;
+    isPrimary?: boolean;
     stats?: PlayerStats;
     message?: string;
     user_player_relations?: UserPlayerRelation[];
@@ -138,12 +142,45 @@ export class PlayerService {
                 throw validationError;
             }
 
-            // Tenta encontrar um jogador existente
+            // Tenta encontrar um jogador existente e vinculá-lo ao usuário atual
             log('Buscando jogador existente para o telefone', { normalizedPhone });
+            
+            // Primeiro, tenta encontrar e vincular o jogador com a nova função
+            const linkedPlayer = await findAndLinkPlayerByPhone(normalizedPhone, currentUserId, 'CreatePlayer');
+            
+            if (linkedPlayer) {
+                log('Jogador existente encontrado e vinculado', { 
+                    id: linkedPlayer.id, 
+                    name: linkedPlayer.name, 
+                    phone: linkedPlayer.phone,
+                    isShared: linkedPlayer.is_shared
+                });
+                
+                // Converter o LinkedPlayer para o formato Player esperado
+                const player: Player = {
+                    id: linkedPlayer.id,
+                    name: linkedPlayer.name,
+                    phone: linkedPlayer.phone,
+                    nickname: linkedPlayer.nickname || '',
+                    avatar_url: linkedPlayer.avatar_url || '',
+                    created_at: linkedPlayer.created_at,
+                    created_by: linkedPlayer.created_by,
+                    isCreatedByOtherUser: linkedPlayer.is_shared,
+                    sharedPlayer: linkedPlayer.is_shared,
+                    isPrimary: linkedPlayer.is_primary
+                };
+                
+                log('Retornando jogador vinculado', { 
+                    playerId: player.id 
+                });
+                return player;
+            }
+            
+            // Se não encontrou com a nova função, tenta com o método antigo
             const existingPlayer = await this.findByPhone(normalizedPhone);
-
+            
             if (existingPlayer) {
-                log('Jogador existente encontrado', { 
+                log('Jogador existente encontrado com método antigo', { 
                     id: existingPlayer.id, 
                     name: existingPlayer.name, 
                     phone: existingPlayer.phone 

@@ -1,18 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, TouchableOpacity } from 'react-native';
+import { Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import styled from 'styled-components/native';
 import { useTheme } from '@/core/contexts/ThemeProvider';
 import { colors } from '@/styles/colors';
-import { playersService } from '@/features/players/services/playersService';
-import { PlayerAvatar } from '@/components/data-display/PlayerAvatar';
+import { playersService, Player as PlayerType } from '@/features/players/services/playersService';
+import { PlayerItem } from '@/components/data-display/PlayerItem';
 
-type Player = {
-    id: string;
-    name: string;
-    avatar_url: string | null;
-    created_by: string;
-};
+// Usamos o tipo Player importado do serviço
+type Player = PlayerType;
 
 type PlayersListProps = {
     excludeIds?: string[];
@@ -78,16 +74,10 @@ export function PlayersList({ excludeIds = [], onSelectPlayer }: PlayersListProp
                         data={myPlayers}
                         keyExtractor={(item) => item.id}
                         renderItem={({ item }) => (
-                            <PlayerCard onPress={() => handlePlayerPress(item.id)}>
-                                <PlayerCardContent>
-                                    <PlayerAvatar 
-                                        avatarUrl={item.avatar_url} 
-                                        name={item.name} 
-                                        size={40} 
-                                    />
-                                    <PlayerName>{item.name}</PlayerName>
-                                </PlayerCardContent>
-                            </PlayerCard>
+                            <PlayerItem 
+                                player={item} 
+                                onPress={handlePlayerPress} 
+                            />
                         )}
                     />
                 )}
@@ -102,16 +92,10 @@ export function PlayersList({ excludeIds = [], onSelectPlayer }: PlayersListProp
                         data={communityPlayers}
                         keyExtractor={(item) => item.id}
                         renderItem={({ item }) => (
-                            <PlayerCard onPress={() => handlePlayerPress(item.id)}>
-                                <PlayerCardContent>
-                                    <PlayerAvatar 
-                                        avatarUrl={item.avatar_url} 
-                                        name={item.name} 
-                                        size={40} 
-                                    />
-                                    <PlayerName>{item.name}</PlayerName>
-                                </PlayerCardContent>
-                            </PlayerCard>
+                            <PlayerItem 
+                                player={item} 
+                                onPress={handlePlayerPress} 
+                            />
                         )}
                     />
                 )}
@@ -122,7 +106,7 @@ export function PlayersList({ excludeIds = [], onSelectPlayer }: PlayersListProp
 
 const Container = styled.View`
     flex: 1;
-    background-color: ${colors.background};
+    background-color: ${({ theme }: { theme: any }) => theme.colors.background};
 `;
 
 const Section = styled.View`
@@ -138,24 +122,6 @@ const SectionTitle = styled.Text`
 
 const PlayerList = styled.FlatList`
     flex: 1;
-`;
-
-const PlayerCard = styled.TouchableOpacity`
-    padding: 16px;
-    background-color: ${colors.backgroundMedium};
-    border-radius: 8px;
-    margin-bottom: 8px;
-`;
-
-const PlayerCardContent = styled.View`
-    flex-direction: row;
-    align-items: center;
-`;
-
-const PlayerName = styled.Text`
-    font-size: 16px;
-    color: ${colors.textPrimary};
-    margin-left: 12px;
 `;
 
 const LoadingText = styled.Text`
