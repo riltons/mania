@@ -207,7 +207,7 @@ export const rankingService = {
                 const isBuchudaDeRe = game.status === 'buchuda_de_re';
                 
                 // Atualizar estatísticas para cada jogador no time 1
-                team1.forEach(playerId => {
+                team1.forEach((playerId: string) => {
                     const stats = playerStats.get(playerId);
                     if (stats) {
                         stats.games++;
@@ -231,7 +231,7 @@ export const rankingService = {
                 });
                 
                 // Atualizar estatísticas para cada jogador no time 2
-                team2.forEach(playerId => {
+                team2.forEach((playerId: string) => {
                     const stats = playerStats.get(playerId);
                     if (stats) {
                         stats.games++;
@@ -255,26 +255,29 @@ export const rankingService = {
                 });
             });
             
-            // Converter para array e ordenar por vitórias
-            const rankings = Array.from(playerStats.values()).map(stats => ({
-                id: stats.id,
-                name: stats.name,
-                nickname: stats.nickname,
-                games: stats.games,
-                wins: stats.wins,
-                losses: stats.losses,
-                goalsScored: stats.goalsScored,
-                goalsConceded: stats.goalsConceded,
-                winRate: stats.winRate,
-                buchudas: stats.buchudas,
-                buchudasTaken: stats.buchudasTaken,
-                buchudasDeRe: stats.buchudasDeRe,
-                buchudasDeReTaken: stats.buchudasDeReTaken,
-                pointsGained: stats.pointsGained,
-                pointsLost: stats.pointsLost,
-                totalGames: stats.games
-            }));
+            // Converter para array, filtrar jogadores com pelo menos 1 jogo e ordenar por vitórias
+            const rankings = Array.from(playerStats.values())
+                .filter(stats => stats.games > 0) // Filtra apenas jogadores que jogaram pelo menos uma vez
+                .map(stats => ({
+                    id: stats.id,
+                    name: stats.name,
+                    nickname: stats.nickname,
+                    games: stats.games,
+                    wins: stats.wins,
+                    losses: stats.losses,
+                    goalsScored: stats.goalsScored,
+                    goalsConceded: stats.goalsConceded,
+                    winRate: stats.winRate,
+                    buchudas: stats.buchudas,
+                    buchudasTaken: stats.buchudasTaken,
+                    buchudasDeRe: stats.buchudasDeRe,
+                    buchudasDeReTaken: stats.buchudasDeReTaken,
+                    pointsGained: stats.pointsGained,
+                    pointsLost: stats.pointsLost,
+                    totalGames: stats.games
+                }));
             
+            // Ordena por número de vitórias (do maior para o menor)
             return rankings.sort((a, b) => b.wins - a.wins);
             
         } catch (error) {

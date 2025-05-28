@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { View, ScrollView, TouchableOpacity, Dimensions, RefreshControl, Alert } from "react-native";
+import { View, ScrollView, TouchableOpacity, Dimensions, RefreshControl, Alert, Text } from "react-native";
 import styled from "styled-components/native";
 import { useTheme } from "@/core/contexts/ThemeProvider";
 import { MaterialCommunityIcons, Feather } from "@expo/vector-icons";
@@ -15,6 +15,7 @@ import { rankingService } from "@/services/rankingService";
 import { activityService } from "@/services/activityService";
 import { supabase } from "@/lib/supabase";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
+import { DefaultTheme } from 'styled-components';
 
 interface Stats {
     totalGames: number;
@@ -58,7 +59,7 @@ interface Activity {
 
 const Container = styled.View`
     flex: 1;
-    background-color: ${({ theme }) => theme.colors.backgroundDark};
+    background-color: ${({ theme }: { theme: DefaultTheme }) => theme.colors.backgroundDark};
 `;
 
 const ScrollContent = styled.ScrollView`
@@ -78,12 +79,12 @@ const WelcomeContainer = styled.View`
 const WelcomeText = styled.Text`
     font-size: 28px;
     font-weight: bold;
-    color: ${({ theme }) => theme.colors.textPrimary};
+    color: ${({ theme }: { theme: DefaultTheme }) => theme.colors.textPrimary};
 `;
 
 const WelcomeSubtext = styled.Text`
     font-size: 16px;
-    color: ${({ theme }) => theme.colors.textSecondary};
+    color: ${({ theme }: { theme: DefaultTheme }) => theme.colors.textSecondary};
     margin-top: 4px;
 `;
 
@@ -100,20 +101,20 @@ const StatCardWrapper = styled.View`
 `;
 
 const StatCard = styled.TouchableOpacity`
-    background-color: ${({ theme }) => theme.colors.backgroundMedium};
+    background-color: ${({ theme }: { theme: DefaultTheme }) => theme.colors.backgroundMedium};
     border-radius: 16px;
     padding: 20px;
     width: 100%;
     align-items: center;
     elevation: 3;
-    border: 1px solid ${({ theme }) => theme.colors.tertiary}40;
+    border: 1px solid ${({ theme }: { theme: DefaultTheme }) => theme.colors.tertiary}40;
 `;
 
 const StatIcon = styled.View`
     width: 40px;
     height: 40px;
     border-radius: 20px;
-    background-color: ${({ theme }) => theme.colors.primary}20;
+    background-color: ${({ theme }: { theme: DefaultTheme }) => theme.colors.primary}20;
     align-items: center;
     justify-content: center;
     margin-bottom: 8px;
@@ -122,29 +123,29 @@ const StatIcon = styled.View`
 const StatValue = styled.Text`
     font-size: 24px;
     font-weight: bold;
-    color: ${({ theme }) => theme.colors.textPrimary};
+    color: ${({ theme }: { theme: DefaultTheme }) => theme.colors.textPrimary};
     margin-top: 8px;
 `;
 
 const StatLabel = styled.Text`
     font-size: 14px;
-    color: ${({ theme }) => theme.colors.textSecondary};
-    margin-top: 4px;
+    color: ${({ theme }: { theme: DefaultTheme }) => theme.colors.textSecondary};
+    text-align: center;
 `;
 
 const ChartContainer = styled.View`
-    background-color: ${({ theme }) => theme.colors.backgroundMedium};
+    background-color: ${({ theme }: { theme: DefaultTheme }) => theme.colors.backgroundMedium};
     border-radius: 16px;
     padding: 20px;
     margin: 0 20px 20px;
-    border: 1px solid ${({ theme }) => theme.colors.tertiary}40;
+    border: 1px solid ${({ theme }: { theme: DefaultTheme }) => theme.colors.tertiary}40;
     align-items: center;
 `;
 
 const ChartTitle = styled.Text`
     font-size: 16px;
     font-weight: bold;
-    color: ${({ theme }) => theme.colors.textPrimary};
+    color: ${({ theme }: { theme: DefaultTheme }) => theme.colors.textPrimary};
     margin-bottom: 16px;
 `;
 
@@ -163,17 +164,18 @@ const SectionHeader = styled.View`
 const SectionTitle = styled.Text`
     font-size: 20px;
     font-weight: bold;
-    color: ${({ theme }) => theme.colors.textPrimary};
+    color: ${({ theme }: { theme: DefaultTheme }) => theme.colors.textPrimary};
+    margin: 20px 20px 10px;
 `;
 
 const SeeAllButton = styled.TouchableOpacity`
     padding: 8px 16px;
-    background-color: ${({ theme }) => theme.colors.primary};
+    background-color: ${({ theme }: { theme: DefaultTheme }) => theme.colors.primary};
     border-radius: 8px;
 `;
 
 const SeeAllButtonText = styled.Text`
-    color: ${({ theme }) => theme.colors.white};
+    color: ${({ theme }: { theme: DefaultTheme }) => theme.colors.white};
     font-size: 14px;
     font-weight: bold;
 `;
@@ -181,11 +183,11 @@ const SeeAllButtonText = styled.Text`
 const PlayerCard = styled.TouchableOpacity`
     flex-direction: row;
     align-items: center;
-    background-color: ${({ theme }) => theme.colors.backgroundMedium};
+    background-color: ${({ theme }: { theme: DefaultTheme }) => theme.colors.backgroundMedium};
     border-radius: 12px;
     padding: 16px;
     margin-bottom: 12px;
-    border: 1px solid ${({ theme }) => theme.colors.tertiary}40;
+    border: 1px solid ${({ theme }: { theme: DefaultTheme }) => theme.colors.tertiary}40;
 `;
 
 const PlayerInfo = styled.View`
@@ -196,23 +198,28 @@ const PlayerInfo = styled.View`
 const PlayerName = styled.Text`
     font-size: 16px;
     font-weight: bold;
-    color: ${({ theme }) => theme.colors.textPrimary};
+    color: ${({ theme }: { theme: DefaultTheme }) => theme.colors.textPrimary};
 `;
 
-const PlayerStats = styled.Text`
-    font-size: 14px;
-    color: ${({ theme }) => theme.colors.textSecondary};
-    margin-top: 4px;
-`;
+const PlayerStats = ({ children }: { children: React.ReactNode }) => {
+    const { colors } = useTheme();
+    return (
+        <View style={{ marginTop: 4 }}>
+            <Text style={{ color: colors.textSecondary }}>
+                {children}
+            </Text>
+        </View>
+    );
+};
 
 const ActivityCard = styled.TouchableOpacity`
     flex-direction: row;
     align-items: center;
-    background-color: ${({ theme }) => theme.colors.backgroundMedium};
+    background-color: ${({ theme }: { theme: DefaultTheme }) => theme.colors.backgroundMedium};
     border-radius: 12px;
     padding: 16px;
     margin-bottom: 12px;
-    border: 1px solid ${({ theme }) => theme.colors.tertiary}40;
+    border: 1px solid ${({ theme }: { theme: DefaultTheme }) => theme.colors.tertiary}40;
 `;
 
 const ActivityInfo = styled.View`
@@ -222,27 +229,27 @@ const ActivityInfo = styled.View`
 
 const ActivityText = styled.Text`
     font-size: 14px;
-    color: ${({ theme }) => theme.colors.textPrimary};
+    color: ${({ theme }: { theme: DefaultTheme }) => theme.colors.textPrimary};
 `;
 
 const ActivityTime = styled.Text`
     font-size: 12px;
-    color: ${({ theme }) => theme.colors.textSecondary};
+    color: ${({ theme }: { theme: DefaultTheme }) => theme.colors.textSecondary};
     margin-top: 4px;
 `;
 
 const RankingCard = styled.View`
-    background-color: ${({ theme }) => theme.colors.backgroundMedium};
+    background-color: ${({ theme }: { theme: DefaultTheme }) => theme.colors.backgroundMedium};
     border-radius: 12px;
     padding: 16px;
     margin-bottom: 12px;
-    border: 1px solid ${({ theme }) => theme.colors.tertiary}40;
+    border: 1px solid ${({ theme }: { theme: DefaultTheme }) => theme.colors.tertiary}40;
 `;
 
 const RankingPosition = styled.Text`
     font-size: 16px;
     font-weight: bold;
-    color: ${({ theme }) => theme.colors.textPrimary};
+    color: ${({ theme }: { theme: DefaultTheme }) => theme.colors.textPrimary};
     margin-bottom: 8px;
 `;
 
@@ -254,7 +261,7 @@ const RankingInfo = styled.View`
 const RankingName = styled.Text`
     font-size: 16px;
     font-weight: bold;
-    color: ${({ theme }) => theme.colors.textPrimary};
+    color: ${({ theme }: { theme: DefaultTheme }) => theme.colors.textPrimary};
 `;
 
 const RankingStats = styled.View`
@@ -264,7 +271,7 @@ const RankingStats = styled.View`
 
 const StatText = styled.Text`
     font-size: 14px;
-    color: ${({ theme }) => theme.colors.textSecondary};
+    color: ${({ theme }: { theme: DefaultTheme }) => theme.colors.textSecondary};
     margin-right: 8px;
 `;
 
@@ -278,7 +285,7 @@ const calculatePosition = (index: number, items: Array<any>): number => {
 const Dashboard: React.FC = () => {
     const { colors } = useTheme();
     const router = useRouter();
-    const { session, user, isAuthenticated, loading: authLoading } = useAuth();
+    const { user, isAuthenticated, loading: authLoading } = useAuth();
     
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -309,7 +316,12 @@ const Dashboard: React.FC = () => {
     }, []);
 
     const [totalCommunities, setTotalCommunities] = useState(0);
-    const [monthlyGamesData, setMonthlyGamesData] = useState({
+    const [monthlyGamesData, setMonthlyGamesData] = useState<{
+        labels: string[];
+        datasets: Array<{
+            data: number[];
+        }>;
+    }>({
         labels: [],
         datasets: [{
             data: []
@@ -452,13 +464,13 @@ const Dashboard: React.FC = () => {
                 } catch (pairError) {
                     console.error('[Dashboard] Erro ao carregar top duplas:', pairError);
                 }
-            } catch (serviceError) {
-                console.error('[Dashboard] Erro no serviço de estatísticas:', serviceError);
+            } catch (error) {
+                console.error('[Dashboard] Erro ao carregar estatísticas:', error);
+                const errorMessage = error instanceof Error ? error.message : 'Ocorreu um erro inesperado';
                 
                 // Verificar se o erro é de autenticação
-                if (serviceError.message?.includes('autenticado')) {
-                    console.log('[Dashboard] Erro de autenticação, redirecionando para login');
-                    // Não exibir alerta para erros de autenticação, apenas definir estatísticas vazias
+                if (error instanceof Error && error.message?.includes('autenticado')) {
+                    console.log('[Dashboard] Erro de autenticação, definindo estatísticas vazias');
                     setStats({
                         totalGames: 0,
                         totalCompetitions: 0,
@@ -467,7 +479,7 @@ const Dashboard: React.FC = () => {
                         totalCommunities: 0
                     });
                 } else {
-                    throw serviceError;
+                    Alert.alert('Erro', errorMessage);
                 }
             }
             
@@ -579,29 +591,56 @@ const Dashboard: React.FC = () => {
                             </SeeAllButton>
                         </SectionHeader>
 
-                        {topPlayers.slice(0, 6).map((player, index) => {
-                            const position = calculatePosition(index, topPlayers);
-                            return (
-                                <PlayerCard key={player.id} onPress={() => router.push(`/jogador/jogador/${player.id}/jogos`)}>
-                                    <MaterialCommunityIcons 
-                                        name={position === 1 ? "crown" : "star"} 
-                                        size={24} 
-                                        color={position === 1 ? "#FFD700" : colors.textSecondary} 
-                                    />
-                                    <PlayerAvatar 
-                                        avatarUrl={undefined} 
-                                        name={player.name} 
-                                        size={40} 
-                                    />
-                                    <PlayerInfo>
-                                        <PlayerName>{player.name}</PlayerName>
-                                        <PlayerStats>
-                                            {player.wins} vitórias • {player.buchudas} buchudas • {player.winRate.toFixed(2)}% aproveitamento
-                                        </PlayerStats>
-                                    </PlayerInfo>
-                                </PlayerCard>
-                            );
-                        })}
+                        {topPlayers.length === 0 ? (
+                            <View style={{
+                                backgroundColor: colors.backgroundMedium,
+                                padding: 20,
+                                borderRadius: 12,
+                                borderWidth: 1,
+                                borderColor: `${colors.tertiary}40`,
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                marginBottom: 12
+                            }}>
+                                <MaterialCommunityIcons 
+                                    name="information-outline" 
+                                    size={32} 
+                                    color={colors.textSecondary}
+                                    style={{ marginBottom: 8 }}
+                                />
+                                <Text style={{
+                                    color: colors.textSecondary,
+                                    textAlign: 'center',
+                                    fontSize: 14
+                                }}>
+                                    Nenhum jogo registrado ainda. Comece a jogar para ver as estatísticas dos jogadores!
+                                </Text>
+                            </View>
+                        ) : (
+                            topPlayers.slice(0, 6).map((player, index) => {
+                                const position = calculatePosition(index, topPlayers);
+                                return (
+                                    <PlayerCard key={player.id} onPress={() => router.push(`/jogador/jogador/${player.id}/jogos`)}>
+                                        <MaterialCommunityIcons 
+                                            name={position === 1 ? "crown" : "star"} 
+                                            size={24} 
+                                            color={position === 1 ? "#FFD700" : colors.textSecondary} 
+                                        />
+                                        <PlayerAvatar 
+                                            avatarUrl={undefined} 
+                                            name={player.name} 
+                                            size={40} 
+                                        />
+                                        <PlayerInfo>
+                                            <PlayerName>{player.name}</PlayerName>
+                                            <PlayerStats>
+                                                {player.wins} vitória{player.wins !== 1 ? 's' : ''} • {player.buchudas} buchuda{player.buchudas !== 1 ? 's' : ''} • {player.winRate.toFixed(2)}% aproveitamento
+                                            </PlayerStats>
+                                        </PlayerInfo>
+                                    </PlayerCard>
+                                );
+                            })
+                        )}
                     </SectionContainer>
 
                     <SectionContainer>
@@ -612,48 +651,75 @@ const Dashboard: React.FC = () => {
                             </SeeAllButton>
                         </SectionHeader>
 
-                        {topPairs.map((pair, index) => {
-                            const position = calculatePosition(index, topPairs);
-                            return (
-                                <PlayerCard key={pair.id}>
-                                    <MaterialCommunityIcons 
-                                        name={position === 1 ? "crown" : "star"} 
-                                        size={24} 
-                                        color={position === 1 ? "#FFD700" : colors.textSecondary} 
-                                    />
-                                    <View style={{ flexDirection: 'column', alignItems: 'center', marginRight: 8 }}>
-                                        <PlayerAvatar 
-                                            avatarUrl={undefined} 
-                                            name={pair.player1.name} 
-                                            size={32} 
+                        {topPairs.length === 0 ? (
+                            <View style={{
+                                backgroundColor: colors.backgroundMedium,
+                                padding: 20,
+                                borderRadius: 12,
+                                borderWidth: 1,
+                                borderColor: `${colors.tertiary}40`,
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                marginBottom: 12
+                            }}>
+                                <MaterialCommunityIcons 
+                                    name="account-multiple-remove" 
+                                    size={32} 
+                                    color={colors.textSecondary}
+                                    style={{ marginBottom: 8 }}
+                                />
+                                <Text style={{
+                                    color: colors.textSecondary,
+                                    textAlign: 'center',
+                                    fontSize: 14
+                                }}>
+                                    Nenhuma dupla registrada ainda. Crie jogos em dupla para ver as estatísticas!
+                                </Text>
+                            </View>
+                        ) : (
+                            topPairs.map((pair, index) => {
+                                const position = calculatePosition(index, topPairs);
+                                return (
+                                    <PlayerCard key={pair.id}>
+                                        <MaterialCommunityIcons 
+                                            name={position === 1 ? "crown" : "star"} 
+                                            size={24} 
+                                            color={position === 1 ? "#FFD700" : colors.textSecondary} 
                                         />
-                                        <View style={{ height: 4 }} />
-                                        <PlayerAvatar 
-                                            avatarUrl={undefined} 
-                                            name={pair.player2.name} 
-                                            size={32} 
-                                        />
-                                    </View>
-                                    <PlayerInfo>
-                                        <PlayerName>{pair.player1.name} & {pair.player2.name}</PlayerName>
-                                        <PlayerStats>
-                                            {pair.wins} vitórias • {pair.buchudas} buchudas • {pair.buchudasDeRe} buchudas de ré • {pair.winRate.toFixed(2)}% aproveitamento
-                                        </PlayerStats>
-                                    </PlayerInfo>
-                                </PlayerCard>
-                            );
-                        })}
+                                        <View style={{ flexDirection: 'column', alignItems: 'center', marginRight: 8 }}>
+                                            <PlayerAvatar 
+                                                avatarUrl={undefined} 
+                                                name={pair.player1.name} 
+                                                size={32} 
+                                            />
+                                            <View style={{ height: 4 }} />
+                                            <PlayerAvatar 
+                                                avatarUrl={undefined} 
+                                                name={pair.player2.name} 
+                                                size={32} 
+                                            />
+                                        </View>
+                                        <PlayerInfo>
+                                            <PlayerName>{pair.player1.name} & {pair.player2.name}</PlayerName>
+                                            <PlayerStats>
+                                                {pair.wins} vitórias • {pair.buchudas} buchudas • {pair.buchudasDeRe} buchudas de ré • {pair.winRate.toFixed(2)}% aproveitamento
+                                            </PlayerStats>
+                                        </PlayerInfo>
+                                    </PlayerCard>
+                                );
+                            })
+                        )}
                     </SectionContainer>
 
-                    <SectionContainer>
-                        <SectionHeader>
-                            <SectionTitle>Atividades Recentes</SectionTitle>
-                            <SeeAllButton onPress={() => router.push('/atividades')}>
-                                <SeeAllButtonText>Ver todas</SeeAllButtonText>
-                            </SeeAllButton>
-                        </SectionHeader>
+                <SectionContainer>
+                    <SectionHeader>
+                        <SectionTitle>Atividades Recentes</SectionTitle>
+                        <SeeAllButton onPress={() => router.push('/atividades')}>
+                            <SeeAllButtonText>Ver todas</SeeAllButtonText>
+                        </SeeAllButton>
+                    </SectionHeader>
 
-                        {recentActivities.map(activity => (
+                    {recentActivities.map(activity => (
                             <ActivityCard key={activity.id}>
                                 <MaterialCommunityIcons
                                     name={
