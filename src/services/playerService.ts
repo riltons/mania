@@ -592,25 +592,98 @@ class PlayerService {
             const { data: profile, error: profileError } = await supabase
                 .from('user_profiles')
                 .select('*')
-                .eq('id', userData.user.id)
+                .eq('user_id', userData.user.id)
                 .single();
 
             if (profileError) {
                 console.error('Erro ao buscar perfil do usuário:', profileError);
-                throw new Error('Erro ao buscar perfil do usuário');
+                
+                // Tentar criar um perfil para o usuário
+                try {
+                    const { error: insertError } = await supabase
+                        .from('user_profiles')
+                        .insert({
+                            id: crypto.randomUUID(),
+                            user_id: userData.user.id,
+                            full_name: userData.user.email?.split('@')[0] || 'Novo Usuário',
+                            phone_number: '',
+                            nickname: '',
+                            created_at: new Date().toISOString(),
+                            updated_at: new Date().toISOString()
+                        });
+                    
+                    if (insertError) {
+                        console.error('Erro ao criar perfil de usuário:', insertError);
+                        throw new Error('Erro ao criar perfil de usuário');
+                    }
+                    
+                    // Buscar o perfil recém-criado
+                    const { data: newProfile, error: fetchError } = await supabase
+                        .from('user_profiles')
+                        .select('*')
+                        .eq('user_id', userData.user.id)
+                        .single();
+                    
+                    if (fetchError || !newProfile) {
+                        console.error('Erro ao buscar perfil recém-criado:', fetchError);
+                        throw new Error('Erro ao buscar perfil recém-criado');
+                    }
+                    
+                    // Usar o perfil recém-criado
+                    return this.create({
+                        name: newProfile.full_name || userData.user.email?.split('@')[0] || 'Novo Jogador',
+                        phone: newProfile.phone_number || '',
+                        nickname: newProfile.nickname || userData.user.email?.split('@')[0]
+                    });
+                } catch (error) {
+                    console.error('Erro ao tentar criar perfil alternativo:', error);
+                    throw new Error('Não foi possível criar seu perfil de usuário');
+                }
             }
 
             // Cria um novo jogador com base no perfil do usuário
             const newPlayer = await this.create({
                 name: profile.full_name || userData.user.email?.split('@')[0] || 'Novo Jogador',
-                phone: profile.phone || '',
+                phone: profile.phone_number || '',
                 nickname: profile.nickname || userData.user.email?.split('@')[0]
             });
+            
+            // Verifica se a relação entre usuário e jogador foi criada
+            const { data: relation, error: checkRelationError } = await supabase
+                .from('user_player_relations')
+                .select('*')
+                .eq('user_id', userData.user.id)
+                .eq('player_id', newPlayer.id)
+                .single();
+                
+            // Se não existe relação, cria uma
+            if (checkRelationError || !relation) {
+                try {
+                    const { error: relationError } = await supabase
+                        .from('user_player_relations')
+                        .insert({
+                            id: crypto.randomUUID(),
+                            user_id: userData.user.id,
+                            player_id: newPlayer.id,
+                            created_at: new Date().toISOString(),
+                            is_primary: true
+                        });
+                        
+                    if (relationError) {
+                        console.error('Erro ao criar relação usuário-jogador:', relationError);
+                    } else {
+                        console.log('Relação usuário-jogador criada com sucesso');
+                    }
+                } catch (relationError) {
+                    console.error('Exceção ao criar relação usuário-jogador:', relationError);
+                }
+            }
 
             // Marca como jogador vinculado
             return {
                 ...newPlayer,
-                isLinkedUser: true
+                isLinkedUser: true,
+                isPrimaryUser: true
             };
         } catch (error) {
             console.error('Erro ao obter/criar jogador para o usuário atual:', error);

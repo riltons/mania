@@ -37,10 +37,13 @@ export const userService = {
             const { data, error } = await supabase
                 .from('user_profiles')
                 .insert({
+                    id: crypto.randomUUID(), // Gerar um UUID para o ID
                     user_id: userId,
                     full_name: fullName,
                     phone_number: phoneNumber,
-                    nickname
+                    nickname,
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
                 })
                 .select()
                 .single();

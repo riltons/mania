@@ -82,9 +82,13 @@ class AuthService {
                         .from('user_profiles')
                         .insert([
                             {
+                                id: crypto.randomUUID(), // Gerar um UUID para o ID
                                 user_id: data.user.id,
                                 full_name: name || email.split('@')[0],
+                                nickname: '',
+                                phone_number: '',
                                 avatar_url: '',
+                                created_at: new Date().toISOString(),
                                 updated_at: new Date().toISOString()
                             }
                         ]);
