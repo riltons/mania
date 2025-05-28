@@ -1,8 +1,10 @@
 import { supabase } from '@/core/lib/supabase';
 import { activityService } from '@/services/activityService';
 import { normalizePhoneNumber } from './playerRpcService';
+import { Platform } from 'react-native';
+import * as FileSystem from 'expo-file-system';
 
-interface Player {
+export interface Player {
     id: string;
     name: string;
     phone: string;
@@ -12,6 +14,8 @@ interface Player {
     avatar_url?: string | null;
     isMine?: boolean;
     isPrimary?: boolean;
+    isLinkedUser?: boolean;
+    isPrimaryUser?: boolean;
     user_player_relations?: Array<{
         user_id: string;
         is_primary: boolean;
@@ -49,11 +53,12 @@ export const playersService = {
             
             const userId = user.id;
             
-            // 1. Busca os jogadores criados pelo usuário
+            // 1. Busca os jogadores ativos criados pelo usuário
             const { data: createdPlayers, error: createdError } = await supabase
                 .from('players')
                 .select('*')
-                .eq('created_by', userId);
+                .eq('created_by', userId)
+                .eq('is_active', true) // Filtra apenas jogadores ativos
                 
             if (createdError) {
                 console.error('Erro ao buscar jogadores criados:', createdError);
@@ -62,11 +67,12 @@ export const playersService = {
             
             const typedCreatedPlayers = createdPlayers as Player[] | null;
             
-            // 2. Busca os jogadores vinculados ao usuário através da tabela user_player_relations
+            // 2. Busca os jogadores ativos vinculados ao usuário através da tabela user_player_relations
             const { data: relatedPlayers, error: relatedError } = await supabase
                 .from('user_player_relations')
-                .select('player:players(*), is_primary')
-                .eq('user_id', userId);
+                .select('player:players!inner(*), is_primary')
+                .eq('user_id', userId)
+                .eq('players.is_active', true) // Filtra apenas jogadores ativos
                 
             if (relatedError) {
                 console.error('Erro ao buscar jogadores relacionados:', relatedError);
@@ -108,11 +114,12 @@ export const playersService = {
                 
                 if (typedCommunityMembers && typedCommunityMembers.length > 0) {
                     const playerIds = [...new Set(typedCommunityMembers.map(m => m.player_id))];
-                    // Busca os detalhes dos jogadores
+                    // Busca os detalhes dos jogadores ativos
                     const { data: players, error: playersError } = await supabase
                         .from('players')
                         .select('*')
-                        .in('id', playerIds);
+                        .in('id', playerIds)
+                        .eq('is_active', true); // Filtra apenas jogadores ativos
                         
                     if (playersError) {
                         console.error('Erro ao buscar jogadores da comunidade:', playersError);
@@ -379,54 +386,66 @@ export const playersService = {
 
     async deletePlayer(id: string): Promise<boolean> {
         try {
-            // Verifica autenticação
-            const { data: { user }, error: userError } = await supabase.auth.getUser();
-            if (userError || !user?.id) {
-                throw new Error('Usuário não autenticado');
-            }
-
-            // Primeiro obtém os dados do jogador para registrar a atividade
+            console.log(`Iniciando exclusão do jogador ${id}...`);
+            
+            // 1. Primeiro obtém os dados do jogador para registrar a atividade
             const { data: player, error: fetchError } = await supabase
                 .from('players')
                 .select('*')
                 .eq('id', id)
-                .single() as { data: Player | null, error: any };
+                .single();
 
             if (fetchError || !player) {
+                console.error('Erro ao buscar jogador para exclusão:', fetchError);
                 throw fetchError || new Error('Jogador não encontrado');
             }
 
-            // Remove as relações primeiro para evitar erros de chave estrangeira
-            const { error: relationError } = await supabase
-                .from('user_player_relations')
-                .delete()
-                .eq('player_id', id)
-                .select(); // Adiciona select() para garantir a tipagem correta
+            console.log(`Removendo relações do jogador ${player.name} (${id})...`);
+            
+            // 2. Remove todas as relações do jogador
+            const tablesToClean = [
+                'user_player_relations',
+                'community_members',
+                'game_players',
+                'competition_players'
+            ];
 
-            if (relationError) {
-                console.error('Aviso: Erro ao remover relações do jogador:', relationError);
-                // Continua mesmo com erro, pois pode não ter relações
-            }
+            // Executa todas as operações de limpeza em paralelo
+            await Promise.all(tablesToClean.map(async (table) => {
+                const { error } = await supabase
+                    .from(table)
+                    .delete()
+                    .or(`player_id.eq.${id},user_id.eq.${id}`);
+                
+                if (error) {
+                    console.warn(`Aviso ao limpar tabela ${table}:`, error.message);
+                } else {
+                    console.log(`Tabela ${table} limpa com sucesso para o jogador ${id}`);
+                }
+            }));
 
-            // Remove o jogador
-            const { error } = await supabase
+            console.log(`Marcando jogador ${player.name} (${id}) como inativo...`);
+            
+            // 3. Marca o jogador como inativo (soft delete)
+            const { error: updateError } = await supabase
                 .from('players')
-                .delete()
-                .eq('id', id)
-                .select(); // Adiciona select() para garantir a tipagem correta
+                .update({ is_active: false })
+                .eq('id', id);
 
-            if (error) {
-                console.error('Erro ao remover jogador:', error);
-                throw error;
+            if (updateError) {
+                console.error('Erro ao marcar jogador como inativo:', updateError);
+                throw updateError;
             }
 
-            // Registra a atividade em segundo plano
+            console.log(`Jogador ${player.name} (${id}) marcado como inativo com sucesso`);
+            
+            // 4. Registra a atividade em segundo plano
             activityService.createActivity({
                 type: 'player',
                 description: `Jogador "${player.name}" foi removido`,
                 metadata: {
                     player_id: id,
-                    name: player.name // Incluindo o nome do jogador no metadata
+                    name: player.name
                 }
             }).catch(error => {
                 console.error('Erro ao registrar atividade de remoção:', error);
@@ -437,6 +456,146 @@ export const playersService = {
             console.error('Erro ao remover jogador:', error);
             throw error instanceof Error ? error : new Error('Erro ao remover jogador');
         }
+    },
+
+    async uploadAvatar(playerId: string, uri: string): Promise<string> {
+        try {
+            console.log('Iniciando upload do avatar para o jogador:', playerId);
+            
+            // Verifica se a URI é uma imagem base64 (web) ou um caminho de arquivo (mobile)
+            const isWeb = Platform.OS === 'web';
+            let base64Data = '';
+            
+            if (isWeb) {
+                // Para web, a imagem já deve vir em base64
+                console.log('Processando imagem da web');
+                base64Data = uri.split(',')[1];
+            } else {
+                // Para mobile, lê o arquivo e converte para base64
+                console.log('Processando imagem do mobile, URI:', uri);
+                const fileInfo = await FileSystem.getInfoAsync(uri);
+                console.log('Informações do arquivo:', fileInfo);
+                
+                if (!fileInfo.exists) {
+                    throw new Error('Arquivo de imagem não encontrado');
+                }
+                
+                const base64 = await FileSystem.readAsStringAsync(uri, {
+                    encoding: FileSystem.EncodingType.Base64,
+                });
+                base64Data = base64;
+                console.log('Imagem convertida para base64 com sucesso');
+            }
+            
+            if (!base64Data) {
+                throw new Error('Não foi possível processar a imagem');
+            }
+            
+            // Define o caminho no storage do Supabase
+            const fileExt = 'jpg';
+            const fileName = `${playerId}-${Date.now()}.${fileExt}`;
+            const contentType = 'image/jpeg';
+            
+            console.log('Convertendo base64 para ArrayBuffer...');
+            // Converte base64 para ArrayBuffer
+            const binaryString = atob(base64Data);
+            const len = binaryString.length;
+            const bytes = new Uint8Array(len);
+            
+            for (let i = 0; i < len; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            
+            const arrayBuffer = bytes.buffer;
+            
+            console.log('Tentando fazer upload para o bucket player-avatars com o arquivo:', fileName);
+            
+            // Tenta fazer o upload com um caminho diferente
+            let uploadResult;
+            
+            try {
+                // Primeira tentativa: usando o nome do arquivo diretamente
+                uploadResult = await supabase.storage
+                    .from('player-avatars')
+                    .upload(fileName, arrayBuffer, {
+                        contentType,
+                        upsert: true,
+                        cacheControl: '3600'
+                    });
+                    
+                console.log('Resultado da primeira tentativa:', uploadResult);
+                
+                // Se falhou, tenta com um caminho diferente
+                if (uploadResult.error && uploadResult.error.toString().includes('Bucket not found')) {
+                    console.log('Tentando upload com bucket alternativo...');
+                    
+                    // Tenta com o bucket padrão 'avatars' se existir
+                    uploadResult = await supabase.storage
+                        .from('avatars')
+                        .upload(`players/${fileName}`, arrayBuffer, {
+                            contentType,
+                            upsert: true,
+                            cacheControl: '3600'
+                        });
+                        
+                    console.log('Resultado da segunda tentativa:', uploadResult);
+                }
+            } catch (e) {
+                console.error('Erro inesperado durante o upload:', e);
+                uploadResult = { error: e, data: null };
+            }
+            
+            const { data: uploadData, error: uploadError } = uploadResult;
+            
+            console.log('Resultado do upload:', uploadData);
+            
+            if (uploadError) {
+                console.error('Erro ao fazer upload para o storage:', uploadError);
+                throw new Error('Falha ao enviar a imagem');
+            }
+            
+            // Obtém a URL pública da imagem
+            console.log('Obtendo URL pública da imagem...');
+            let publicUrl = '';
+            
+            if (uploadError && uploadError.toString().includes('Bucket not found')) {
+                // Se o upload foi para o bucket alternativo
+                const { data } = supabase.storage
+                    .from('avatars')
+                    .getPublicUrl(`players/${fileName}`);
+                publicUrl = data.publicUrl;
+            } else {
+                // Se o upload foi para o bucket original
+                const { data } = supabase.storage
+                    .from('player-avatars')
+                    .getPublicUrl(fileName);
+                publicUrl = data.publicUrl;
+            }
+            
+            console.log('URL pública obtida:', publicUrl);
+            
+            if (!publicUrl) {
+                throw new Error('Não foi possível obter a URL pública da imagem');
+            }
+            
+            // Atualiza o jogador com a nova URL do avatar
+            console.log('Atualizando jogador com a nova URL do avatar...');
+            const { error: updateError } = await supabase
+                .from('players')
+                .update({ avatar_url: publicUrl })
+                .eq('id', playerId);
+            
+            if (updateError) {
+                console.error('Erro ao atualizar o jogador com o novo avatar:', updateError);
+                throw new Error('Falha ao atualizar o perfil do jogador');
+            }
+            
+            console.log('Avatar atualizado com sucesso:', publicUrl);
+            return publicUrl;
+            
+        } catch (error) {
+            console.error('Erro ao fazer upload do avatar:', error);
+            throw error;
+        }
     }
 };
-

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Alert, ActivityIndicator, TouchableOpacity, Image, Platform } from 'react-native';
+import { Alert, ActivityIndicator, TouchableOpacity, Image, Text, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import styled from 'styled-components/native';
 import { useRouter } from 'expo-router';
@@ -8,6 +8,7 @@ import { playerService } from '@/features/players/services/playerService';
 import { Feather } from '@expo/vector-icons';
 import { TextInput } from 'react-native-paper';
 import { useTheme } from 'styled-components/native';
+import { PhoneInput } from '@/components/PhoneInput';
 
 type ThemeProps = {
     theme: {
@@ -53,24 +54,41 @@ export default function NovoJogador() {
             setImage(result.assets[0].uri);
         }
     };
-    
+
+    const handlePhoneChange = (phone: string) => {
+        // Remove qualquer caractere que não seja número
+        const numericOnly = phone.replace(/\D/g, '');
+        // Limita a 11 dígitos
+        const limitedPhone = numericOnly.slice(0, 11);
+        // Atualiza o estado com o número limpo
+        setFormData(prev => ({ ...prev, phone: limitedPhone }));
+    };
+
     const handleSave = async () => {
         if (!formData.name.trim()) {
             Alert.alert('Erro', 'O nome do jogador é obrigatório');
             return;
         }
 
-        if (!formData.phone.trim()) {
+        // Remove formatação para validação
+        const cleanPhone = formData.phone.replace(/\D/g, '');
+        if (!cleanPhone) {
             Alert.alert('Erro', 'O celular do jogador é obrigatório');
+            return;
+        }
+        
+        if (cleanPhone.length < 11) {
+            Alert.alert('Erro', 'O celular deve conter DDD + 9 dígitos');
             return;
         }
 
         try {
             setLoading(true);
-            // Criar o jogador
+            
+            // Criar o jogador com o número limpo de qualquer formatação
             const newPlayer = await playerService.create({
                 name: formData.name.trim(),
-                phone: formData.phone.trim()
+                phone: cleanPhone
             });
             
             // Se tiver imagem selecionada, fazer upload
@@ -137,36 +155,15 @@ export default function NovoJogador() {
                 </FormGroup>
 
                 <FormGroup>
-                    <Label>Celular</Label>
-                    <TextInput
-                        mode="outlined"
+                    <PhoneInput
                         value={formData.phone}
-                        onChangeText={(text) => {
-                            // Remove tudo que não for número
-                            const numericOnly = text.replace(/\D/g, '');
-                            // Limita a 11 caracteres
-                            const limitedText = numericOnly.slice(0, 11);
-                            setFormData(prev => ({ ...prev, phone: limitedText }));
-                        }}
+                        onChangeText={handlePhoneChange}
+                        label="Celular (com DDD)"
                         placeholder="(00) 00000-0000"
-                        keyboardType="phone-pad"
-                        maxLength={15}
-                        style={{
-                            backgroundColor: colors.backgroundDark,
-                        }}
-                        theme={{
-                            colors: {
-                                primary: colors.accent,
-                                text: colors.textPrimary,
-                                placeholder: colors.textSecondary,
-                                background: colors.backgroundDark,
-                                surface: colors.backgroundDark,
-                                onSurface: colors.textPrimary,
-                                outline: colors.backgroundLight,
-                            }
-                        }}
                     />
                 </FormGroup>
+                
+
 
                 <SaveButton onPress={handleSave} disabled={loading}>
                     {loading ? (

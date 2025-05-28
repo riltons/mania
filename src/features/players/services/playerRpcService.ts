@@ -25,24 +25,11 @@ export interface Player {
 export function normalizePhoneNumber(phone: string): string {
   if (!phone) return '';
   
-  // Remove caracteres não numéricos
-  let normalizedPhone = phone.replace(/\D/g, '');
+  // Remove apenas caracteres não numéricos
+  const normalizedPhone = phone.replace(/\D/g, '');
   
-  // Remove o código do país (55) se presente
-  if (normalizedPhone.startsWith('55')) {
-    normalizedPhone = normalizedPhone.substring(2);
-  }
-  
-  // Remove todos os zeros à esquerda
-  normalizedPhone = normalizedPhone.replace(/^0+/, '');
-  
-  // Garante o formato correto para telefones brasileiros
-  // DDD (2 dígitos) + número (8-9 dígitos)
-  if (normalizedPhone.length >= 10) {
-    console.log(`Telefone normalizado: ${phone} -> ${normalizedPhone}`);
-  } else {
-    console.log(`Telefone com formato potencialmente inválido: ${phone} -> ${normalizedPhone}`);
-  }
+  // Log para depuração
+  console.log(`Telefone normalizado: ${phone} -> ${normalizedPhone}`);
   
   return normalizedPhone;
 }

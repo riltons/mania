@@ -1,5 +1,6 @@
 import { supabase } from '@/core/lib/supabase';
 import { activityService } from '@/services/activityService';
+import { normalizePhoneNumber, playerRpcService } from './playerRpcService';
 
 // Definições de tipos
 interface UserPlayerRelation {
@@ -8,7 +9,7 @@ interface UserPlayerRelation {
     player_id: string;
 }
 
-interface Player {
+export interface Player {
     id: string;
     name: string;
     phone: string;
@@ -50,7 +51,15 @@ export class PlayerService {
     }
 
     private normalizePhoneNumber(phone: string): string {
-        return phone.replace(/\D/g, '');
+        if (!phone) return '';
+        
+        // Remove apenas caracteres não numéricos
+        const normalizedPhone = phone.replace(/\D/g, '');
+        
+        // Log para depuração
+        console.log(`[PlayerService] Telefone normalizado: ${phone} -> ${normalizedPhone}`);
+        
+        return normalizedPhone;
     }
 
     /**
@@ -58,25 +67,20 @@ export class PlayerService {
      * @param phone Número do telefone a ser buscado
      * @returns Jogador encontrado ou lança erro se não encontrado
      */
-    async findByPhone(phone: string | null): Promise<Player> {
-        if (!phone) throw new Error('Telefone não fornecido');
+    async findByPhone(phone: string | null): Promise<Player | null> {
+        if (!phone) return null;
 
         try {
             const userId = await this.getCurrentUserId();
-
-            const { data: player, error: findError } = await supabase
-                .from('players')
-                .select('*, user_player_relations(*)')
-                .eq('phone', this.normalizePhoneNumber(phone))
-                .single();
-
-            if (findError) {
-                console.error('Erro ao buscar jogador por telefone:', findError);
-                throw new Error('Jogador não encontrado');
-            }
-
+            const normalizedPhone = this.normalizePhoneNumber(phone);
+            console.log('[PlayerService] Telefone normalizado:', phone, '->', normalizedPhone);
+            
+            // Usar o playerRpcService que é mais robusto e tem múltiplas estratégias de busca
+            const player = await playerRpcService.findPlayerByPhone(phone);
+            
             if (!player) {
-                throw new Error('Jogador não encontrado');
+                console.log('Nenhum jogador encontrado com o telefone:', normalizedPhone);
+                return null;
             }
 
             return {
@@ -135,26 +139,23 @@ export class PlayerService {
             }
 
             // Tenta encontrar um jogador existente
-            try {
-                log('Buscando jogador existente para o telefone', { normalizedPhone });
-                const existingPlayer = await this.findByPhone(normalizedPhone);
+            log('Buscando jogador existente para o telefone', { normalizedPhone });
+            const existingPlayer = await this.findByPhone(normalizedPhone);
 
-                if (existingPlayer) {
-                    log('Jogador existente encontrado', { 
-                        id: existingPlayer.id, 
-                        name: existingPlayer.name, 
-                        phone: existingPlayer.phone 
-                    });
-                    
-                    log('Retornando jogador existente', { 
-                        playerId: existingPlayer.id 
-                    });
-                    return existingPlayer;
-                }
-            } catch (error) {
-                // Se não encontrar jogador existente, continua para criar um novo
-                log('Nenhum jogador existente encontrado', { error: error instanceof Error ? error.message : 'Erro desconhecido' });
+            if (existingPlayer) {
+                log('Jogador existente encontrado', { 
+                    id: existingPlayer.id, 
+                    name: existingPlayer.name, 
+                    phone: existingPlayer.phone 
+                });
+                
+                log('Retornando jogador existente', { 
+                    playerId: existingPlayer.id 
+                });
+                return existingPlayer;
             }
+            
+            log('Nenhum jogador existente encontrado com este telefone');
 
             // Se não encontrou jogador existente, tenta criar um novo
             log('Criando novo jogador', {

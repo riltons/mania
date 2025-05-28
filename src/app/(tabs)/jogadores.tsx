@@ -4,7 +4,7 @@ import styled from 'styled-components/native';
 import { MaterialCommunityIcons, Feather, FontAwesome5 } from '@expo/vector-icons';
 import { PlayerAvatar } from '@/components/data-display/PlayerAvatar';
 import { supabase } from '@/core/lib/supabase';
-import { Player, playerService } from '@/features/players/services/playerService';
+import { playersService, Player } from '@/features/players/services/playersService';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { Header } from '@/components/layout/Header';
@@ -261,9 +261,9 @@ function JogadoresScreen() {
                 return;
             }
             
-            console.log('Chamando playerService.list()...');
-            const result = await playerService.list();
-            console.log('Resultado do playerService.list():', result);
+            console.log('Chamando playersService.list()...');
+            const result = await playersService.list();
+            console.log('Resultado do playersService.list():', result);
             
             // Garantir que os arrays não sejam nulos
             const myPlayersList = Array.isArray(result?.myPlayers) ? result.myPlayers : [];
@@ -311,7 +311,7 @@ function JogadoresScreen() {
                     style: 'destructive',
                     onPress: async () => {
                         try {
-                            await playerService.delete(player.id);
+                            await playersService.deletePlayer(player.id);
                             Alert.alert('Sucesso', 'Jogador excluído com sucesso');
                             loadPlayers();
                         } catch (error) {
