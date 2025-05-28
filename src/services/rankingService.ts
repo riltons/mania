@@ -277,8 +277,10 @@ export const rankingService = {
                     totalGames: stats.games
                 }));
             
-            // Ordena por número de vitórias (do maior para o menor)
-            return rankings.sort((a, b) => b.wins - a.wins);
+            // Filtrar jogadores com pelo menos uma vitória e ordenar por número de vitórias (do maior para o menor)
+            return rankings
+                .filter(player => player.wins > 0)
+                .sort((a, b) => b.wins - a.wins);
             
         } catch (error) {
             console.error('Erro inesperado ao buscar ranking de jogadores:', error);
@@ -538,13 +540,15 @@ export const rankingService = {
                 }
             });
             
-            // Ordenar por vitórias (e depois por menos derrotas em caso de empate)
-            return rankings.sort((a, b) => {
-                if (b.wins !== a.wins) {
-                    return b.wins - a.wins;
-                }
-                return a.losses - b.losses;
-            });
+            // Filtrar duplas com pelo menos uma vitória e ordenar por vitórias (e depois por menos derrotas em caso de empate)
+            return rankings
+                .filter(pair => pair.wins > 0)
+                .sort((a, b) => {
+                    if (b.wins !== a.wins) {
+                        return b.wins - a.wins;
+                    }
+                    return a.losses - b.losses;
+                });
             
         } catch (error) {
             console.error('Erro inesperado ao buscar ranking de duplas:', error);
