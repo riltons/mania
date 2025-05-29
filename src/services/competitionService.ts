@@ -9,7 +9,7 @@ export interface Competition {
     community_id: string;
     start_date: string;
     created_at: string;
-    status: 'pending' | 'in_progress' | 'finished';
+    status: 'pending' | 'in_progress' | 'finished' | 'cancelled';
 }
 
 export interface CreateCompetitionDTO {
@@ -952,6 +952,63 @@ export const competitionService = {
             }
             throw error;
         }
+    },
+
+    async delete(competitionId: string) {
+        try {
+            const { error } = await supabase
+                .from('competitions')
+                .delete()
+                .eq('id', competitionId);
+
+            if (error) {
+                console.error('Erro ao deletar competição:', error);
+                throw error;
+            }
+
+            return { success: true };
+        } catch (error) {
+            console.error('Erro ao deletar competição:', error);
+            throw error;
+        }
+    },
+
+    async inactivate(competitionId: string) {
+        try {
+            const { error } = await supabase
+                .from('competitions')
+                .update({ status: 'cancelled' })
+                .eq('id', competitionId);
+
+            if (error) {
+                console.error('Erro ao inativar competição:', error);
+                throw error;
+            }
+
+            return { success: true };
+        } catch (error) {
+            console.error('Erro ao inativar competição:', error);
+            throw error;
+        }
+    },
+
+    async hasGames(competitionId: string): Promise<boolean> {
+        try {
+            const { data, error } = await supabase
+                .from('games')
+                .select('id')
+                .eq('competition_id', competitionId)
+                .limit(1);
+
+            if (error) {
+                console.error('Erro ao verificar jogos da competição:', error);
+                throw error;
+            }
+
+            return (data && data.length > 0);
+        } catch (error) {
+            console.error('Erro ao verificar jogos da competição:', error);
+            throw error;
+        }
     }
 };
-

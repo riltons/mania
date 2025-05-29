@@ -8,9 +8,13 @@ import { useRouter } from 'expo-router';
 import { Header } from '@/components/layout/Header';
 import { useTheme } from '@/core/contexts/ThemeProvider';
 
-const Container = styled.View`
+interface ThemeProps {
+    theme: { colors: any };
+}
+
+const Container = styled.View<ThemeProps>`
     flex: 1;
-    background-color: ${({ theme }) => theme.colors.backgroundDark};
+    background-color: ${({ theme }: ThemeProps) => theme.colors.backgroundDark};
 `;
 
 const ScrollContent = styled.ScrollView.attrs({
@@ -23,8 +27,8 @@ const ScrollContent = styled.ScrollView.attrs({
     flex: 1;
 `;
 
-const CommunityCard = styled(Pressable)`
-    background-color: ${({ theme }) => theme.colors.secondary};
+const CommunityCard = styled(Pressable)<ThemeProps>`
+    background-color: ${({ theme }: ThemeProps) => theme.colors.secondary};
     border-radius: 8px;
     margin-bottom: 16px;
     padding: 16px;
@@ -41,15 +45,15 @@ const CommunityInfo = styled.View`
     margin-right: 12px;
 `;
 
-const CommunityTitle = styled.Text`
-    color: ${({ theme }) => theme.colors.textPrimary};
+const CommunityTitle = styled.Text<ThemeProps>`
+    color: ${({ theme }: ThemeProps) => theme.colors.textPrimary};
     font-size: 18px;
     font-weight: bold;
     margin-bottom: 4px;
 `;
 
-const CommunityDescription = styled.Text`
-    color: ${({ theme }) => theme.colors.textSecondary};
+const CommunityDescription = styled.Text<ThemeProps>`
+    color: ${({ theme }: ThemeProps) => theme.colors.textSecondary};
     font-size: 14px;
     margin-bottom: 8px;
 `;
@@ -66,8 +70,8 @@ const StatContainer = styled.View`
     margin-right: 16px;
 `;
 
-const StatText = styled.Text`
-    color: ${({ theme }) => theme.colors.textTertiary};
+const StatText = styled.Text<ThemeProps>`
+    color: ${({ theme }: ThemeProps) => theme.colors.textTertiary};
     font-size: 14px;
     margin-left: 4px;
 `;
@@ -79,8 +83,8 @@ const EmptyContainer = styled.View`
     padding: 20px;
 `;
 
-const EmptyText = styled.Text`
-    color: ${({ theme }) => theme.colors.textSecondary};
+const EmptyText = styled.Text<ThemeProps>`
+    color: ${({ theme }: ThemeProps) => theme.colors.textSecondary};
     font-size: 16px;
     text-align: center;
     margin-top: 12px;
@@ -92,23 +96,23 @@ const LoadingContainer = styled.View`
     justify-content: center;
 `;
 
-const FloatingButton = styled(Pressable)`
+const FloatingButton = styled(Pressable)<ThemeProps>`
     position: absolute;
     bottom: 20px;
     right: 20px;
     width: 56px;
     height: 56px;
     border-radius: 28px;
-    background-color: ${({ theme }) => theme.colors.accent};
+    background-color: ${({ theme }: ThemeProps) => theme.colors.accent};
     align-items: center;
     justify-content: center;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 `;
 
-const SectionTitle = styled.Text`
+const SectionTitle = styled.Text<ThemeProps>`
     font-size: 20px;
     font-weight: bold;
-    color: ${({ theme }) => theme.colors.textPrimary};
+    color: ${({ theme }: ThemeProps) => theme.colors.textPrimary};
     margin: 16px 0;
 `;
 
@@ -122,8 +126,6 @@ export default function Comunidades() {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [showDisabled, setShowDisabled] = useState(false);
-    const [menuVisible, setMenuVisible] = useState(false);
-    const [selectedCommunity, setSelectedCommunity] = useState<Community | null>(null);
     const router = useRouter();
     const { theme, colors } = useTheme();
 
@@ -176,13 +178,16 @@ export default function Comunidades() {
                         </Text>
                     )}
                 </CommunityInfo>
-                <Pressable 
-                    onPress={() => { setSelectedCommunity(community); setMenuVisible(true); }}
-                    style={{ padding: 10 }} // Aumenta a área de toque
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} // Aumenta ainda mais a área de toque
-                >
-                    <MaterialCommunityIcons name="dots-vertical" size={24} color={colors.textPrimary} />
-                </Pressable>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Pressable 
+                        onPress={() => router.push(`/comunidade/${community.id}/editar`)}
+                        style={{ padding: 8, marginRight: 4 }}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                        <MaterialCommunityIcons name="pencil" size={20} color={colors.textPrimary} />
+                    </Pressable>
+                    <MaterialCommunityIcons name="chevron-right" size={24} color={colors.textSecondary} />
+                </View>
             </CommunityHeader>
             
             <CommunityStats>
@@ -265,80 +270,6 @@ export default function Comunidades() {
             >
                 <MaterialCommunityIcons name="plus" size={24} color={colors.backgroundLight} />
             </FloatingButton>
-            <RNModal transparent visible={menuVisible} animationType="fade">
-                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' }}>
-                    <View style={{ backgroundColor: colors.backgroundLight, padding: 20, borderRadius: 8, width: '80%', maxWidth: 300 }}>
-                        {selectedCommunity && (
-                            <>
-                                <Pressable 
-                                    onPress={() => { setMenuVisible(false); router.push(`/comunidade/${selectedCommunity.id}/editar`); }}
-                                    style={{ paddingVertical: 12 }}
-                                >
-                                    <Text style={{ color: colors.textPrimary, fontSize: 16 }}>Editar</Text>
-                                </Pressable>
-                                <Pressable
-                                    onPress={async () => {
-                                        setMenuVisible(false);
-                                        // Habilitar, desabilitar ou excluir comunidade
-                                        if (selectedCommunity?.disabled) {
-                                            // Habilitar comunidade
-                                            const { error } = await communityService.updateCommunity(selectedCommunity.id, { disabled: false });
-                                            if (error) {
-                                                Alert.alert('Erro', `Não foi possível habilitar: ${error.message}`);
-                                                return;
-                                            }
-                                            Alert.alert('Sucesso', 'Comunidade habilitada');
-                                            await loadCommunities();
-                                            return;
-                                        } else if (selectedCommunity?.competitions_count > 0) {
-                                            const { data, error } = await communityService.updateCommunity(selectedCommunity.id, { disabled: true });
-                                            if (error) {
-                                                if (error.message?.includes('disabled')) {
-                                                    Alert.alert(
-                                                        'Atenção',
-                                                        'A coluna "disabled" não existe no banco de dados. Execute a migração SQL para adicionar essa coluna.',
-                                                        [{ text: 'OK' }]
-                                                    );
-                                                } else {
-                                                    Alert.alert('Erro', `Não foi possível desabilitar: ${error.message}`);
-                                                }
-                                                return;
-                                            }
-                                            Alert.alert('Sucesso', 'Comunidade desabilitada');
-                                            await loadCommunities();
-                                            return;
-                                        } else {
-                                            const { error } = await communityService.deleteCommunity(selectedCommunity.id);
-                                            if (error) {
-                                                Alert.alert('Erro', 'Não foi possível excluir a comunidade');
-                                                return;
-                                            }
-                                            await loadCommunities();
-                                            return;
-                                        }
-                                    }}
-                                    style={{ paddingVertical: 12 }}
-                                >
-                                    <Text style={{ color: colors.textPrimary, fontSize: 16 }}>
-                                        {selectedCommunity?.disabled
-                                            ? 'Habilitar'
-                                            : selectedCommunity?.competitions_count > 0
-                                                ? 'Desabilitar'
-                                                : 'Excluir'
-                                        }
-                                    </Text>
-                                </Pressable>
-                            </>
-                        )}
-                        <Pressable 
-                            onPress={() => setMenuVisible(false)}
-                            style={{ paddingVertical: 12 }}
-                        >
-                            <Text style={{ color: colors.textSecondary, fontSize: 16 }}>Cancelar</Text>
-                        </Pressable>
-                    </View>
-                </View>
-            </RNModal>
         </Container>
     );
 }
