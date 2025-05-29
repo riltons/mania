@@ -277,9 +277,16 @@ export default function Competicoes() {
     created: Competition[],
     organized: Competition[]
   }>({ created: [], organized: [] })
-  const [competitionStats, setCompetitionStats] = useState<{[key: string]: { totalPlayers: number, totalGames: number }}>({});
+  const [competitionStats, setCompetitionStats] = useState<{[key: string]: { 
+    totalPlayers: number, 
+    totalGames: number,
+    hasFinishedGames: boolean,
+    hasOnlyPendingOrInProgress: boolean
+  }}>({});
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editingCompetition, setEditingCompetition] = useState<Competition | null>(null);
   const [communities, setCommunities] = useState<Community[]>([]);
   const [selectedCommunity, setSelectedCommunity] = useState<string | null>(null);
   const [formData, setFormData] = useState({
@@ -309,7 +316,12 @@ export default function Competicoes() {
       const comps = await competitionService.listMyCompetitions();
 
       // Busca estatísticas para cada competição
-      const stats: {[key: string]: { totalPlayers: number, totalGames: number }} = {};
+      const stats: {[key: string]: { 
+        totalPlayers: number, 
+        totalGames: number,
+        hasFinishedGames: boolean,
+        hasOnlyPendingOrInProgress: boolean
+      }} = {};
       
       const allCompetitions = [...comps.created, ...comps.organized];
       for (const comp of allCompetitions) {
@@ -320,12 +332,19 @@ export default function Competicoes() {
 
         const { data: games } = await supabase
           .from('games')
-          .select('id')
+          .select('id, status')
           .eq('competition_id', comp.id);
+
+        const hasFinishedGames = games?.some((game: any) => game.status === 'finished') || false;
+        const hasOnlyPendingOrInProgress = games?.every((game: any) => 
+          game.status === 'pending' || game.status === 'in_progress'
+        ) || false;
 
         stats[comp.id] = {
           totalPlayers: members?.length || 0,
-          totalGames: games?.length || 0
+          totalGames: games?.length || 0,
+          hasFinishedGames,
+          hasOnlyPendingOrInProgress
         };
       }
 
@@ -349,9 +368,20 @@ export default function Competicoes() {
   };
 
   const handleDeleteCompetition = async (competitionId: string, competitionName: string) => {
+    const stats = competitionStats[competitionId];
+    
+    if (stats?.hasFinishedGames) {
+      Alert.alert(
+        'Não é possível excluir',
+        `A competição "${competitionName}" possui jogos finalizados e não pode ser excluída. Você pode inativá-la para mantê-la no histórico.`,
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
     Alert.alert(
       'Confirmar Exclusão',
-      `Tem certeza que deseja excluir a competição "${competitionName}"? Esta ação não pode ser desfeita.`,
+      `Tem certeza que deseja excluir a competição "${competitionName}"? ${stats?.totalGames > 0 ? 'Todos os jogos em andamento ou pendentes também serão excluídos.' : ''} Esta ação não pode ser desfeita.`,
       [
         { text: 'Cancelar', style: 'cancel' },
         { 
@@ -394,6 +424,40 @@ export default function Competicoes() {
         }
       ]
     );
+  };
+
+  const handleEditCompetition = (competition: Competition) => {
+    setEditingCompetition(competition);
+    setFormData({
+      name: competition.name,
+      description: competition.description
+    });
+    setEditModalVisible(true);
+  };
+
+  const handleUpdateCompetition = async () => {
+    if (!editingCompetition) return;
+    
+    if (!formData.name.trim()) {
+      Alert.alert('Erro', 'Nome é obrigatório');
+      return;
+    }
+
+    try {
+      await competitionService.update(editingCompetition.id, {
+        name: formData.name.trim(),
+        description: formData.description.trim()
+      });
+      
+      Alert.alert('Sucesso', 'Competição atualizada com sucesso!');
+      setEditModalVisible(false);
+      setEditingCompetition(null);
+      setFormData({ name: '', description: '' });
+      loadCompetitions();
+    } catch (error) {
+      console.error('Erro ao atualizar competição:', error);
+      Alert.alert('Erro', 'Não foi possível atualizar a competição');
+    }
   };
 
   const handleCreateCompetition = async () => {
@@ -444,7 +508,7 @@ export default function Competicoes() {
   };
 
   const renderCompetitionCard = (competition: Competition) => {
-    const hasGames = competitionStats[competition.id]?.totalGames > 0;
+    const stats = competitionStats[competition.id];
     
     return (
       <CompetitionCard
@@ -465,24 +529,53 @@ export default function Competicoes() {
           </CompetitionInfo>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             {competition.status !== 'cancelled' && (
-              <TouchableOpacity
-                onPress={(e) => {
-                  e.stopPropagation();
-                  if (hasGames) {
-                    handleInactivateCompetition(competition.id, competition.name);
-                  } else {
-                    handleDeleteCompetition(competition.id, competition.name);
-                  }
-                }}
-                style={{ padding: 4 }}
-              >
-                <MaterialCommunityIcons
-                  name={hasGames ? "cancel" : "delete"}
-                  size={20}
-                  color={colors.textPrimary}
-                />
-              </TouchableOpacity>
+              <>
+                {stats?.hasFinishedGames ? (
+                  // Se tem jogos finalizados, só permite inativar
+                  <TouchableOpacity
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      handleInactivateCompetition(competition.id, competition.name);
+                    }}
+                    style={{ padding: 4 }}
+                  >
+                    <MaterialCommunityIcons
+                      name="archive"
+                      size={20}
+                      color="#FBA94C"
+                    />
+                  </TouchableOpacity>
+                ) : (
+                  // Se não tem jogos finalizados, permite deletar
+                  <TouchableOpacity
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      handleDeleteCompetition(competition.id, competition.name);
+                    }}
+                    style={{ padding: 4 }}
+                  >
+                    <MaterialCommunityIcons
+                      name="delete"
+                      size={20}
+                      color="#FF3333"
+                    />
+                  </TouchableOpacity>
+                )}
+              </>
             )}
+            <TouchableOpacity
+              onPress={(e) => {
+                e.stopPropagation();
+                handleEditCompetition(competition);
+              }}
+              style={{ padding: 4 }}
+            >
+              <MaterialCommunityIcons
+                name="pencil"
+                size={20}
+                color="#8257E5"
+              />
+            </TouchableOpacity>
             <MaterialCommunityIcons
               name="chevron-right"
               size={24}
@@ -500,11 +593,11 @@ export default function Competicoes() {
         <CompetitionStats>
           <StatContainer>
             <MaterialCommunityIcons name="account-group" size={16} color={colors.textSecondary} />
-            <StatText>{competitionStats[competition.id]?.totalPlayers || 0} jogadores</StatText>
+            <StatText>{stats?.totalPlayers || 0} jogadores</StatText>
           </StatContainer>
           <StatContainer>
             <MaterialCommunityIcons name="gamepad-variant" size={16} color={colors.textSecondary} />
-            <StatText>{competitionStats[competition.id]?.totalGames || 0} jogos</StatText>
+            <StatText>{stats?.totalGames || 0} jogos</StatText>
           </StatContainer>
         </CompetitionStats>
       </CompetitionCard>
@@ -607,6 +700,52 @@ export default function Competicoes() {
 
             <SaveButton onPress={handleCreateCompetition}>
               <SaveButtonText>Criar Competição</SaveButtonText>
+            </SaveButton>
+          </ModalContainer>
+        </ModalOverlay>
+      </Modal>
+
+      <Modal
+        visible={editModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setEditModalVisible(false)}
+      >
+        <ModalOverlay>
+          <ModalContainer>
+            <ModalHeader>
+              <ModalTitle>Editar Competição</ModalTitle>
+              <TouchableOpacity onPress={() => setEditModalVisible(false)}>
+                <MaterialCommunityIcons name="close" size={24} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </ModalHeader>
+
+            <FormGroup>
+              <Label>Nome</Label>
+              <Input
+                value={formData.name}
+                onChangeText={(text: string) => setFormData(prev => ({ ...prev, name: text }))}
+                placeholder="Nome da competição"
+                placeholderTextColor={colors.textSecondary}
+              />
+            </FormGroup>
+
+            <FormGroup>
+              <Label>Descrição</Label>
+              <Input
+                value={formData.description}
+                onChangeText={(text: string) => setFormData(prev => ({ ...prev, description: text }))}
+                placeholder="Descrição da competição"
+                placeholderTextColor={colors.textSecondary}
+                multiline
+                numberOfLines={4}
+                textAlignVertical="top"
+                style={{ minHeight: 100 }}
+              />
+            </FormGroup>
+
+            <SaveButton onPress={handleUpdateCompetition}>
+              <SaveButtonText>Atualizar Competição</SaveButtonText>
             </SaveButton>
           </ModalContainer>
         </ModalOverlay>

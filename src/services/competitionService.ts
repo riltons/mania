@@ -1010,5 +1010,27 @@ export const competitionService = {
             console.error('Erro ao verificar jogos da competição:', error);
             throw error;
         }
+    },
+
+    async update(competitionId: string, data: { name: string; description: string }) {
+        try {
+            const { error } = await supabase
+                .from('competitions')
+                .update({
+                    name: data.name,
+                    description: data.description
+                })
+                .eq('id', competitionId);
+
+            if (error) {
+                console.error('Erro ao atualizar competição:', error);
+                throw error;
+            }
+
+            return { success: true };
+        } catch (error) {
+            console.error('Erro ao atualizar competição:', error);
+            throw error;
+        }
     }
 };
