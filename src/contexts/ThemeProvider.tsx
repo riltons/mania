@@ -25,7 +25,7 @@ const ThemeContext = createContext<ThemeContextData>({} as ThemeContextData);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const deviceTheme = useColorScheme();
-  const [theme, setTheme] = useState<ThemeType>('dark');
+  const [theme, setTheme] = useState<ThemeType>('light');
 
   useEffect(() => {
     async function loadSavedTheme() {
@@ -34,13 +34,13 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         if (savedTheme) {
           setTheme(savedTheme as ThemeType);
         } else {
-          // Se não houver tema salvo, use o tema do dispositivo ou o tema escuro como padrão
-          setTheme(deviceTheme === 'light' ? 'light' : 'dark');
+          // Se não houver tema salvo, use o tema claro como padrão
+          setTheme('light');
         }
       } catch (error) {
         console.error('Erro ao carregar tema:', error);
-        // Em caso de erro, use o tema escuro como fallback
-        setTheme('dark');
+        // Em caso de erro, use o tema claro como fallback
+        setTheme('light');
       }
     }
 
