@@ -224,8 +224,8 @@ class PlayerService {
                 .select(`
                     *,
                     user_player_relations!left(
-                        is_primary,
-                        user_id
+                        user_id,
+                        is_primary
                     ),
                     community_members!inner(
                         community_id,
@@ -246,6 +246,95 @@ class PlayerService {
             if (communityPlayersError) {
                 console.error('Erro ao buscar jogadores da comunidade:', communityPlayersError);
                 throw new Error('Erro ao listar jogadores');
+            }
+            
+            // Buscar jogadores compartilhados (criados por outros usuários, mas vinculados ao usuário atual)
+            const { data: sharedPlayers, error: sharedPlayersError } = await supabase
+                .from('user_player_relations')
+                .select(`
+                    player:player_id(
+                        *,
+                        user_player_relations!left(
+                            is_primary,
+                            user_id
+                        )
+                    )
+                `)
+                .eq('user_id', userData.user.id);
+
+            console.log('=== DEBUG JOGADORES COMPARTILHADOS ===');
+            console.log('User ID atual:', userData.user.id);
+            console.log('Relações encontradas:', sharedPlayers?.length || 0);
+            console.log('Dados das relações:', sharedPlayers);
+            console.log('Erro na busca:', sharedPlayersError);
+
+            // Busca alternativa: pegar as relações e depois buscar os jogadores individualmente
+            const { data: alternativeRelations, error: altError } = await supabase
+              .from('user_player_relations')
+              .select('player_id, is_primary')
+              .eq('user_id', userData.user.id);
+
+            console.log('=== BUSCA ALTERNATIVA DE RELAÇÕES ===');
+            console.log('Relações encontradas:', alternativeRelations?.length || 0);
+            console.log('Dados das relações:', alternativeRelations?.map(r => ({ 
+              is_primary: r.is_primary, 
+              player_id: r.player_id 
+            })));
+
+            if (alternativeRelations) {
+              const additionalPlayers = [];
+              const processedPlayerIds = new Set();
+              for (const relation of alternativeRelations) {
+                // Só busca jogadores compartilhados (is_primary = false) que não foram encontrados na busca original
+                if (!relation.is_primary && !processedPlayerIds.has(relation.player_id)) {
+                  console.log(`Buscando jogador individual: ${relation.player_id}`);
+                  
+                  const { data: individualPlayer, error: individualError } = await supabase
+                    .from('players')
+                    .select(`
+                      *,
+                      user_player_relations!inner(
+                        user_id,
+                        is_primary
+                      )
+                    `)
+                    .eq('id', relation.player_id)
+                    .eq('is_active', true)
+                    .maybeSingle(); // Usa maybeSingle para não dar erro se não encontrar
+
+                  if (individualError) {
+                    console.log(`Erro ao buscar jogador ${relation.player_id}:`, individualError);
+                    // Se der erro PGRST116, significa que o jogador não existe mais
+                    if (individualError.code === 'PGRST116') {
+                      console.log(`⚠️ RELAÇÃO ÓRFÃ DETECTADA: Jogador ${relation.player_id} não existe mais, mas relação ainda persiste`);
+                    }
+                    continue;
+                  }
+
+                  if (individualPlayer && !processedPlayerIds.has(individualPlayer.id)) {
+                    console.log(`Adicionando jogador compartilhado adicional: ${individualPlayer.name}`);
+                    
+                    // Verifica se é um jogador compartilhado de verdade (criado por outro usuário)
+                    const isSharedPlayer = individualPlayer.created_by !== userData.user.id;
+                    
+                    const playerWithFlags = {
+                      ...individualPlayer,
+                      isMine: !isSharedPlayer,
+                      isLinkedUser: true,
+                      isPrimaryUser: relation.is_primary
+                    };
+
+                    if (isSharedPlayer) {
+                      additionalPlayers.push(playerWithFlags);
+                    }
+                    
+                    processedPlayerIds.add(individualPlayer.id);
+                  }
+                }
+              }
+
+              console.log('Jogadores adicionais encontrados:', additionalPlayers.length);
+              communityPlayers.push(...additionalPlayers);
             }
 
             // Processar jogadores
@@ -282,8 +371,51 @@ class PlayerService {
                     });
                 });
             }
+            
+            // Adicionar jogadores compartilhados (criados por outros usuários mas vinculados ao usuário atual)
+            if (sharedPlayers) {
+                console.log('=== PROCESSANDO JOGADORES COMPARTILHADOS ===');
+                console.log('Quantidade de relações a processar:', sharedPlayers.length);
+                
+                const processedIds = new Set(players.map(p => p.id)); // Para evitar duplicatas
+                
+                sharedPlayers.forEach((relation: any, index: number) => {
+                    console.log(`Processando relação ${index + 1}:`, relation);
+                    
+                    if (!relation.player) {
+                        console.log('  - Pulando: relation.player é null/undefined');
+                        return;
+                    }
+                    
+                    if (processedIds.has(relation.player.id)) {
+                        console.log(`  - Pulando: jogador ${relation.player.id} já foi processado`);
+                        return;
+                    }
+                    
+                    console.log(`  - Adicionando jogador compartilhado: ${relation.player.name} (ID: ${relation.player.id})`);
+                    
+                    const relations = Array.isArray(relation.player.user_player_relations) ? relation.player.user_player_relations : [];
+                    const isPrimary = relations.some((rel: any) => 
+                        rel?.is_primary && rel?.user_id === userData.user.id
+                    );
+                    
+                    players.push({
+                        ...relation.player,
+                        isMine: false,
+                        isLinkedUser: true,
+                        isPrimaryUser: isPrimary,
+                        user_player_relations: relations
+                    });
+                    
+                    processedIds.add(relation.player.id);
+                });
+                
+                console.log('=== FIM DO PROCESSAMENTO ===');
+            } else {
+                console.log('Nenhum jogador compartilhado encontrado (sharedPlayers é null/undefined)');
+            }
 
-            // Separar jogadores próprios e da comunidade
+            // Separar jogadores
             const myPlayersList = players.filter(player => player.isMine);
             const communityPlayersList = players.filter(player => !player.isMine);
 

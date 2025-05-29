@@ -9,9 +9,10 @@ import { useAuth } from '@/hooks/useAuth';
 import { communityService } from '@/services/communityService';
 import { communityMembersService } from '@/services/communityMembersService';
 import { communityOrganizersService } from '@/services/communityOrganizersService';
-import { playerService } from '@/services/playerService';
+import { playersService } from '@/features/players/services/playersService';
 import { competitionService } from '@/services/competitionService';
 import { InternalHeader } from '@/components/InternalHeader';
+import { supabase } from '@/core/lib/supabase';
 
 type CommunityOrganizer = {
     id: string;
@@ -598,8 +599,9 @@ export default function CommunityDetails() {
             console.log('Organizadores encontrados:', organizersData);
             setOrganizers(organizersData);
 
-            const { myPlayers, communityPlayers } = await playerService.list(false); // Especificando false para não buscar estatísticas
-            console.log('Jogadores encontrados:', { myPlayers, communityPlayers });
+            console.log('Buscando jogadores...');
+            const playersResponse = await playersService.list({ includeShared: true, includeOwn: true });
+            console.log('Jogadores encontrados:', playersResponse);
 
             console.log('Buscando competições...');
             const competitionsData = await competitionService.listByCommunity(id);
@@ -609,7 +611,23 @@ export default function CommunityDetails() {
               new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
             );
             setCompetitions(sortedCompetitions);
-            setPlayers([...myPlayers, ...communityPlayers]);
+            
+            // Combinar todos os jogadores disponíveis para o usuário
+            // O playersService.list() retorna jogadores criados pelo usuário (includeOwn: true) 
+            // e jogadores compartilhados/da comunidade (includeShared: true)
+            const allUserPlayers = playersResponse.data;
+            
+            // Debug: mostrar todos os jogadores encontrados
+            console.log('=== DEBUG JOGADORES ===');
+            console.log('Todos os jogadores:', allUserPlayers.map(p => ({ id: p.id, name: p.name })));
+            
+            // Filtrar jogadores que já são membros da comunidade
+            const memberPlayerIds = membersData.map(member => member.player_id);
+            console.log('IDs dos membros da comunidade:', memberPlayerIds);
+            
+            const availablePlayers = allUserPlayers.filter(player => !memberPlayerIds.includes(player.id));
+            console.log('Jogadores disponíveis:', availablePlayers.map(p => ({ id: p.id, name: p.name })));
+            setPlayers(availablePlayers);
         } catch (error) {
             console.error('Erro ao carregar dados:', error);
             Alert.alert('Erro', 'Não foi possível carregar os dados da comunidade');
