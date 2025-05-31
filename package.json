@@ -71,7 +71,8 @@
     "react-native-web": "^0.19.13",
     "sharp": "^0.33.5",
     "styled-components": "^6.1.15",
-    "victory-native": "^41.16.1"
+    "victory-native": "^41.16.1",
+    "expo-updates": "~0.27.4"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
