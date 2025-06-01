@@ -28,6 +28,7 @@ interface Stats {
 interface Player {
     id: string;
     name: string;
+    avatar_url?: string | null;
     wins: number;
     buchudas: number;
     buchudasDeRe: number;
@@ -39,10 +40,12 @@ interface Pair {
     player1: {
         id: string;
         name: string;
+        avatar_url?: string | null;
     };
     player2: {
         id: string;
         name: string;
+        avatar_url?: string | null;
     };
     wins: number;
     buchudas: number;
@@ -430,6 +433,7 @@ const Dashboard: React.FC = () => {
                     const top4Players = rankings.slice(0, 4).map(player => ({
                         id: player.id,
                         name: player.name,
+                        avatar_url: player.avatar_url,
                         wins: player.wins,
                         buchudas: player.buchudas,
                         buchudasDeRe: player.buchudasDeRe,
@@ -449,11 +453,13 @@ const Dashboard: React.FC = () => {
                         id: pair.id,
                         player1: {
                             id: pair.player1.id,
-                            name: pair.player1.name
+                            name: pair.player1.name,
+                            avatar_url: pair.player1.avatar_url
                         },
                         player2: {
                             id: pair.player2.id,
-                            name: pair.player2.name
+                            name: pair.player2.name,
+                            avatar_url: pair.player2.avatar_url
                         },
                         wins: pair.wins,
                         buchudas: pair.buchudas,
@@ -627,7 +633,7 @@ const Dashboard: React.FC = () => {
                                             color={position === 1 ? "#FFD700" : colors.textSecondary} 
                                         />
                                         <PlayerAvatar 
-                                            avatarUrl={undefined} 
+                                            avatarUrl={player.avatar_url} 
                                             name={player.name} 
                                             size={40} 
                                         />
@@ -688,13 +694,13 @@ const Dashboard: React.FC = () => {
                                         />
                                         <View style={{ flexDirection: 'column', alignItems: 'center', marginRight: 8 }}>
                                             <PlayerAvatar 
-                                                avatarUrl={undefined} 
+                                                avatarUrl={pair.player1.avatar_url} 
                                                 name={pair.player1.name} 
                                                 size={32} 
                                             />
                                             <View style={{ height: 4 }} />
                                             <PlayerAvatar 
-                                                avatarUrl={undefined} 
+                                                avatarUrl={pair.player2.avatar_url} 
                                                 name={pair.player2.name} 
                                                 size={32} 
                                             />

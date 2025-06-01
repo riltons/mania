@@ -160,7 +160,7 @@ export default function TopDuplas() {
                 <PlayersContainer>
                     <PlayerInfo>
                         <PlayerAvatar 
-                            avatarUrl={undefined} 
+                            avatarUrl={item.player1.avatar_url} 
                             name={item.player1.name} 
                             size={32} 
                         />
@@ -169,7 +169,7 @@ export default function TopDuplas() {
                     <View style={{ height: 8 }} />
                     <PlayerInfo>
                         <PlayerAvatar 
-                            avatarUrl={undefined} 
+                            avatarUrl={item.player2.avatar_url} 
                             name={item.player2.name} 
                             size={32} 
                         />

@@ -1,5 +1,6 @@
 import { supabase } from '@/core/lib/supabase';
-import { Database } from '@/types/database.types';
+// Removendo importação que causa erro
+// import { Database } from '@/types/database.types';
 import { PostgrestError } from '@supabase/supabase-js';
 
 type QueryResult<T> = {
@@ -8,9 +9,26 @@ type QueryResult<T> = {
 };
 
 // Tipos do banco de dados
-type Player = Database['public']['Tables']['players']['Row'];
-type Game = Database['public']['Tables']['games']['Row'];
-type CommunityMember = Database['public']['Tables']['community_members']['Row'];
+type Player = {
+    id: string;
+    name: string;
+    nickname: string | null;
+    avatar_url?: string | null;
+};
+
+type Game = {
+    id: string;
+    team1: string[];
+    team2: string[];
+    team1_score: number;
+    team2_score: number;
+    status: string;
+};
+
+type CommunityMember = {
+    community_id: string;
+    player_id: string;
+};
 
 // Tipos auxiliares para o ranking
 type GameStatus = 'scheduled' | 'in_progress' | 'finished' | 'buchuda' | 'buchuda_de_re';
@@ -20,6 +38,7 @@ export interface PlayerRanking {
     id: string;
     name: string;
     nickname?: string | null;
+    avatar_url?: string | null;
     games: number;
     wins: number;
     losses: number;
@@ -42,11 +61,13 @@ export interface PairRanking {
         id: string;
         name: string;
         nickname?: string | null;
+        avatar_url?: string | null;
     };
     player2: {
         id: string;
         name: string;
         nickname?: string | null;
+        avatar_url?: string | null;
     };
     wins: number;
     losses: number;
@@ -65,6 +86,7 @@ interface PlayerStats {
     id: string;
     name: string;
     nickname: string | null;
+    avatar_url?: string | null;
     games: number;
     wins: number;
     losses: number;
@@ -180,6 +202,7 @@ export const rankingService = {
                         id: player.id,
                         name: player.name || 'Jogador sem nome',
                         nickname: player.nickname || null,
+                        avatar_url: player.avatar_url || null,
                         games: 0,
                         wins: 0,
                         losses: 0,
@@ -262,6 +285,7 @@ export const rankingService = {
                     id: stats.id,
                     name: stats.name,
                     nickname: stats.nickname,
+                    avatar_url: stats.avatar_url,
                     games: stats.games,
                     wins: stats.wins,
                     losses: stats.losses,
@@ -379,13 +403,14 @@ export const rankingService = {
             }
             
             // Criar um mapa de jogadores para acesso rápido
-            const playersMap = new Map<string, { id: string; name: string; nickname: string | null }>();
+            const playersMap = new Map<string, { id: string; name: string; nickname: string | null; avatar_url?: string | null }>();
             playersData.forEach(player => {
                 if (player?.id) {
                     playersMap.set(player.id, {
                         id: player.id,
                         name: player.name || 'Jogador sem nome',
-                        nickname: player.nickname || null
+                        nickname: player.nickname || null,
+                        avatar_url: player.avatar_url || null
                     });
                 }
             });
@@ -519,12 +544,14 @@ export const rankingService = {
                         player1: {
                             id: player1.id,
                             name: player1.name,
-                            nickname: player1.nickname
+                            nickname: player1.nickname,
+                            avatar_url: (player1 as any).avatar_url || null
                         },
                         player2: {
                             id: player2.id,
                             name: player2.name,
-                            nickname: player2.nickname
+                            nickname: player2.nickname,
+                            avatar_url: (player2 as any).avatar_url || null
                         },
                         wins: stats.wins,
                         losses: stats.losses,

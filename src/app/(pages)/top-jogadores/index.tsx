@@ -3,6 +3,7 @@ import { View, Text, FlatList, ActivityIndicator, TouchableOpacity } from 'react
 import { PlayerAvatar } from '@/components/data-display/PlayerAvatar';
 import styled from 'styled-components/native';
 import { useTheme } from '@/core/contexts/ThemeProvider';
+import { ThemeType } from '@/theme';
 import { InternalHeader } from '@/components/layout/InternalHeader';
 import { PageTransition } from '@/components/Transitions';
 import { Feather } from '@expo/vector-icons';
@@ -11,7 +12,7 @@ import { useRouter } from 'expo-router';
 
 const Container = styled.View`
     flex: 1;
-    background-color: ${({ theme }) => theme.colors.backgroundDark};
+    background-color: ${({ theme }: { theme: ThemeType }) => theme.colors.backgroundDark};
 `;
 
 const Content = styled.View`
@@ -20,7 +21,7 @@ const Content = styled.View`
 `;
 
 const PlayerCard = styled.TouchableOpacity`
-    background-color: ${({ theme }) => theme.colors.backgroundMedium};
+    background-color: ${({ theme }: { theme: ThemeType }) => theme.colors.backgroundMedium};
     border-radius: 12px;
     padding: 16px;
     margin-bottom: 12px;
@@ -33,7 +34,7 @@ const CardHeader = styled.View`
 `;
 
 const Position = styled.Text`
-    color: ${({ theme }) => theme.colors.primary};
+    color: ${({ theme }: { theme: ThemeType }) => theme.colors.primary};
     font-size: 24px;
     font-weight: bold;
     min-width: 40px;
@@ -45,7 +46,7 @@ const PlayerInfo = styled.View`
 `;
 
 const PlayerName = styled.Text`
-    color: ${({ theme }) => theme.colors.gray100};
+    color: ${({ theme }: { theme: ThemeType }) => theme.colors.gray100};
     font-size: 18px;
     font-weight: bold;
 `;
@@ -55,7 +56,7 @@ const StatsContainer = styled.View`
     justify-content: space-between;
     padding-top: 12px;
     border-top-width: 1px;
-    border-top-color: ${({ theme }) => theme.colors.backgroundLight};
+    border-top-color: ${({ theme }: { theme: ThemeType }) => theme.colors.backgroundLight};
 `;
 
 const StatItem = styled.View`
@@ -64,13 +65,13 @@ const StatItem = styled.View`
 `;
 
 const StatValue = styled.Text`
-    color: ${({ theme }) => theme.colors.primary};
+    color: ${({ theme }: { theme: ThemeType }) => theme.colors.primary};
     font-size: 16px;
     font-weight: bold;
 `;
 
 const StatLabel = styled.Text`
-    color: ${({ theme }) => theme.colors.gray300};
+    color: ${({ theme }: { theme: ThemeType }) => theme.colors.gray300};
     font-size: 12px;
     margin-top: 4px;
     text-align: center;
@@ -91,7 +92,7 @@ const ErrorContainer = styled.View`
 `;
 
 const ErrorText = styled.Text`
-    color: ${({ theme }) => theme.colors.error};
+    color: ${({ theme }: { theme: ThemeType }) => theme.colors.error};
     font-size: 16px;
     text-align: center;
 `;
@@ -104,7 +105,7 @@ const EmptyContainer = styled.View`
 `;
 
 const EmptyText = styled.Text`
-    color: ${({ theme }) => theme.colors.gray300};
+    color: ${({ theme }: { theme: ThemeType }) => theme.colors.gray300};
     font-size: 16px;
     text-align: center;
 `;
@@ -178,7 +179,7 @@ export default function TopJogadores() {
             <CardHeader>
                 <Position>{calculatePosition(index, players)}º</Position>
                 <PlayerAvatar 
-                    avatarUrl={undefined} 
+                    avatarUrl={item.avatar_url} 
                     name={item.name} 
                     size={40} 
                 />
@@ -221,7 +222,7 @@ export default function TopJogadores() {
         <PageTransition>
             <Container>
                 <InternalHeader title="Top Jogadores" rightContent={
-                        <TouchableOpacity onPress={() => router.push(`/top-jogadores/estatisticas`)}>
+                        <TouchableOpacity onPress={() => router.push('/')}>
                             <Feather name="bar-chart-2" size={24} color={colors.gray100} />
                         </TouchableOpacity>
                     }/>

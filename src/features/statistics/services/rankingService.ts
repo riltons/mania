@@ -42,6 +42,7 @@ type Game = {
 export interface PlayerRanking {
     id: string;
     name: string;
+    avatar_url?: string | null;
     wins: number;
     losses: number;
     totalGames: number;
@@ -59,10 +60,12 @@ export interface PairRanking {
     player1: {
         id: string;
         name: string;
+        avatar_url?: string | null;
     };
     player2: {
         id: string;
         name: string;
+        avatar_url?: string | null;
     };
     wins: number;
     losses: number;
@@ -130,7 +133,7 @@ export const rankingService = {
             if (communityIds.length > 0) {
                 const { data: members, error: membersError } = await supabase
                     .from('community_members')
-                    .select('player_id, players (id, name)')
+                    .select('player_id, players (id, name, avatar_url)')
                     .in('community_id', communityIds);
                 
                 if (membersError) {
@@ -144,7 +147,7 @@ export const rankingService = {
                 console.log('RankingService: Buscando todos os jogadores...');
                 const { data: allPlayers, error: playersError } = await supabase
                     .from('players')
-                    .select('id, name');
+                    .select('id, name, avatar_url');
                 
                 if (playersError) {
                     console.error('Erro ao buscar todos os jogadores:', playersError.message);
@@ -298,6 +301,7 @@ export const rankingService = {
             return {
                 id: playerId,
                 name: player?.name || 'Jogador Desconhecido',
+                avatar_url: (player as any)?.avatar_url || null,
                 wins,
                 losses,
                 totalGames,
@@ -332,7 +336,7 @@ export const rankingService = {
         // Primeiro, obter todos os jogadores ativos
         const { data: players, error: playersError } = await supabase
             .from('players')
-            .select('id, name, is_active')
+            .select('id, name, avatar_url, is_active')
             .eq('is_active', true);
 
         if (playersError || !players) {
@@ -475,11 +479,13 @@ export const rankingService = {
                 id: `${stats.player1Id}_${stats.player2Id}`,
                 player1: {
                     id: player1.id,
-                    name: player1.name
+                    name: player1.name,
+                    avatar_url: (player1 as any).avatar_url || null
                 },
                 player2: {
                     id: player2.id,
-                    name: player2.name
+                    name: player2.name,
+                    avatar_url: (player2 as any).avatar_url || null
                 },
                 wins: stats.wins,
                 losses: stats.losses,

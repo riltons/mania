@@ -1,13 +1,13 @@
 import React from 'react';
 import { View, ScrollView } from 'react-native';
 import styled from 'styled-components/native';
-import { useTheme } from 'styled-components/native';
+import { useTheme } from '@/core/contexts/ThemeProvider';
 import TopJogadores from '@/app/(pages)/top-jogadores/index';
 import TopDuplas from '@/app/top-duplas/index';
 
 const Container = styled.View`
     flex: 1;
-    background-color: ${({ theme }) => theme.colors.backgroundDark};
+    background-color: ${({ theme }: { theme: any }) => theme.colors.backgroundDark};
 `;
 
 const ScrollContent = styled.ScrollView`
