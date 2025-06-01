@@ -6,6 +6,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { competitionService, Competition } from '../../services/competitionService'
 import { communityService, Community } from '../../services/communityService'
 import { supabase } from '../../lib/supabase'
+import { InternalHeader } from '../../components/InternalHeader'
 
 interface ThemeProps {
   theme: { colors: any };
@@ -607,6 +608,7 @@ export default function Competicoes() {
   if (loading) {
     return (
       <Container>
+        <InternalHeader title="Competições" />
         <ScrollContent>
           <SectionTitle>Minhas Competições</SectionTitle>
           <LoadingContainer>
@@ -619,6 +621,7 @@ export default function Competicoes() {
 
   return (
     <Container>
+      <InternalHeader title="Competições" />
       <ScrollContent>
         <SectionTitle>Minhas Competições</SectionTitle>
         {competitions.created.length === 0 ? (

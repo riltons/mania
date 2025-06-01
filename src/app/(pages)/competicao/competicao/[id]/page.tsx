@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { View, Text, ActivityIndicator, StatusBar, Platform, ScrollView, Alert } from "react-native";
+import { View, Text, ActivityIndicator, StatusBar, Platform, ScrollView, Alert, TouchableOpacity } from "react-native";
 import { useEffect, useState } from "react";
 import { Competition, Game } from "@/types/database.types";
 import { competitionService } from "@/services/competitionService";
@@ -31,7 +31,7 @@ const CompetitionCard = styled.View`
 `;
 
 const CompetitionName = styled.Text`
-  color: ${({ theme }) => theme.colors.gray100};
+  color: ${({ theme }) => theme.colors.text};
   font-size: 24px;
   font-weight: bold;
   margin-bottom: 16px;
@@ -42,13 +42,13 @@ const InfoItem = styled.View`
 `;
 
 const InfoLabel = styled.Text`
-  color: ${({ theme }) => theme.colors.gray300};
+  color: ${({ theme }) => theme.colors.textSecondary};
   font-size: 14px;
   margin-bottom: 4px;
 `;
 
 const InfoValue = styled.Text`
-  color: ${({ theme }) => theme.colors.gray100};
+  color: ${({ theme }) => theme.colors.text};
   font-size: 16px;
 `;
 
@@ -71,7 +71,7 @@ const GameHeader = styled.View`
 `;
 
 const GameStatus = styled.Text`
-  color: ${({ theme }) => theme.colors.gray300};
+  color: ${({ theme }) => theme.colors.textSecondary};
   font-size: 14px;
 `;
 
@@ -90,14 +90,18 @@ const TeamsContainer = styled.View`
   align-items: center;
 `;
 
-const TeamScore = styled.Text<{ winner: boolean }>`
+interface TeamScoreProps {
+  winner: boolean;
+}
+
+const TeamScore = styled.Text<TeamScoreProps>`
   font-size: 24px;
   font-weight: bold;
   color: ${props => props.winner ? props.theme.colors.accent : props.theme.colors.textSecondary};
 `;
 
 const TeamPlayers = styled.Text`
-  color: ${({ theme }) => theme.colors.gray100};
+  color: ${({ theme }) => theme.colors.text};
   font-size: 14px;
   text-align: center;
 `;
@@ -130,6 +134,11 @@ export default function CompetitionDetails() {
   const [error, setError] = useState<string | null>(null);
   const [canDeleteGames, setCanDeleteGames] = useState(false);
   const theme = useTheme();
+  
+  // Função para voltar à tela anterior
+  const handleBack = () => {
+    router.back();
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -200,79 +209,116 @@ export default function CompetitionDetails() {
     );
   };
 
-  return (
-    <PageTransition>
+  if (loading) {
+    return (
       <Container>
         <StatusBarCustom />
-        <InternalHeader title="Detalhes da Competição" />
-        
-        <Content>
-          {loading ? (
-            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-              <ActivityIndicator size="large" color={theme.colors.primary} />
-            </View>
-          ) : error ? (
-            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-              <Text style={{ color: theme.colors.error }}>{error}</Text>
-            </View>
-          ) : !competition ? (
-            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-              <Text style={{ color: theme.colors.gray300 }}>Competição não encontrada</Text>
-            </View>
-          ) : (
-            <>
-              <CompetitionCard>
-                <CompetitionName>{competition.name}</CompetitionName>
-                
-                <InfoItem>
-                  <InfoLabel>Descrição</InfoLabel>
-                  <InfoValue>{competition.description || 'Sem descrição disponível'}</InfoValue>
-                </InfoItem>
-                
-                <InfoItem>
-                  <InfoLabel>Data de Início</InfoLabel>
-                  <InfoValue>
-                    {format(new Date(competition.start_date), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
-                  </InfoValue>
-                </InfoItem>
-                
-                <InfoItem>
-                  <InfoLabel>Data de Término</InfoLabel>
-                  <InfoValue>
-                    {format(new Date(competition.end_date), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
-                  </InfoValue>
-                </InfoItem>
-              </CompetitionCard>
-
-              <GamesList>
-                {games.map(game => (
-                  <GameCard key={game.id}>
-                    <GameHeader>
-                      <GameStatus>{game.status === 'pending' ? 'Pendente' : game.status === 'in_progress' ? 'Em andamento' : 'Finalizado'}</GameStatus>
-                      {(canDeleteGames || (game.status === 'pending')) && (
-                        <DeleteButton onPress={() => showDeleteConfirmation(game.id, game.status)}>
-                          <Feather name="trash-2" size={16} color={theme.colors.gray100} />
-                        </DeleteButton>
-                      )}
-                    </GameHeader>
-                    <TeamsContainer>
-                      <View style={{ flex: 1, alignItems: 'center' }}>
-                        <TeamScore winner={game.team1_score > game.team2_score}>{game.team1_score}</TeamScore>
-                        <TeamPlayers>{game.team1.join(' & ')}</TeamPlayers>
-                      </View>
-                      <VsText>vs</VsText>
-                      <View style={{ flex: 1, alignItems: 'center' }}>
-                        <TeamScore winner={game.team2_score > game.team1_score}>{game.team2_score}</TeamScore>
-                        <TeamPlayers>{game.team2.join(' & ')}</TeamPlayers>
-                      </View>
-                    </TeamsContainer>
-                  </GameCard>
-                ))}
-              </GamesList>
-            </>
-          )}
-        </Content>
+        <InternalHeader 
+          title="Carregando..." 
+          onBack={handleBack} 
+        />
+        <ActivityIndicator size="large" color={theme.colors.primary} style={{ flex: 1, justifyContent: 'center' }} />
       </Container>
-    </PageTransition>
+    );
+  }
+
+  if (error) {
+    return (
+      <Container>
+        <StatusBarCustom />
+        <InternalHeader 
+          title="Erro" 
+          onBack={handleBack} 
+        />
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+          <Text style={{ color: theme.colors.error, marginBottom: 10 }}>{error}</Text>
+          <TouchableOpacity onPress={handleBack} style={{ padding: 10, backgroundColor: theme.colors.primary, borderRadius: 5 }}>
+            <Text style={{ color: theme.colors.white }}>Voltar</Text>
+          </TouchableOpacity>
+        </View>
+      </Container>
+    );
+  }
+
+  return (
+    <Container>
+      <StatusBarCustom />
+      <InternalHeader 
+        title={competition?.name || 'Detalhes da Competição'} 
+        onBack={handleBack} 
+      />
+      <Content>
+        <PageTransition>
+          <CompetitionCard>
+            <CompetitionName>{competition.name}</CompetitionName>
+            
+            <InfoItem>
+              <InfoLabel>Descrição</InfoLabel>
+              <InfoValue>{competition.description || 'Sem descrição disponível'}</InfoValue>
+            </InfoItem>
+            
+            <InfoItem>
+              <InfoLabel>Data de Início</InfoLabel>
+              <InfoValue>
+                {format(new Date(competition.start_date), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+              </InfoValue>
+            </InfoItem>
+            
+            <InfoItem>
+              <InfoLabel>Data de Término</InfoLabel>
+              <InfoValue>
+                {format(new Date(competition.end_date), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+              </InfoValue>
+            </InfoItem>
+          </CompetitionCard>
+
+          <GamesList>
+            <InfoLabel style={{ marginBottom: 10 }}>Jogos</InfoLabel>
+            {games.length > 0 ? (
+              games.map((game) => (
+                <GameCard key={game.id}>
+                  <GameHeader>
+                    <GameStatus>
+                      {game.status === 'finished' ? 'Finalizado' : 'Em andamento'}
+                    </GameStatus>
+                    {canDeleteGames && (
+                      <DeleteButton onPress={() => showDeleteConfirmation(game.id, game.status)}>
+                        <Feather name="trash-2" size={16} color={theme.colors.white} />
+                      </DeleteButton>
+                    )}
+                  </GameHeader>
+                  
+                  <TeamsContainer>
+                    <View style={{ alignItems: 'center' }}>
+                      <TeamScore winner={game.team1_score > game.team2_score}>
+                        {game.team1_score}
+                      </TeamScore>
+                      <TeamPlayers>
+                        {game.team1_players?.join(' / ')}
+                      </TeamPlayers>
+                    </View>
+                    
+                    <VsText>VS</VsText>
+                    
+                    <View style={{ alignItems: 'center' }}>
+                      <TeamScore winner={game.team2_score > game.team1_score}>
+                        {game.team2_score}
+                      </TeamScore>
+                      <TeamPlayers>
+                        {game.team2_players?.join(' / ')}
+                      </TeamPlayers>
+                    </View>
+                  </TeamsContainer>
+                </GameCard>
+              ))
+            ) : (
+              <Text style={{ color: theme.colors.textSecondary, textAlign: 'center', marginTop: 20 }}>
+                Nenhum jogo encontrado para esta competição.
+              </Text>
+            )}
+          </GamesList>
+        </PageTransition>
+      </Content>
+    </Container>
   );
 }
