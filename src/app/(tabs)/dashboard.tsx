@@ -33,6 +33,7 @@ interface Player {
     buchudas: number;
     buchudasDeRe: number;
     winRate: number;
+    position: number;
 }
 
 interface Pair {
@@ -278,11 +279,28 @@ const StatText = styled.Text`
     margin-right: 8px;
 `;
 
-const calculatePosition = (index: number, items: Array<any>): number => {
+// Interface para tipar os itens que podem ser ordenados (Player ou Pair)
+interface RankableItem {
+    wins: number;
+    winRate: number;
+}
+
+const calculatePosition = (index: number, items: RankableItem[]): number => {
     if (index === 0) return 1;
-    const currentWinRate = items[index].winRate;
-    const previousWinRate = items[index - 1].winRate;
-    return currentWinRate === previousWinRate ? calculatePosition(index - 1, items) : index + 1;
+    
+    const currentItem = items[index];
+    const previousItem = items[index - 1];
+    
+    // Se o número de vitórias for igual, verifica o winRate
+    if (currentItem.wins === previousItem.wins) {
+        // Se o winRate for igual, mantém a mesma posição
+        if (currentItem.winRate === previousItem.winRate) {
+            return calculatePosition(index - 1, items);
+        }
+    }
+    
+    // Se for diferente, retorna a posição atual + 1
+    return index + 1;
 };
 
 const Dashboard: React.FC = () => {
@@ -427,19 +445,33 @@ const Dashboard: React.FC = () => {
                 
                 // Carregar ranking de jogadores
                 try {
+                    // O serviço já retorna os jogadores ordenados por vitórias e winRate
                     const rankings = await rankingService.getTopPlayers();
-                    console.log('[Dashboard] Top jogadores carregados:', rankings.length);
                     
-                    const top4Players = rankings.slice(0, 4).map(player => ({
-                        id: player.id,
-                        name: player.name,
-                        avatar_url: player.avatar_url,
-                        wins: player.wins,
-                        buchudas: player.buchudas,
-                        buchudasDeRe: player.buchudasDeRe,
-                        winRate: player.winRate
-                    }));
-                    setTopPlayers(top4Players);
+                    // Log detalhado dos dados recebidos do serviço
+                    console.log('[Dashboard] Top jogadores carregados (raw):', JSON.stringify(rankings, null, 2));
+                    
+                    // Ordenar novamente para garantir a consistência
+                    const sortedRankings = [...rankings].sort((a, b) => {
+                        if (b.wins !== a.wins) return b.wins - a.wins;
+                        return b.winRate - a.winRate;
+                    });
+                    
+                    console.log('[Dashboard] Jogadores após ordenação:', JSON.stringify(sortedRankings, null, 2));
+                    
+                    // Mapear os jogadores mantendo a ordem retornada pelo serviço
+                    // e adicionando a posição baseada no índice
+                    const topPlayers = sortedRankings
+                        .slice(0, 4) // Pegar apenas os 4 primeiros
+                        .map((player, index) => ({
+                            ...player,
+                            position: index + 1
+                        }));
+                    
+                    console.log('[Dashboard] Top 4 jogadores (após processamento):', JSON.stringify(topPlayers, null, 2));
+                    console.log('[Dashboard] Ordem dos jogadores:', topPlayers.map(p => `${p.position}. ${p.name} (${p.wins} vitórias, ${p.winRate.toFixed(2)}%)`).join(', '));
+                    
+                    setTopPlayers(topPlayers);
                 } catch (playerError) {
                     console.error('[Dashboard] Erro ao carregar top jogadores:', playerError);
                 }
@@ -623,14 +655,18 @@ const Dashboard: React.FC = () => {
                                 </Text>
                             </View>
                         ) : (
-                            topPlayers.slice(0, 6).map((player, index) => {
-                                const position = calculatePosition(index, topPlayers);
-                                return (
+                            [...topPlayers] // Criar uma cópia do array para não modificar o estado original
+                                .sort((a, b) => {
+                                    // Ordenar por vitórias (decrescente) e depois por winRate (decrescente)
+                                    if (b.wins !== a.wins) return b.wins - a.wins;
+                                    return b.winRate - a.winRate;
+                                })
+                                .map((player, index) => (
                                     <PlayerCard key={player.id} onPress={() => router.push(`/jogador/jogador/${player.id}/jogos`)}>
                                         <MaterialCommunityIcons 
-                                            name={position === 1 ? "crown" : "star"} 
+                                            name={index === 0 ? "crown" : "star"} 
                                             size={24} 
-                                            color={position === 1 ? "#FFD700" : colors.textSecondary} 
+                                            color={index === 0 ? "#FFD700" : colors.textSecondary} 
                                         />
                                         <PlayerAvatar 
                                             avatarUrl={player.avatar_url} 
@@ -644,8 +680,7 @@ const Dashboard: React.FC = () => {
                                             </PlayerStats>
                                         </PlayerInfo>
                                     </PlayerCard>
-                                );
-                            })
+                                ))
                         )}
                     </SectionContainer>
 
