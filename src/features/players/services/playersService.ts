@@ -146,6 +146,58 @@ export const playersService = {
         } catch (sharedError) {
           console.error('Erro ao processar jogadores compartilhados:', sharedError);
         }
+        
+        // 3. Buscar jogadores das comunidades em que o usuário é organizador
+        try {
+          // Primeiro, buscar as comunidades em que o usuário é organizador
+          const { data: organizedCommunities, error: orgError } = await supabase
+            .from('community_organizers')
+            .select('community_id')
+            .eq('user_id', user.id);
+            
+          if (orgError) {
+            console.error('Erro ao buscar comunidades organizadas:', orgError);
+          } else if (organizedCommunities && organizedCommunities.length > 0) {
+            const communityIds = organizedCommunities.map(org => org.community_id);
+            console.log(`Usuário é organizador em ${communityIds.length} comunidades`);
+            
+            // Buscar jogadores dessas comunidades
+            const { data: communityPlayers, error: playersError } = await supabase
+              .from('community_members')
+              .select('player_id, players(id, name, phone, created_at, nickname, created_by, avatar_url)')
+              .in('community_id', communityIds);
+              
+            if (playersError) {
+              console.error('Erro ao buscar jogadores das comunidades organizadas:', playersError);
+            } else if (communityPlayers && communityPlayers.length > 0) {
+              // Filtrar jogadores válidos e remover duplicados
+              const validPlayers = communityPlayers
+                .filter(cp => cp.players) // Garantir que o jogador existe
+                .map(cp => cp.players);
+              
+              // Remover jogadores que já estão na lista (próprios ou compartilhados)
+              const existingPlayerIds = new Set(allPlayers.map(p => p.id));
+              const newCommunityPlayers = validPlayers.filter(player => !existingPlayerIds.has(player.id));
+              
+              // Adicionar à lista de jogadores
+              allPlayers = [
+                ...allPlayers,
+                ...newCommunityPlayers.map((player: any) => ({
+                  ...player,
+                  isCreatedByOtherUser: player.created_by !== user.id,
+                  sharedPlayer: true,
+                  communityPlayer: true, // Marca como jogador de comunidade
+                  isPrimary: false
+                }))
+              ];
+              
+              totalCount += newCommunityPlayers.length;
+              console.log(`Encontrados ${newCommunityPlayers.length} jogadores adicionais das comunidades organizadas`);
+            }
+          }
+        } catch (communityError) {
+          console.error('Erro ao processar jogadores das comunidades organizadas:', communityError);
+        }
       }
       
       console.log(`Total de jogadores encontrados: ${allPlayers.length}`);

@@ -232,7 +232,7 @@ interface SectionItem extends Partial<Player> {
     id?: string;
     sectionTitle?: string;
     emptyMessage?: string;
-    section?: 'myPlayers' | 'communityPlayers';
+    section?: 'myPlayers' | 'communityPlayers' | 'organizedCommunityPlayers';
     [key: string]: any; 
 }
 
@@ -243,6 +243,7 @@ function JogadoresScreen() {
     const router = useRouter();
     const [myPlayers, setMyPlayers] = useState<Player[]>([]);
     const [communityPlayers, setCommunityPlayers] = useState<Player[]>([]);
+    const [organizedCommunityPlayers, setOrganizedCommunityPlayers] = useState<Player[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
 
@@ -270,18 +271,21 @@ function JogadoresScreen() {
             
             // Processar os jogadores retornados pelo serviço
             if (result && result.data) {
-                // Separar jogadores próprios e compartilhados
+                // Separar jogadores próprios, compartilhados e de comunidades organizadas
                 const ownPlayers = result.data.filter(player => !player.isCreatedByOtherUser);
-                const sharedPlayers = result.data.filter(player => player.isCreatedByOtherUser);
+                const sharedPlayers = result.data.filter(player => player.isCreatedByOtherUser && !player.communityPlayer);
+                const organizedPlayers = result.data.filter(player => player.communityPlayer);
                 
-                console.log(`Encontrados ${ownPlayers.length} jogadores próprios e ${sharedPlayers.length} jogadores compartilhados`);
+                console.log(`Encontrados ${ownPlayers.length} jogadores próprios, ${sharedPlayers.length} jogadores compartilhados e ${organizedPlayers.length} jogadores de comunidades organizadas`);
                 
                 setMyPlayers(ownPlayers);
                 setCommunityPlayers(sharedPlayers);
+                setOrganizedCommunityPlayers(organizedPlayers);
             } else {
                 console.log('Nenhum jogador encontrado ou resultado inválido');
                 setMyPlayers([]);
                 setCommunityPlayers([]);
+                setOrganizedCommunityPlayers([]);
             }
         } catch (error) {
             console.error('Erro ao carregar jogadores:', error);
@@ -535,6 +539,29 @@ function JogadoresScreen() {
                     ...player, 
                     id: player.id || `community-player-${index}`, 
                     section: 'communityPlayers' as const 
+                });
+            }
+        });
+    }
+    
+    // Seção "Jogadores das Comunidades que Organizo"
+    sections.push({ 
+        id: 'organized-community-players-header', 
+        sectionTitle: 'Jogadores das Comunidades que Organizo' 
+    });
+    
+    if (!organizedCommunityPlayers || organizedCommunityPlayers.length === 0) {
+        sections.push({ 
+            id: 'no-organized-community-players', 
+            emptyMessage: 'Nenhum jogador disponível nas comunidades que você organiza' 
+        });
+    } else {
+        organizedCommunityPlayers.forEach((player, index) => {
+            if (player && player.id) {
+                sections.push({ 
+                    ...player, 
+                    id: player.id || `organized-community-player-${index}`, 
+                    section: 'organizedCommunityPlayers' as const 
                 });
             }
         });
