@@ -315,12 +315,39 @@ export const rankingService = {
             };
         });
 
-        // Filtrar jogadores com pelo menos 1 vitória e ordenar por vitórias e taxa de vitória
+        // Filtrar jogadores com pelo menos 1 vitória e ordenar de acordo com os critérios especificados
         return playerStats
             .filter(player => player.wins > 0)
             .sort((a, b) => {
+                // 1. Maior Número de vitórias
                 if (b.wins !== a.wins) return b.wins - a.wins;
-                return b.winRate - a.winRate;
+                
+                // 2. Menor número de derrotas
+                if (a.losses !== b.losses) return a.losses - b.losses;
+                
+                // 3. Menor número de jogos
+                if (a.totalGames !== b.totalGames) return a.totalGames - b.totalGames;
+                
+                // 4. Maior quantidade de pontos ganhos
+                if (b.pointsGained !== a.pointsGained) return b.pointsGained - a.pointsGained;
+                
+                // 5. Menor quantidade de pontos perdidos
+                if (a.pointsLost !== b.pointsLost) return a.pointsLost - b.pointsLost;
+                
+                // 6. Melhor taxa de vitória
+                if (b.winRate !== a.winRate) return b.winRate - a.winRate;
+                
+                // 7. Maior número de buchudas dadas
+                if (b.buchudas !== a.buchudas) return b.buchudas - a.buchudas;
+                
+                // 8. Menor número de buchudas levadas
+                if (a.buchudasTaken !== b.buchudasTaken) return a.buchudasTaken - b.buchudasTaken;
+                
+                // 9. Maior número de buchudas de ré dadas
+                if (b.buchudasDeRe !== a.buchudasDeRe) return b.buchudasDeRe - a.buchudasDeRe;
+                
+                // 10. Menor número de buchudas de ré levadas
+                return a.buchudasDeReTaken - b.buchudasDeReTaken;
             });
     },
 
@@ -500,10 +527,37 @@ export const rankingService = {
             });
         }
         
-        // Ordenar por número de vitórias e taxa de vitórias
+        // Ordenar de acordo com os critérios especificados
         return rankings.sort((a, b) => {
+            // 1. Maior Número de vitórias
             if (b.wins !== a.wins) return b.wins - a.wins;
-            return b.winRate - a.winRate;
+            
+            // 2. Menor número de derrotas
+            if (a.losses !== b.losses) return a.losses - b.losses;
+            
+            // 3. Menor número de jogos
+            if (a.totalGames !== b.totalGames) return a.totalGames - b.totalGames;
+            
+            // 4. Maior quantidade de pontos ganhos
+            if (b.pointsGained !== a.pointsGained) return b.pointsGained - a.pointsGained;
+            
+            // 5. Menor quantidade de pontos perdidos
+            if (a.pointsLost !== b.pointsLost) return a.pointsLost - b.pointsLost;
+            
+            // 6. Melhor taxa de vitória
+            if (b.winRate !== a.winRate) return b.winRate - a.winRate;
+            
+            // 7. Maior número de buchudas dadas
+            if (b.buchudas !== a.buchudas) return b.buchudas - a.buchudas;
+            
+            // 8. Menor número de buchudas levadas
+            if (a.buchudasTaken !== b.buchudasTaken) return a.buchudasTaken - b.buchudasTaken;
+            
+            // 9. Maior número de buchudas de ré dadas
+            if (b.buchudasDeRe !== a.buchudasDeRe) return b.buchudasDeRe - a.buchudasDeRe;
+            
+            // 10. Menor número de buchudas de ré levadas
+            return a.buchudasDeReTaken - b.buchudasDeReTaken;
         });
     }
 };

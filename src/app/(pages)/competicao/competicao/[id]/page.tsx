@@ -11,7 +11,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useTheme } from "styled-components/native";
 import { Feather } from "@expo/vector-icons";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/core/lib/supabase";
 
 const Container = styled.View`
   flex: 1;
@@ -52,8 +52,22 @@ const InfoValue = styled.Text`
   font-size: 16px;
 `;
 
+const GamesSectionTitle = styled.Text`
+  color: ${({ theme }) => theme.colors.text};
+  font-size: 20px;
+  font-weight: bold;
+  margin-top: 24px;
+  margin-bottom: 16px;
+`;
+
+const GamesCount = styled.Text`
+  color: ${({ theme }) => theme.colors.textSecondary};
+  font-size: 14px;
+  margin-bottom: 12px;
+`;
+
 const GamesList = styled.View`
-  margin-top: 20px;
+  margin-top: 8px;
 `;
 
 const GameCard = styled.View`
@@ -77,11 +91,8 @@ const GameStatus = styled.Text`
 
 const DeleteButton = styled.TouchableOpacity`
   background-color: ${({ theme }) => theme.colors.error};
-  padding: 8px;
-  border-radius: 6px;
-  align-items: center;
-  justify-content: center;
-  padding: 8px;
+  padding: 4px;
+  border-radius: 4px;
 `;
 
 const TeamsContainer = styled.View`
@@ -104,11 +115,13 @@ const TeamPlayers = styled.Text`
   color: ${({ theme }) => theme.colors.text};
   font-size: 14px;
   text-align: center;
+  margin-top: 4px;
 `;
 
 const VsText = styled.Text`
-  color: ${({ theme }) => theme.colors.gray300};
-  font-size: 14px;
+  color: ${({ theme }) => theme.colors.textSecondary};
+  font-size: 16px;
+  font-weight: bold;
   margin: 0 8px;
 `;
 
@@ -272,8 +285,10 @@ export default function CompetitionDetails() {
             </InfoItem>
           </CompetitionCard>
 
+          <GamesSectionTitle>Jogos da Competição</GamesSectionTitle>
+          <GamesCount>{games.length} {games.length === 1 ? 'jogo registrado' : 'jogos registrados'}</GamesCount>
+          
           <GamesList>
-            <InfoLabel style={{ marginBottom: 10 }}>Jogos</InfoLabel>
             {games.length > 0 ? (
               games.map((game) => (
                 <GameCard key={game.id}>
