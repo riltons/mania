@@ -88,6 +88,16 @@ const StatText = styled(Text)<ThemeProps>`
   margin-left: 6px;
 `;
 
+const EmptyText = styled(Text)<ThemeProps>`
+  color: ${({ theme }: ThemeProps) => theme.colors.gray300};
+  font-size: 16px;
+  text-align: center;
+  margin-top: 16px;
+  padding: 16px;
+  background-color: ${({ theme }: ThemeProps) => theme.colors.backgroundMedium};
+  border-radius: 8px;
+`;
+
 const SectionTitle = styled(Text)<ThemeProps>`
   font-size: 18px;
   font-weight: bold;
@@ -135,12 +145,6 @@ const LoadingContainer = styled(View)<ThemeProps>`
   flex: 1;
   justify-content: center;
   align-items: center;
-`;
-
-const EmptyText = styled(Text)<ThemeProps>`
-  color: ${({ theme }: ThemeProps) => theme.colors.gray300};
-  font-size: 16px;
-  text-align: center;
 `;
 
 const FAB = styled(TouchableOpacity)<ThemeProps>`
@@ -630,11 +634,11 @@ export default function Competicoes() {
           competitions.created.map(renderCompetitionCard)
         )}
 
-        {competitions.organized.length > 0 && (
-          <>
-            <SectionTitle style={{ marginTop: 24 }}>Competições que Organizo</SectionTitle>
-            {competitions.organized.map(renderCompetitionCard)}
-          </>
+        <SectionTitle style={{ marginTop: 24 }}>Competições que Organizo</SectionTitle>
+        {competitions.organized.length === 0 ? (
+          <EmptyText>Você não está organizando nenhuma competição no momento</EmptyText>
+        ) : (
+          competitions.organized.map(renderCompetitionCard)
         )}
       </ScrollContent>
 
