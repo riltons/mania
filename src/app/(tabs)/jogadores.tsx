@@ -250,37 +250,137 @@ function JogadoresScreen() {
     const loadPlayers = async () => {
         try {
             console.log('Iniciando carregamento de jogadores...');
-            
-            // Verificar a sessão atual
-            const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-            console.log('Sessão no componente Jogadores:', sessionData.session);
+            setLoading(true);
             
             // Verificar se o usuário está autenticado
             const { data: userData, error: userError } = await supabase.auth.getUser();
-            console.log('Usuário no componente Jogadores:', userData.user);
             
             if (userError || !userData.user) {
-                console.error('Erro de autenticação no componente Jogadores:', userError || 'Usuário não autenticado');
+                console.error('Erro de autenticação:', userError || 'Usuário não autenticado');
+                setLoading(false);
                 Alert.alert('Erro', 'Você precisa estar autenticado para ver os jogadores');
                 return;
             }
             
-            console.log('Chamando playersService.list()...');
-            const result = await playersService.list();
-            console.log('Resultado do playersService.list():', result);
+            console.log('Usuário autenticado:', userData.user.id);
             
-            // Processar os jogadores retornados pelo serviço
+            // 1. Primeiro, garantir que o jogador do usuário atual existe
+            try {
+                const { data: existingPlayer, error: fetchError } = await supabase
+                    .from('players')
+                    .select('*')
+                    .eq('id', userData.user.id)
+                    .single();
+                
+                if (fetchError || !existingPlayer) {
+                    console.log('Criando jogador para o usuário atual...');
+                    const user = userData.user;
+                    const phoneSuffix = user.id.substring(0, 6);
+                    const newPlayer = {
+                        id: user.id,
+                        name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Jogador',
+                        phone: user.phone ? `${user.phone}-${phoneSuffix}` : `user-${phoneSuffix}`,
+                        created_by: user.id,
+                        is_active: true,
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString()
+                    };
+                    
+                    const { error: createError } = await supabase
+                        .from('players')
+                        .insert([newPlayer]);
+                        
+                    if (createError) {
+                        console.error('Erro ao criar jogador:', createError);
+                    } else {
+                        console.log('Jogador criado com sucesso');
+                        
+                        // Criar relação do usuário com o jogador
+                        const { error: relationError } = await supabase
+                            .from('user_player_relations')
+                            .upsert({
+                                user_id: user.id,
+                                player_id: user.id,
+                                is_primary: true,
+                                created_at: new Date().toISOString()
+                            }, {
+                                onConflict: 'user_id,player_id'
+                            });
+                            
+                        if (relationError) {
+                            console.error('Erro ao criar relação:', relationError);
+                        }
+                    }
+                } else {
+                    console.log('Jogador já existe:', existingPlayer.id);
+                }
+            } catch (error) {
+                console.error('Erro ao verificar/criar jogador:', error);
+            }
+            
+            // 2. Buscar todos os jogadores com uma única chamada
+            console.log('Buscando jogadores...');
+            const result = await playersService.list({
+                includeShared: true,
+                includeOwn: true
+            });
+            
+            console.log('Jogadores encontrados:', result.data?.length || 0);
+            
             if (result && result.data) {
-                // Separar jogadores próprios, compartilhados e de comunidades organizadas
-                const ownPlayers = result.data.filter(player => !player.isCreatedByOtherUser);
-                const sharedPlayers = result.data.filter(player => player.isCreatedByOtherUser && !player.communityPlayer);
-                const organizedPlayers = result.data.filter(player => player.communityPlayer);
+                const addedPlayerIds = new Set<string>();
+                const ownPlayers: Player[] = [];
+                const sharedPlayers: Player[] = [];
+                const communityPlayers: Player[] = [];
                 
-                console.log(`Encontrados ${ownPlayers.length} jogadores próprios, ${sharedPlayers.length} jogadores compartilhados e ${organizedPlayers.length} jogadores de comunidades organizadas`);
+                // Processar cada jogador e atribuir à seção correta
+                result.data.forEach(player => {
+                    if (!player.id || addedPlayerIds.has(player.id)) return;
+                    
+                    // 1. Jogador do próprio usuário (sempre na primeira seção)
+                    if (player.id === userData.user?.id || player.created_by === userData.user?.id) {
+                        player.isCreatedByOtherUser = false;
+                        player.sharedPlayer = false;
+                        ownPlayers.push(player);
+                    } 
+                    // 2. Jogadores compartilhados
+                    else if (player.isCreatedByOtherUser && !player.communityPlayer) {
+                        player.sharedPlayer = true;
+                        sharedPlayers.push(player);
+                    }
+                    // 3. Jogadores de comunidades
+                    else if (player.communityPlayer) {
+                        communityPlayers.push(player);
+                    }
+                    
+                    if (player.id) {
+                        addedPlayerIds.add(player.id);
+                    }
+                });
                 
+                // Garantir que o jogador do usuário está na primeira posição
+                const userPlayerIndex = ownPlayers.findIndex(p => p.id === userData.user?.id);
+                if (userPlayerIndex > 0) {
+                    const [userPlayer] = ownPlayers.splice(userPlayerIndex, 1);
+                    ownPlayers.unshift(userPlayer);
+                }
+                
+                // 3. Processar jogadores de comunidades organizadas (que não estão nas outras categorias)
+                result.data.forEach(player => {
+                    if (!player.id || addedPlayerIds.has(player.id)) return;
+                    
+                    if (player.communityPlayer) {
+                        communityPlayers.push(player);
+                        addedPlayerIds.add(player.id);
+                    }
+                });
+                
+                console.log(`Organização final: ${ownPlayers.length} próprios, ${sharedPlayers.length} compartilhados, ${communityPlayers.length} de comunidades`);
+                
+                // Atualizar os estados uma única vez
                 setMyPlayers(ownPlayers);
                 setCommunityPlayers(sharedPlayers);
-                setOrganizedCommunityPlayers(organizedPlayers);
+                setOrganizedCommunityPlayers(communityPlayers);
             } else {
                 console.log('Nenhum jogador encontrado ou resultado inválido');
                 setMyPlayers([]);
