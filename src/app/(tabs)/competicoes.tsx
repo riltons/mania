@@ -318,7 +318,26 @@ export default function Competicoes() {
   const loadCompetitions = async () => {
     try {
       setLoading(true);
+      console.log('[competicoes] Iniciando carregamento de competições...');
       const comps = await competitionService.listMyCompetitions();
+      
+      // Log detalhado das competições retornadas
+      console.log('[competicoes] Dados brutos do competitionService.listMyCompetitions():', JSON.stringify({
+        criadas: comps.created.map(c => ({
+          id: c.id, 
+          name: c.name, 
+          community_id: c.community_id,
+          created_by: c.created_by,
+          community_name: c.community?.name
+        })),
+        organizadas: comps.organized.map(c => ({
+          id: c.id, 
+          name: c.name, 
+          community_id: c.community_id,
+          created_by: c.created_by,
+          community_name: c.community?.name
+        }))
+      }, null, 2));
 
       // Busca estatísticas para cada competição
       const stats: {[key: string]: { 
@@ -353,6 +372,26 @@ export default function Competicoes() {
         };
       }
 
+      console.log('[competicoes] Estatísticas das competições:', JSON.stringify(stats, null, 2));
+      
+      // Log detalhado das competições que serão exibidas
+      console.log('[competicoes] Competições que serão exibidas:', {
+        criadas: comps.created.map(c => ({
+          id: c.id,
+          name: c.name,
+          community: c.community_id,
+          criador: c.created_by,
+          comunidade: c.community?.name
+        })),
+        organizadas: comps.organized.map(c => ({
+          id: c.id,
+          name: c.name,
+          community: c.community_id,
+          criador: c.created_by,
+          comunidade: c.community?.name
+        }))
+      });
+      
       setCompetitionStats(stats);
       setCompetitions(comps);
     } catch (error) {

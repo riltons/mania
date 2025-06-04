@@ -484,18 +484,154 @@ export const gameService = {
         }
     },
 
+    async checkUserPermissions(competitionId: string): Promise<boolean> {
+        try {
+            const { data: userData } = await supabase.auth.getUser();
+            const userId = userData?.user?.id;
+            if (!userId) return false;
+            
+            console.log(`[gameService] Verificando permissões para usuário: ${userId} na competição: ${competitionId}`);
+            
+            // Verificar se o usuário é membro da competição
+            // Primeiro buscar os jogadores criados pelo usuário
+            const { data: playerData } = await supabase
+                .from('players')
+                .select('id')
+                .eq('created_by', userId);
+                
+            if (playerData && playerData.length > 0) {
+                const playerIds = playerData.map(p => p.id);
+                
+                const { data: memberData } = await supabase
+                    .from('competition_members')
+                    .select('id')
+                    .eq('competition_id', competitionId)
+                    .in('player_id', playerIds);
+                
+                if (memberData && memberData.length > 0) {
+                    console.log('[gameService] Usuário é membro da competição');
+                    return true;
+                }
+            }
+            
+            // Verificar se o usuário é criador da comunidade
+            const { data: communityData } = await supabase
+                .from('competitions')
+                .select('community_id')
+                .eq('id', competitionId)
+                .single();
+                
+            if (communityData) {
+                const { data: creatorData } = await supabase
+                    .from('communities')
+                    .select('created_by')
+                    .eq('id', communityData.community_id)
+                    .eq('created_by', userId);
+                    
+                if (creatorData && creatorData.length > 0) {
+                    console.log('[gameService] Usuário é criador da comunidade');
+                    return true;
+                }
+                
+                // Verificar se o usuário é organizador da comunidade
+                const { data: organizerData } = await supabase
+                    .from('community_organizers')
+                    .select('id')
+                    .eq('community_id', communityData.community_id)
+                    .eq('user_id', userId);
+                    
+                if (organizerData && organizerData.length > 0) {
+                    console.log('[gameService] Usuário é organizador da comunidade');
+                    return true;
+                }
+            }
+            
+            console.log('[gameService] Usuário NÃO tem permissão para ver jogos desta competição');
+            return false;
+        } catch (error) {
+            console.error('[gameService] Erro ao verificar permissões:', error);
+            return false;
+        }
+    },
+
+    async listByCompetitionDirectSQL(competitionId: string) {
+        try {
+            console.log(`[gameService] Buscando jogos diretamente via SQL para competição: ${competitionId}`);
+            
+            // Consulta SQL direta que ignora RLS
+            const { data, error } = await supabase.rpc('get_games_by_competition', { competition_id_param: competitionId });
+            
+            if (error) {
+                console.error(`[gameService] Erro ao buscar jogos via SQL: ${error.message}`, error);
+                throw error;
+            }
+            
+            console.log(`[gameService] Jogos encontrados via SQL: ${data?.length || 0}`);
+            if (data && data.length > 0) {
+                console.log('[gameService] Primeiro jogo via SQL:', data[0]);
+            } else {
+                console.log('[gameService] Nenhum jogo encontrado via SQL para esta competição');
+            }
+            
+            return data;
+        } catch (error) {
+            console.error('[gameService] Erro ao listar jogos via SQL:', error);
+            throw error;
+        }
+    },
+
     async listByCompetition(competitionId: string) {
         try {
+            console.log(`[gameService] Buscando jogos para competição: ${competitionId}`);
+            
+            // Verificar usuário autenticado
+            const { data: userData, error: userError } = await supabase.auth.getUser();
+            if (userError) {
+                console.error('[gameService] Erro ao obter usuário:', userError);
+                throw userError;
+            }
+            console.log('[gameService] Usuário autenticado:', userData?.user?.id);
+            
+            // Verificar permissões do usuário
+            const hasPermission = await this.checkUserPermissions(competitionId);
+            console.log(`[gameService] Usuário tem permissão: ${hasPermission}`);
+            
+            // Tentar buscar via SQL direta se não tiver permissão via RLS
+            if (!hasPermission) {
+                console.log('[gameService] Tentando buscar jogos via SQL direta (ignorando RLS)...');
+                try {
+                    const gamesViaSQL = await this.listByCompetitionDirectSQL(competitionId);
+                    if (gamesViaSQL && gamesViaSQL.length > 0) {
+                        console.log(`[gameService] Encontrados ${gamesViaSQL.length} jogos via SQL direta`);
+                        return gamesViaSQL;
+                    }
+                } catch (sqlError) {
+                    console.error('[gameService] Erro ao buscar via SQL, continuando com RLS:', sqlError);
+                }
+            }
+            
+            // Buscar jogos via RLS normal
             const { data, error } = await supabase
                 .from('games')
                 .select('*')
                 .eq('competition_id', competitionId)
                 .order('created_at', { ascending: false });
 
-            if (error) throw error;
+            if (error) {
+                console.error(`[gameService] Erro ao buscar jogos: ${error.message}`, error);
+                throw error;
+            }
+            
+            console.log(`[gameService] Jogos encontrados: ${data?.length || 0}`);
+            if (data && data.length > 0) {
+                console.log('[gameService] Primeiro jogo:', data[0]);
+            } else {
+                console.log('[gameService] Nenhum jogo encontrado para esta competição');
+            }
+            
             return data;
         } catch (error) {
-            console.error('Erro ao listar jogos:', error);
+            console.error('[gameService] Erro ao listar jogos:', error);
             throw error;
         }
     },

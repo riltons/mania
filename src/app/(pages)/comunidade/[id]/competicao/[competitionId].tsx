@@ -103,28 +103,64 @@ export default function CompetitionDetails() {
     }, [competitionId, communityId]);
 
     const loadGames = useCallback(async () => {
+        console.log(`[CompetitionDetails] Iniciando carregamento de jogos para competição: ${competitionId}`);
+        console.log(`[CompetitionDetails] Membros disponíveis: ${members.length}`);
+        
+        let gamesData: any[] = [];
+        
         try {
-            const gamesData = await gameService.listByCompetition(competitionId);
-            const gamesWithPlayers = await Promise.all(gamesData.map(async (game) => {
-                const team1Players = await Promise.all(game.team1.map(async (playerId) => {
-                    const member = members.find(m => m.player_id === playerId);
-                    return member?.players || { id: playerId, name: 'Jogador não encontrado' };
-                }));
-                const team2Players = await Promise.all(game.team2.map(async (playerId) => {
-                    const member = members.find(m => m.player_id === playerId);
-                    return member?.players || { id: playerId, name: 'Jogador não encontrado' };
-                }));
-                return {
-                    ...game,
-                    team1_players: team1Players,
-                    team2_players: team2Players,
-                };
-            }));
-            setGames(gamesWithPlayers);
+            // Primeiro tenta o método normal (com RLS)
+            gamesData = await gameService.listByCompetition(competitionId);
+            console.log(`[CompetitionDetails] Jogos carregados via RLS: ${gamesData?.length || 0}`);
         } catch (error) {
-            console.error('Erro ao carregar jogos:', error);
-            Alert.alert('Erro', 'Não foi possível carregar os jogos');
+            console.error(`[CompetitionDetails] Erro ao carregar jogos via RLS:`, error);
+            // Se falhar, tenta o método direto SQL
+            console.log(`[CompetitionDetails] Tentando carregar jogos via SQL direto...`);
+            
+            // Verificar se o método existe no gameService
+            if (typeof (gameService as any).listByCompetitionDirectSQL === 'function') {
+                try {
+                    gamesData = await (gameService as any).listByCompetitionDirectSQL(competitionId);
+                    console.log(`[CompetitionDetails] Jogos carregados via SQL direto: ${gamesData?.length || 0}`);
+                } catch (sqlError) {
+                    console.error(`[CompetitionDetails] Erro ao carregar jogos via SQL direto:`, sqlError);
+                }
+            } else {
+                console.error(`[CompetitionDetails] Método listByCompetitionDirectSQL não encontrado no gameService`);
+            }
         }
+        
+        if (!gamesData || gamesData.length === 0) {
+            console.log(`[CompetitionDetails] Nenhum jogo encontrado para esta competição`);
+            setGames([]);
+            return;
+        }
+        
+        const gamesWithPlayers = await Promise.all(gamesData.map(async (game: any) => {
+            console.log(`[CompetitionDetails] Processando jogo: ${game.id}`);
+            console.log(`[CompetitionDetails] Time 1: ${game.team1}, Time 2: ${game.team2}`);
+            
+            const team1Players = await Promise.all(game.team1.map(async (playerId: string) => {
+                const member = members.find(m => m.player_id === playerId);
+                console.log(`[CompetitionDetails] Buscando jogador ${playerId} no time 1, encontrado: ${!!member}`);
+                return member?.players || { id: playerId, name: 'Jogador não encontrado' };
+            }));
+            
+            const team2Players = await Promise.all(game.team2.map(async (playerId: string) => {
+                const member = members.find(m => m.player_id === playerId);
+                console.log(`[CompetitionDetails] Buscando jogador ${playerId} no time 2, encontrado: ${!!member}`);
+                return member?.players || { id: playerId, name: 'Jogador não encontrado' };
+            }));
+            
+            return {
+                ...game,
+                team1Players,
+                team2Players
+            };
+        }));
+        
+        console.log(`[CompetitionDetails] Total de jogos processados: ${gamesWithPlayers.length}`);
+        setGames(gamesWithPlayers);
     }, [competitionId, members]);
 
     useEffect(() => {

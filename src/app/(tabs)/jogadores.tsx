@@ -514,7 +514,7 @@ function JogadoresScreen() {
             if (player && player.id) {
                 sections.push({ 
                     ...player, 
-                    id: player.id || `my-player-${index}`, 
+                    id: `my-player-${player.id}`, // Adiciona prefixo único para a seção
                     section: 'myPlayers' as const 
                 });
             }
@@ -537,7 +537,7 @@ function JogadoresScreen() {
             if (player && player.id) {
                 sections.push({ 
                     ...player, 
-                    id: player.id || `community-player-${index}`, 
+                    id: `community-${player.id}`, // Adiciona prefixo único para a seção
                     section: 'communityPlayers' as const 
                 });
             }
@@ -560,7 +560,7 @@ function JogadoresScreen() {
             if (player && player.id) {
                 sections.push({ 
                     ...player, 
-                    id: player.id || `organized-community-player-${index}`, 
+                    id: `organized-${player.id}`, // Adiciona prefixo único para a seção
                     section: 'organizedCommunityPlayers' as const 
                 });
             }
