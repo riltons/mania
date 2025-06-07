@@ -613,19 +613,22 @@ export default function CommunityDetails() {
             setCompetitions(sortedCompetitions);
             
             // Combinar todos os jogadores disponíveis para o usuário
-            // O playersService.list() retorna jogadores criados pelo usuário (includeOwn: true) 
-            // e jogadores compartilhados/da comunidade (includeShared: true)
-            const allUserPlayers = playersResponse.data;
+            // O playersService.list() retorna dois arrays: myPlayers e communityPlayers
+            const allUserPlayers = [...(playersResponse.myPlayers || []), ...(playersResponse.communityPlayers || [])];
             
             // Debug: mostrar todos os jogadores encontrados
             console.log('=== DEBUG JOGADORES ===');
-            console.log('Todos os jogadores:', allUserPlayers.map(p => ({ id: p.id, name: p.name })));
+            console.log('Meus jogadores:', playersResponse.myPlayers?.map(p => ({ id: p.id, name: p.name })));
+            console.log('Jogadores da comunidade:', playersResponse.communityPlayers?.map(p => ({ id: p.id, name: p.name })));
             
             // Filtrar jogadores que já são membros da comunidade
             const memberPlayerIds = membersData.map(member => member.player_id);
             console.log('IDs dos membros da comunidade:', memberPlayerIds);
             
-            const availablePlayers = allUserPlayers.filter(player => !memberPlayerIds.includes(player.id));
+            // Remover duplicados e jogadores que já são membros
+            const uniquePlayers = Array.from(new Map(allUserPlayers.map(p => [p.id, p])).values());
+            const availablePlayers = uniquePlayers.filter(player => !memberPlayerIds.includes(player.id));
+            
             console.log('Jogadores disponíveis:', availablePlayers.map(p => ({ id: p.id, name: p.name })));
             setPlayers(availablePlayers);
         } catch (error) {
