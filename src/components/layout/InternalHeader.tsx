@@ -39,7 +39,7 @@ export function InternalHeader({ title, onBack, rightContent }: InternalHeaderPr
                 <HeaderRight>
                     {rightContent && <RightContentContainer>{rightContent}</RightContentContainer>}
                     <TouchableOpacity 
-                        onPress={() => router.push('/onboarding')}
+                        onPress={() => router.push('/(pages)/onboarding')}
                         style={{ 
                             padding: 8,
                             marginLeft: 8,

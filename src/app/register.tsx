@@ -83,7 +83,7 @@ export default function Register() {
                 }
             }
             // Após login automático, exibe onboarding em vez do dashboard
-            router.replace('/onboarding');
+            router.replace('/(pages)/onboarding');
 
         } catch (error: any) {
             console.error('Erro completo no registro:', error);

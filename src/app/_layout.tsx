@@ -18,7 +18,13 @@ function AppLayout() {
     const { session } = useAuth();
     const statusBarHeight = StatusBar.currentHeight || 0;
     const pathname = usePathname();
-    const isAuthScreen = ['/login', '/register', '/signup', '/onboarding'].includes(pathname);
+    // Verificando se a rota atual é uma tela de autenticação
+    const isAuthScreen = [
+        '/login', 
+        '/register', 
+        '/signup', 
+        '/(pages)/onboarding'
+    ].some(route => pathname === route || pathname?.startsWith(route));
     const { theme, colors } = useTheme();
     const isDarkTheme = theme === 'dark';
 
@@ -35,27 +41,14 @@ function AppLayout() {
                 backgroundColor={colors.backgroundDark}
                 translucent
             />
-            {!isAuthScreen ? (
-                session ? (
-                    <Stack screenOptions={{ headerShown: false }}>
-                        <Stack.Screen name="(tabs)" />
-                        <Stack.Screen name="(pages)" />
-                    </Stack>
-                ) : (
-                    <Stack screenOptions={{ headerShown: false }}>
-                        <Stack.Screen name="(tabs)" />
-                        <Stack.Screen name="(pages)" />
-                    </Stack>
-                )
-            ) : (
-                <Stack screenOptions={{ headerShown: false }}>
-                    {/* Exibe tela de onboarding antes de login/registro */}
-                    <Stack.Screen name="(pages)/onboarding" />
-                    <Stack.Screen name="login" />
-                    <Stack.Screen name="register" />
-                    <Stack.Screen name="signup" />
-                </Stack>
-            )}
+            <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="login" />
+                <Stack.Screen name="register" />
+                <Stack.Screen name="signup" />
+                <Stack.Screen name="(tabs)" />
+                <Stack.Screen name="(pages)" />
+                <Stack.Screen name="index" />
+            </Stack>
         </SafeContainer>
     );
 }
@@ -101,9 +94,14 @@ export default function RootLayout() {
     );
 }
 
+interface SafeContainerProps {
+    statusBarHeight: number;
+    theme: any;
+}
+
 const SafeContainer = styled(SafeAreaView)<{ statusBarHeight: number }>`
     flex: 1;
-    background-color: ${({ theme }: { theme: any }) => theme.colors.backgroundDark};
+    background-color: ${({ theme }: SafeContainerProps) => theme.colors.backgroundDark};
     padding-top: ${Platform.OS === 'android' ? (props: { statusBarHeight: number }) => props.statusBarHeight : 0}px;
     width: 100%;
 `;

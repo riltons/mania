@@ -92,14 +92,17 @@ const Content = styled.View`
     padding-bottom: 60px;
 `;
 
+interface ThemeProps {
+    theme: any;
+}
+
 const NavigationContainer = styled.View`
     position: absolute;
     bottom: 0;
     left: 0;
     right: 0;
-    background-color: ${({ theme }: { theme: any }) => theme.colors.backgroundMedium};
+    background-color: ${({ theme }: ThemeProps) => theme.colors.backgroundMedium};
     border-top-width: 1px;
-    border-top-color: ${({ theme }: { theme: any }) => theme.colors.border};
+    border-top-color: ${({ theme }: ThemeProps) => theme.colors.backgroundDark};
     height: 60px;
 `;
-

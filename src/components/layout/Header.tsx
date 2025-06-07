@@ -1,26 +1,32 @@
-import styled from "styled-components/native"
+import styled, { DefaultTheme } from "styled-components/native"
 import { colors } from "@/styles/colors"
 import { MaterialCommunityIcons } from "@expo/vector-icons"
 import { useAuth } from '@/core/hooks/useAuth';
 import { useRouter } from 'expo-router';
+
+// Tipagem para as propriedades do tema
+interface ThemeProps {
+  theme: DefaultTheme;
+}
 import React from 'react';
 import { TouchableOpacity, StatusBar, Platform, View, Image } from 'react-native';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 
 // Importando a logo completa
+// @ts-ignore - Ignorando erro de tipagem para importação de imagem
 import dominoLogo from '@/assets/dominomania-logo.png';
 
 const SafeAreaView = styled.View`
     background-color: ${colors.primary};
 `;
 
-const Container = styled.View<{ statusBarHeight: number }>`
+const Container = styled.View<{ statusBarHeight: number } & ThemeProps>`
     flex-direction: row;
     align-items: center;
     justify-content: space-between;
     padding: 12px;
     background-color: ${colors.primary};
-    padding-top: ${({ statusBarHeight }) => Platform.OS === 'ios' ? 44 : 16}px;
+    padding-top: ${({ statusBarHeight }: { statusBarHeight: number }) => Platform.OS === 'ios' ? 44 : 16}px;
     width: 100%;
 `;
 
@@ -107,14 +113,14 @@ export function Header({ title, showBackButton, isDashboard }: HeaderProps) {
                 </LeftContainer>
                 
                 <ActionContainer>
-                    <IconButton onPress={() => router.push('/notifications')}>
+                    <IconButton onPress={() => router.push('/')}>
                         <MaterialCommunityIcons name="bell-outline" size={24} color={colors.white} />
                     </IconButton>
-                    <IconButton onPress={() => router.push('/profile')}>
+                    <IconButton onPress={() => router.push('/(pages)/profile')}>
                         <MaterialCommunityIcons name="account-circle-outline" size={24} color={colors.white} />
                     </IconButton>
                     <ThemeToggle />
-                    <IconButton onPress={() => router.push('/onboarding')}>
+                    <IconButton onPress={() => router.push('/(pages)/onboarding')}>
                         <MaterialCommunityIcons name="information-outline" size={24} color={colors.white} />
                     </IconButton>
                     <IconButton onPress={handleLogout}>

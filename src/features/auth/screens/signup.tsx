@@ -1,8 +1,18 @@
 import React, { useState } from 'react';
 import { Alert, ActivityIndicator } from 'react-native';
 import { Link, router } from 'expo-router';
-import styled from 'styled-components/native';
+import styled, { DefaultTheme } from 'styled-components/native';
 import { colors } from '@/styles/colors';
+
+// Tipagem para as propriedades do tema
+interface ThemeProps {
+  theme: DefaultTheme;
+}
+
+// Tipagem para os botões
+interface ButtonProps extends ThemeProps {
+  disabled?: boolean;
+}
 import { supabase } from '@/core/lib/supabase';
 
 const isValidEmail = (email: string) => {
@@ -112,7 +122,7 @@ export default function SignUp() {
             console.log('Perfil criado com sucesso');
             // Após criação, direciona para as telas de onboarding
             Alert.alert('Sucesso', 'Conta criada com sucesso! Bem-vindo ao Dominomania!', [
-                { text: 'Começar', onPress: () => router.replace('/onboarding') }
+                { text: 'Começar', onPress: () => router.replace('/(pages)/onboarding') }
             ]);
 
         } catch (error: any) {
@@ -145,7 +155,7 @@ export default function SignUp() {
                 <Input
                     placeholder="Nome"
                     value={formData.name}
-                    onChangeText={(text) => setFormData(prev => ({ ...prev, name: text }))}
+                    onChangeText={(text: string) => setFormData(prev => ({ ...prev, name: text }))}
                     autoCapitalize="words"
                     placeholderTextColor={colors.gray400}
                     editable={!loading}
@@ -154,7 +164,7 @@ export default function SignUp() {
                 <Input
                     placeholder="E-mail"
                     value={formData.email}
-                    onChangeText={(text) => setFormData(prev => ({ ...prev, email: text }))}
+                    onChangeText={(text: string) => setFormData(prev => ({ ...prev, email: text }))}
                     keyboardType="email-address"
                     autoCapitalize="none"
                     placeholderTextColor={colors.gray400}
@@ -164,7 +174,7 @@ export default function SignUp() {
                 <Input
                     placeholder="Senha"
                     value={formData.password}
-                    onChangeText={(text) => setFormData(prev => ({ ...prev, password: text }))}
+                    onChangeText={(text: string) => setFormData(prev => ({ ...prev, password: text }))}
                     secureTextEntry
                     placeholderTextColor={colors.gray400}
                     editable={!loading}
@@ -173,7 +183,7 @@ export default function SignUp() {
                 <Input
                     placeholder="Confirmar Senha"
                     value={formData.confirmPassword}
-                    onChangeText={(text) => setFormData(prev => ({ ...prev, confirmPassword: text }))}
+                    onChangeText={(text: string) => setFormData(prev => ({ ...prev, confirmPassword: text }))}
                     secureTextEntry
                     placeholderTextColor={colors.gray400}
                     editable={!loading}
@@ -195,57 +205,57 @@ export default function SignUp() {
     );
 }
 
-const Container = styled.View`
+const Container = styled.View<ThemeProps>`
     flex: 1;
-    background-color: ${colors.backgroundDark};
+    background-color: ${(props: ThemeProps) => props.theme.colors.backgroundDark};
 `;
 
-const Content = styled.View`
+const Content = styled.View<ThemeProps>`
     flex: 1;
     padding: 20px;
     justify-content: center;
 `;
 
-const Title = styled.Text`
+const Title = styled.Text<ThemeProps>`
     font-size: 32px;
     font-weight: bold;
-    color: ${colors.gray100};
+    color: ${(props: ThemeProps) => props.theme.colors.textPrimary};
     margin-bottom: 32px;
     text-align: center;
 `;
 
-const Input = styled.TextInput`
-    background-color: ${colors.secondary};
+const Input = styled.TextInput<ThemeProps>`
+    background-color: ${(props: ThemeProps) => props.theme.colors.backgroundMedium};
     padding: 16px;
     border-radius: 8px;
     margin-bottom: 16px;
-    color: ${colors.gray100};
+    color: ${(props: ThemeProps) => props.theme.colors.textPrimary};
     font-size: 16px;
 `;
 
-const SignUpButton = styled.TouchableOpacity`
+const SignUpButton = styled.TouchableOpacity<ButtonProps>`
     background-color: ${colors.accent};
     padding: 16px;
     border-radius: 8px;
     margin-top: 8px;
-    opacity: ${props => props.disabled ? 0.7 : 1};
+    opacity: ${(props: ButtonProps) => props.disabled ? 0.7 : 1};
 `;
 
-const SignUpButtonText = styled.Text`
-    color: ${colors.secondary};
+const SignUpButtonText = styled.Text<ThemeProps>`
+    color: ${(props: ThemeProps) => props.theme.colors.white};
     font-size: 16px;
     font-weight: bold;
     text-align: center;
 `;
 
-const LoginButton = styled.TouchableOpacity`
+const LoginButton = styled.TouchableOpacity<ButtonProps>`
     padding: 16px;
     margin-top: 8px;
-    opacity: ${props => props.disabled ? 0.7 : 1};
+    opacity: ${(props: ButtonProps) => props.disabled ? 0.7 : 1};
 `;
 
-const LoginButtonText = styled.Text`
-    color: ${colors.accent};
+const LoginButtonText = styled.Text<ThemeProps>`
+    color: ${(props: ThemeProps) => props.theme.colors.accent};
     font-size: 14px;
     text-align: center;
 `;

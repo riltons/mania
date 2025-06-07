@@ -1,9 +1,22 @@
 import React, { useState } from 'react';
-import { Alert, ActivityIndicator, StatusBar } from 'react-native';
+import { Alert, ActivityIndicator, StatusBar, TextInput } from 'react-native';
 import { useRouter } from 'expo-router';
-import styled from 'styled-components/native';
+import styled, { DefaultTheme } from 'styled-components/native';
 import { useAuth } from '../hooks/useAuth';
-import { useTheme } from '../contexts/ThemeProvider';
+import { useTheme } from '@/core/contexts/ThemeProvider';
+
+// Define o tipo para as propriedades do tema
+interface ThemeProps {
+  theme: DefaultTheme;
+}
+
+// Define as propriedades do botão
+interface ButtonProps extends ThemeProps {
+  disabled?: boolean;
+}
+
+// Tipo genérico para componentes estilizados
+type ThemedStyledProps<P = unknown> = P & ThemeProps;
 
 export default function ForgotPassword() {
     const router = useRouter();
@@ -49,7 +62,7 @@ export default function ForgotPassword() {
 
     return (
         <Container>
-            <StatusBar style="light" backgroundColor={colors.primary} />
+            <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
             <Content>
                 <Title>Recuperar Senha</Title>
                 
@@ -70,14 +83,16 @@ export default function ForgotPassword() {
                         
                         <InputContainer>
                             <InputLabel>Email</InputLabel>
-                            <Input
-                                placeholder="Digite seu email"
-                                placeholderTextColor={colors.textDisabled}
+                            <StyledInput
+                                placeholder="Digite seu e-mail"
                                 value={email}
                                 onChangeText={setEmail}
                                 keyboardType="email-address"
                                 autoCapitalize="none"
                                 autoCorrect={false}
+                                returnKeyType="send"
+                                onSubmitEditing={handleResetPassword}
+                                editable={!loading}
                             />
                         </InputContainer>
 
@@ -99,81 +114,93 @@ export default function ForgotPassword() {
     );
 }
 
-const Container = styled.View`
+const Container = styled.View<ThemeProps>`
     flex: 1;
-    background-color: ${({ theme }) => theme.colors.backgroundDark};
+    background-color: ${(props: ThemeProps) => props.theme.colors.backgroundLight};
 `;
 
-const Content = styled.View`
+const Content = styled.View<ThemeProps>`
     flex: 1;
     padding: 24px;
     justify-content: center;
 `;
 
-const Title = styled.Text`
-    font-size: 28px;
+const Title = styled.Text<ThemeProps>`
+    font-size: 24px;
     font-weight: bold;
-    color: ${({ theme }) => theme.colors.text};
+    color: ${(props: ThemeProps) => props.theme.colors.textPrimary};
     margin-bottom: 24px;
     text-align: center;
 `;
 
-const Description = styled.Text`
+const Description = styled.Text<ThemeProps>`
     font-size: 16px;
-    color: ${({ theme }) => theme.colors.textSecondary};
+    color: ${(props: ThemeProps) => props.theme.colors.textSecondary};
     margin-bottom: 24px;
     text-align: center;
 `;
 
-const SuccessMessage = styled.Text`
+const SuccessMessage = styled.Text<ThemeProps>`
     font-size: 16px;
-    color: ${({ theme }) => theme.colors.success};
+    color: ${(props: ThemeProps) => props.theme.colors.accent};
     margin-bottom: 24px;
     text-align: center;
     line-height: 24px;
 `;
 
-const InputContainer = styled.View`
+const InputContainer = styled.View<ThemeProps>`
     margin-bottom: 16px;
 `;
 
-const InputLabel = styled.Text`
+const InputLabel = styled.Text<ThemeProps>`
     font-size: 16px;
-    color: ${({ theme }) => theme.colors.text};
+    color: ${(props: ThemeProps) => props.theme.colors.text};
     margin-bottom: 8px;
 `;
 
-const Input = styled.TextInput`
-    background-color: ${({ theme }) => theme.colors.backgroundLight};
-    border-radius: 8px;
-    padding: 12px 16px;
-    font-size: 16px;
-    color: ${({ theme }) => theme.colors.text};
-    border: 1px solid ${({ theme }) => theme.colors.border};
-`;
-
-const ResetButton = styled.TouchableOpacity`
-    background-color: ${({ theme }) => theme.colors.primary};
+const StyledInput = styled(TextInput).attrs<ThemeProps>((props: ThemeProps) => ({
+  placeholderTextColor: props.theme.colors.textSecondary || '#7C7C8A',
+  selectionColor: props.theme.colors.primary,
+}))<ThemeProps>`
+    background-color: ${(props: ThemeProps) => props.theme.colors.white};
     border-radius: 8px;
     padding: 16px;
-    align-items: center;
-    margin-top: 16px;
-    opacity: ${({ disabled }) => (disabled ? 0.7 : 1)};
+    font-size: 16px;
+    color: ${(props: ThemeProps) => props.theme.colors.textPrimary};
+    margin-bottom: 8px;
+    border: 1px solid ${(props: ThemeProps) => props.theme.colors.primary + '50'};
 `;
 
-const ResetButtonText = styled.Text`
-    color: ${({ theme }) => theme.colors.white};
+const ResetButton = styled.TouchableOpacity.attrs<ButtonProps>((props: ButtonProps) => ({
+  activeOpacity: 0.7,
+  disabled: props.disabled,
+}))<ButtonProps>`
+  background-color: ${(props: ButtonProps) => props.theme.colors.primary};
+  border-radius: 8px;
+  padding: 16px;
+  align-items: center;
+  margin-top: 24px;
+  opacity: ${(props: ButtonProps) => (props.disabled ? 0.7 : 1)};
+`;
+
+const ResetButtonText = styled.Text<ThemeProps>`
+    color: ${(props: ThemeProps) => props.theme.colors.white};
     font-size: 16px;
     font-weight: bold;
 `;
 
-const BackButton = styled.TouchableOpacity`
-    padding: 16px;
-    align-items: center;
-    margin-top: 16px;
+const ErrorText = styled.Text<ThemeProps>`
+    color: ${(props: ThemeProps) => props.theme.colors.accent};
+    font-size: 14px;
+    margin-top: 4px;
 `;
 
-const BackButtonText = styled.Text`
-    color: ${({ theme }) => theme.colors.primary};
+const BackButton = styled.TouchableOpacity<ThemeProps>`
+    margin-top: 24px;
+    align-items: center;
+`;
+
+const BackButtonText = styled.Text<ThemeProps>`
+    color: ${(props: ThemeProps) => props.theme.colors.primary};
     font-size: 16px;
 `;
