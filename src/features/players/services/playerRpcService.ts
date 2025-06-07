@@ -13,25 +13,63 @@ export interface Player {
 }
 
 /**
- * Normaliza um número de telefone para formato consistente
+ * Normaliza um número de telefone para o formato brasileiro padrão
  * - Remove caracteres não numéricos
- * - Remove o código do país (55) se presente
- * - Remove todos os zeros à esquerda
- * - Garante que apenas dígitos sejam armazenados
+ * - Se começar com 55 (código do Brasil), remove esse prefixo
+ * - Garante que o número tenha exatamente 11 dígitos (DDD + 9 + 8 dígitos)
+ * - Valida se o terceiro dígito é '9' conforme padrão brasileiro atual
  * 
- * @param phone O número de telefone a ser normalizado
- * @returns O número de telefone normalizado
+ * @param phoneNumber O número de telefone a ser normalizado
+ * @returns O número de telefone normalizado, no formato brasileiro (11 dígitos)
+ * @throws Error Se o número não puder ser normalizado para o formato brasileiro válido
  */
-export function normalizePhoneNumber(phone: string): string {
-  if (!phone) return '';
+export function normalizePhoneNumber(phoneNumber: string): string {
+  // Verifica se o telefone foi fornecido
+  if (!phoneNumber) {
+    console.warn('ERRO: Telefone não fornecido');
+    throw new Error('Telefone não fornecido');
+  }
   
-  // Remove apenas caracteres não numéricos
-  const normalizedPhone = phone.replace(/\D/g, '');
+  // Remove todos os caracteres não numéricos
+  let normalized = phoneNumber.replace(/\D/g, '');
   
-  // Log para depuração
-  console.log(`Telefone normalizado: ${phone} -> ${normalizedPhone}`);
+  // Log do número original após remover caracteres não numéricos
+  console.log(`Normalização: Número original sem caracteres especiais: ${normalized}`);
   
-  return normalizedPhone;
+  // Se começar com 55 (código do Brasil), remove o prefixo
+  if (normalized.startsWith('55') && normalized.length > 11) {
+    normalized = normalized.substring(2);
+    console.log(`Normalização: Removido prefixo 55, resultado: ${normalized}`);
+  }
+  
+  // Se ainda tiver mais que 11 dígitos, mantém apenas os últimos 11
+  if (normalized.length > 11) {
+    const original = normalized;
+    normalized = normalized.slice(-11);
+    console.log(`Normalização: Número muito longo (${original.length} dígitos), truncado para os últimos 11: ${normalized}`);
+  }
+  
+  // Validação rigorosa do formato brasileiro
+  if (normalized.length !== 11) {
+    console.warn(`ERRO: Telefone ${normalized} inválido - deve ter exatamente 11 dígitos, mas tem ${normalized.length}`);
+    throw new Error(`Telefone inválido: deve ter exatamente 11 dígitos`);
+  } 
+  
+  // Validar se o terceiro dígito é 9 (padrão brasileiro atual para celulares)
+  if (normalized.charAt(2) !== '9') {
+    console.warn(`ERRO: Telefone ${normalized} inválido - o terceiro dígito deve ser 9 no formato brasileiro atual`);
+    throw new Error(`Telefone inválido: o terceiro dígito deve ser 9`);
+  }
+  
+  // Validar se o DDD é válido (entre 11 e 99)
+  const ddd = parseInt(normalized.substring(0, 2));
+  if (ddd < 11 || ddd > 99) {
+    console.warn(`ERRO: Telefone ${normalized} inválido - DDD ${ddd} não é válido no Brasil`);
+    throw new Error(`Telefone inválido: DDD ${ddd} não é válido no Brasil`);
+  }
+  
+  console.log(`Normalização concluída: ${phoneNumber} -> ${normalized}`);
+  return normalized;
 }
 
 /**
@@ -68,11 +106,34 @@ export function normalizePhoneNumber(phone: string): string {
 export const playerRpcService = {
   /**
    * Valida se um número de telefone é válido para busca
+   * Agora com validação mais rigorosa para o formato brasileiro
    */
   isValidPhoneForSearch(phone: string): boolean {
     if (!phone || typeof phone !== 'string') return false;
-    // Considera válido se tiver pelo menos 10 dígitos (DDD + número)
-    return phone.replace(/\D/g, '').length >= 10;
+    
+    // Remove todos os caracteres não numéricos
+    const normalized = phone.replace(/\D/g, '');
+    
+    // Verifica se tem exatamente 11 dígitos (formato brasileiro completo)
+    if (normalized.length !== 11) {
+      console.log(`Telefone inválido para busca: ${normalized} - deve ter exatamente 11 dígitos`);
+      return false;
+    }
+    
+    // Verifica se o terceiro dígito é 9 (padrão brasileiro atual para celulares)
+    if (normalized.charAt(2) !== '9') {
+      console.log(`Telefone inválido para busca: ${normalized} - o terceiro dígito deve ser 9`);
+      return false;
+    }
+    
+    // Verifica se o DDD é válido (entre 11 e 99)
+    const ddd = parseInt(normalized.substring(0, 2));
+    if (ddd < 11 || ddd > 99) {
+      console.log(`Telefone inválido para busca: ${normalized} - DDD ${ddd} não é válido no Brasil`);
+      return false;
+    }
+    
+    return true;
   },
 
   /**
@@ -95,18 +156,25 @@ export const playerRpcService = {
     try {
       log('Iniciando busca de jogador por telefone', { phone });
       
-      // Validação inicial
-      if (!this.isValidPhoneForSearch(phone)) {
-        log('Número de telefone inválido para busca', { phone });
+      // Validação inicial mais rigorosa
+      if (!phone || typeof phone !== 'string') {
+        log('Número de telefone não fornecido ou inválido', { phone });
         return null;
       }
       
-      // Normaliza o telefone
-      const normalizedPhone = normalizePhoneNumber(phone);
-      log('Telefone normalizado', { original: phone, normalized: normalizedPhone });
+      // Normalização do telefone para garantir formato brasileiro
+      let normalizedPhone;
+      try {
+        normalizedPhone = normalizePhoneNumber(phone);
+        log('Telefone normalizado com sucesso', { original: phone, normalized: normalizedPhone });
+      } catch (error) {
+        log('Erro ao normalizar telefone', { phone, error: (error as Error).message });
+        return null;
+      }
       
-      if (!normalizedPhone) {
-        log('Falha ao normalizar o número de telefone');
+      // Validação adicional após normalização
+      if (!this.isValidPhoneForSearch(normalizedPhone)) {
+        log('Número de telefone normalizado inválido para busca', { normalizedPhone });
         return null;
       }
       

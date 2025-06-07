@@ -2,10 +2,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Alert, Modal, ToastAndroid, Platform, TouchableOpacity, Text } from 'react-native';
 import styled from 'styled-components/native';
 import { useTheme } from '@/core/contexts/ThemeProvider';
-import { playerService } from '@/features/players/services/playerService';
-import { playerRpcService, normalizePhoneNumber } from '@/features/players/services/playerRpcService';
-import { communityService, Community } from '@/features/communities/services/communityService';
+import { ThemeProps } from '@/styles/styled';
+import { playerService } from '../services/playerService';
+import { playerRpcService, normalizePhoneNumber } from '../services/playerRpcService';
 import { communityMembersService } from '@/features/communities/services/communityMembersService';
+import { communityService } from '@/features/communities/services/communityService';
+import { Community } from '@/features/communities/services/communityService';
 import { Header } from '@/components/layout/Header';
 import { useRouter } from 'expo-router';
 import { TextInput } from '@/components/ui/TextInput';
@@ -142,17 +144,37 @@ export default function NewPlayer() {
                     Alert.alert('Sucesso', 'Jogador existente vinculado com sucesso!');
                     setLoading(false);
                     
-                    // Verificar o tipo de navegação disponível e usar o apropriado
-                    if (router && typeof router.replace === 'function') {
-                        router.replace(`/players/${existingPlayer.id}`);
-                    } else if (navigation && typeof navigation.navigate === 'function') {
-                        navigation.navigate('PlayerDetails', { id: existingPlayer.id });
-                    }
+                    // Volta para a tela anterior
+                    router.back();
                     return;
                 }
             }
             
             // Se não encontrou jogador existente, continua com a criação normal
+            // Normaliza o telefone usando a função especializada com tratamento de erros
+            let normalizedPhone: string;
+            try {
+                normalizedPhone = normalizePhoneNumber(formData.phone);
+                console.log('Telefone normalizado com sucesso:', normalizedPhone);
+            } catch (error) {
+                const errorMessage = (error as Error).message;
+                console.error('Erro ao normalizar telefone:', errorMessage);
+                
+                // Mensagens de erro personalizadas baseadas no tipo de erro
+                if (errorMessage.includes('deve ter exatamente 11 dígitos')) {
+                    Alert.alert('Telefone inválido', 'O número de telefone deve ter exatamente 11 dígitos no formato brasileiro (DDD + 9 + número)');
+                } else if (errorMessage.includes('terceiro dígito deve ser 9')) {
+                    Alert.alert('Telefone inválido', 'O terceiro dígito do telefone deve ser 9, conforme padrão brasileiro atual');
+                } else if (errorMessage.includes('DDD')) {
+                    Alert.alert('Telefone inválido', 'O DDD informado não é válido no Brasil. Deve estar entre 11 e 99.');
+                } else {
+                    Alert.alert('Telefone inválido', errorMessage || 'Formato de telefone brasileiro inválido');
+                }
+                
+                setLoading(false);
+                return;
+            }
+            
             const playerData: {
                 name: string;
                 nickname?: string;
@@ -160,7 +182,7 @@ export default function NewPlayer() {
                 avatar_url?: string;
             } = {
                 name: formData.name.trim(),
-                phone: formData.phone.trim(),
+                phone: normalizedPhone,
             };
             
             // Adicionar apelido se existir
@@ -221,9 +243,37 @@ export default function NewPlayer() {
                         label="Celular"
                         placeholder="(00) 00000-0000"
                         value={formData.phone}
-                        onChangeText={(text) => setFormData(prev => ({ ...prev, phone: text }))}
+                        onChangeText={(text) => {
+                            // Remove tudo que não for número
+                            const numbersOnly = text.replace(/\D/g, '');
+                            
+                            // Limita a 11 caracteres numéricos
+                            const limited = numbersOnly.slice(0, 11);
+                            
+                            // Aplica máscara de formato brasileiro
+                            let formatted = limited;
+                            
+                            // Formato: (XX) XXXXX-XXXX
+                            if (limited.length > 0) {
+                                // Adiciona parênteses para o DDD
+                                if (limited.length <= 2) {
+                                    formatted = `(${limited}`;
+                                } 
+                                // Adiciona fechamento do DDD e espaço
+                                else if (limited.length <= 7) {
+                                    formatted = `(${limited.substring(0, 2)}) ${limited.substring(2)}`;
+                                } 
+                                // Formato completo com hífen
+                                else {
+                                    formatted = `(${limited.substring(0, 2)}) ${limited.substring(2, 7)}-${limited.substring(7)}`;
+                                }
+                            }
+                            
+                            console.log(`Formatando telefone: ${numbersOnly} -> ${formatted}`);
+                            setFormData(prev => ({ ...prev, phone: formatted }));
+                        }}
                         keyboardType="phone-pad"
-                        maxLength={15}
+                        maxLength={15} // Mantém 15 para a máscara (11 números + 4 caracteres de formatação)
                     />
                     
                     <ContactButton 
@@ -309,12 +359,12 @@ export default function NewPlayer() {
     );
 }
 
-const Container = styled.View`
+const Container = styled.View<ThemeProps>`
     flex: 1;
-    background-color: ${({ theme }) => theme.colors.backgroundDark};
+    background-color: ${(props: ThemeProps) => props.theme.colors.backgroundDark};
 `;
 
-const Content = styled.ScrollView.attrs({
+const Content = styled.ScrollView.attrs<ThemeProps>({
     contentContainerStyle: {
         padding: 20,
         paddingBottom: 80,
@@ -327,17 +377,17 @@ const Form = styled.View`
     gap: 16px;
 `;
 
-const AvatarLabel = styled.Text`
-    color: ${({ theme }) => theme.colors.textSecondary};
+const AvatarLabel = styled.Text<ThemeProps>`
+    color: ${(props: ThemeProps) => props.theme.colors.textSecondary};
     font-size: 14px;
     margin-top: 8px;
 `;
 
-const ContactButton = styled.TouchableOpacity`
+const ContactButton = styled.TouchableOpacity<ThemeProps>`
     flex-direction: row;
     align-items: center;
     justify-content: center;
-    background-color: ${({ theme }) => theme.colors.accent};
+    background-color: ${(props: ThemeProps) => props.theme.colors.accent};
     padding: 14px 16px;
     border-radius: 8px;
     margin-top: 16px;
@@ -348,8 +398,8 @@ const ContactButtonIcon = styled.View`
     margin-right: 10px;
 `;
 
-const ContactButtonText = styled.Text`
-    color: ${({ theme }) => theme.colors.textPrimary};
+const ContactButtonText = styled.Text<ThemeProps>`
+    color: ${(props: ThemeProps) => props.theme.colors.textPrimary};
     font-size: 16px;
     font-weight: 500;
 `;
@@ -362,10 +412,10 @@ const ModalContainer = styled.View`
     padding: 20px;
 `;
 
-const ModalContent = styled.View`
+const ModalContent = styled.View<ThemeProps>`
     width: 100%;
     height: 80%;
-    background-color: ${({ theme }) => theme.colors.backgroundDark};
+    background-color: ${(props: ThemeProps) => props.theme.colors.backgroundDark};
     border-radius: 10px;
     overflow: hidden;
 `;
@@ -375,33 +425,33 @@ const AvatarContainer = styled.View`
     margin-bottom: 16px;
 `;
 
-const Avatar = styled.Image`
+const Avatar = styled.Image<ThemeProps>`
     width: 100px;
     height: 100px;
     border-radius: 50px;
     border-width: 2px;
-    border-color: ${({ theme }) => theme.colors.primary};
+    border-color: ${(props: ThemeProps) => props.theme.colors.primary};
 `;
 
-const AvatarPlaceholder = styled.TouchableOpacity`
+const AvatarPlaceholder = styled.TouchableOpacity<ThemeProps>`
     width: 100px;
     height: 100px;
     border-radius: 50px;
     border-width: 2px;
-    border-color: ${({ theme }) => theme.colors.border};
-    background-color: ${({ theme }) => theme.colors.backgroundLight};
+    border-color: ${(props: ThemeProps) => props.theme.colors.border};
+    background-color: ${(props: ThemeProps) => props.theme.colors.backgroundLight};
     justify-content: center;
     align-items: center;
 `;
 
-const NavigationContainer = styled.View`
+const NavigationContainer = styled.View<ThemeProps>`
     position: absolute;
     bottom: 0;
     left: 0;
     right: 0;
-    background-color: ${({ theme }) => theme.colors.backgroundMedium};
+    background-color: ${(props: ThemeProps) => props.theme.colors.backgroundMedium};
     border-top-width: 1px;
-    border-top-color: ${({ theme }) => theme.colors.border};
+    border-top-color: ${(props: ThemeProps) => props.theme.colors.border};
     height: 60px;
 `;
 

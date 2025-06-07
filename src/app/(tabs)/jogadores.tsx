@@ -291,68 +291,63 @@ function JogadoresScreen() {
                 includeOwn: true
             });
             
-            console.log('Jogadores encontrados:', result.data?.length || 0);
+            // Verificar e processar os jogadores retornados
+            const myPlayerList = result.myPlayers || [];
+            const communityPlayerList = result.communityPlayers || [];
             
-            if (result && result.data) {
-                const addedPlayerIds = new Set<string>();
-                const ownPlayers: Player[] = [];
-                const sharedPlayers: Player[] = [];
-                const communityPlayers: Player[] = [];
+            console.log(`Jogadores encontrados: ${myPlayerList.length + communityPlayerList.length}`);
+            
+            // Criar arrays para organizar os jogadores
+            const addedPlayerIds = new Set<string>();
+            const ownPlayers: Player[] = [];
+            const sharedPlayers: Player[] = [];
+            const communityPlayers: Player[] = [];
+            
+            // Processar jogadores próprios
+            myPlayerList.forEach((player: Player) => {
+                if (!player.id || addedPlayerIds.has(player.id)) return;
                 
-                // Processar cada jogador e atribuir à seção correta
-                result.data.forEach(player => {
-                    if (!player.id || addedPlayerIds.has(player.id)) return;
-                    
-                    // 1. Jogador do próprio usuário (sempre na primeira seção)
-                    if (player.id === userData.user?.id || player.created_by === userData.user?.id) {
-                        player.isCreatedByOtherUser = false;
-                        player.sharedPlayer = false;
-                        ownPlayers.push(player);
-                    } 
-                    // 2. Jogadores compartilhados
-                    else if (player.isCreatedByOtherUser && !player.communityPlayer) {
-                        player.sharedPlayer = true;
-                        sharedPlayers.push(player);
-                    }
-                    // 3. Jogadores de comunidades
-                    else if (player.communityPlayer) {
-                        communityPlayers.push(player);
-                    }
-                    
-                    if (player.id) {
-                        addedPlayerIds.add(player.id);
-                    }
-                });
+                player.isCreatedByOtherUser = false;
+                player.sharedPlayer = false;
+                ownPlayers.push(player);
                 
-                // Garantir que o jogador do usuário está na primeira posição
-                const userPlayerIndex = ownPlayers.findIndex(p => p.id === userData.user?.id);
-                if (userPlayerIndex > 0) {
-                    const [userPlayer] = ownPlayers.splice(userPlayerIndex, 1);
-                    ownPlayers.unshift(userPlayer);
+                if (player.id) {
+                    addedPlayerIds.add(player.id);
+                }
+            });
+            
+            // Processar jogadores compartilhados e de comunidade
+            communityPlayerList.forEach((player: Player) => {
+                if (!player.id || addedPlayerIds.has(player.id)) return;
+                
+                // Jogadores compartilhados
+                if (player.isCreatedByOtherUser && !player.communityPlayer) {
+                    player.sharedPlayer = true;
+                    sharedPlayers.push(player);
+                }
+                // Jogadores de comunidades
+                else if (player.communityPlayer) {
+                    communityPlayers.push(player);
                 }
                 
-                // 3. Processar jogadores de comunidades organizadas (que não estão nas outras categorias)
-                result.data.forEach(player => {
-                    if (!player.id || addedPlayerIds.has(player.id)) return;
-                    
-                    if (player.communityPlayer) {
-                        communityPlayers.push(player);
-                        addedPlayerIds.add(player.id);
-                    }
-                });
-                
-                console.log(`Organização final: ${ownPlayers.length} próprios, ${sharedPlayers.length} compartilhados, ${communityPlayers.length} de comunidades`);
-                
-                // Atualizar os estados uma única vez
-                setMyPlayers(ownPlayers);
-                setCommunityPlayers(sharedPlayers);
-                setOrganizedCommunityPlayers(communityPlayers);
-            } else {
-                console.log('Nenhum jogador encontrado ou resultado inválido');
-                setMyPlayers([]);
-                setCommunityPlayers([]);
-                setOrganizedCommunityPlayers([]);
+                if (player.id) {
+                    addedPlayerIds.add(player.id);
+                }
+            });
+            
+            // Garantir que o jogador do usuário está na primeira posição
+            const userPlayerIndex = ownPlayers.findIndex((p: Player) => p.id === userData.user?.id);
+            if (userPlayerIndex > 0) {
+                const [userPlayer] = ownPlayers.splice(userPlayerIndex, 1);
+                ownPlayers.unshift(userPlayer);
             }
+            
+            console.log(`Organização final: ${ownPlayers.length} próprios, ${sharedPlayers.length} compartilhados, ${communityPlayers.length} de comunidades`);
+            
+            // Atualizar os estados uma única vez
+            setMyPlayers(ownPlayers);
+            setCommunityPlayers(sharedPlayers);
+            setOrganizedCommunityPlayers(communityPlayers);
         } catch (error) {
             console.error('Erro ao carregar jogadores:', error);
             Alert.alert('Erro', 'Não foi possível carregar os jogadores');

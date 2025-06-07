@@ -29,17 +29,15 @@ export interface PlayerWithRelation extends Player {
 export const playersService = {
   /**
    * Lista todos os jogadores do usuário atual, incluindo os compartilhados
-   * @param options Opções de paginação, ordenação e filtro
+   * @param options Opções de ordenação e filtro
    */
   async list(options: {
-    page?: number;
-    pageSize?: number;
     sortBy?: keyof Player;
     sortOrder?: 'asc' | 'desc';
     searchTerm?: string;
     includeShared?: boolean;
     includeOwn?: boolean;
-  } = {}): Promise<{ data: Player[]; total: number; page: number; pageSize: number }> {
+  } = {}): Promise<{ myPlayers: Player[]; communityPlayers: Player[]; total: number }> {
     try {
       // Obter o usuário atual
       const { data: { user }, error: userError } = await supabase.auth.getUser();
@@ -53,16 +51,12 @@ export const playersService = {
       
       // Configurações padrão
       const {
-        page = 1,
-        pageSize = 10,
         sortBy = 'name',
         sortOrder = 'asc',
         searchTerm = '',
         includeShared = true,
         includeOwn = true
       } = options;
-      
-      const startIndex = (page - 1) * pageSize;
       let allPlayers: Player[] = [];
       let totalCount = 0;
       
@@ -200,30 +194,205 @@ export const playersService = {
         }
       }
       
-      console.log(`Total de jogadores encontrados: ${allPlayers.length}`);
+      console.log(`Total de jogadores encontrados: ${totalCount}`);
       
-      // Aplicar ordenação
-      allPlayers.sort((a, b) => {
-        const aValue = a[sortBy] || '';
-        const bValue = b[sortBy] || '';
+      // Ordena por nome e prioridade
+      const sortedPlayers = [...allPlayers].sort((a, b) => {
+        // Primeiro ordenamos por isPrimary (jogadores primários primeiro)
+        if (a.isPrimary && !b.isPrimary) return -1;
+        if (!a.isPrimary && b.isPrimary) return 1;
         
-        if (aValue < bValue) return sortOrder === 'asc' ? -1 : 1;
-        if (aValue > bValue) return sortOrder === 'asc' ? 1 : -1;
-        return 0;
+        // Depois ordenamos pelo nome
+        const aName = a.name?.toLowerCase() || '';
+        const bName = b.name?.toLowerCase() || '';
+        
+        const multiplier = sortOrder === 'asc' ? 1 : -1;
+        return (aName < bName ? -1 : 1) * multiplier;
       });
       
-      // Aplicar paginação
-      const paginatedPlayers = allPlayers.slice(startIndex, startIndex + pageSize);
+      // Separar jogadores próprios dos jogadores de comunidade
+      const myPlayers = sortedPlayers.filter(p => !p.sharedPlayer);
+      const communityPlayers = sortedPlayers.filter(p => p.sharedPlayer);
+      
+      console.log(`Organização final: ${myPlayers.length} próprios, ${communityPlayers.length} compartilhados, ${communityPlayers.filter(p => p.communityPlayer).length} de comunidades`);
+      console.log(`Finalizado carregamento de jogadores`);
       
       return {
-        data: paginatedPlayers,
-        total: totalCount,
-        page,
-        pageSize
+        myPlayers,
+        communityPlayers,
+        total: totalCount
       };
     } catch (error) {
       console.error('Erro ao listar jogadores:', error);
       throw error instanceof Error ? error : new Error('Ocorreu um erro ao listar os jogadores');
+    }
+  },
+  
+  async listAll(): Promise<{ myPlayers: Player[]; communityPlayers: Player[] }> {
+    // Este método garante que todos os jogadores sejam retornados sem paginação
+    try {
+      console.log('playersService.listAll: Iniciando busca de todos os jogadores...');
+      
+      // Buscando jogadores diretamente sem paginação
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError || !user) {
+        console.error('playersService.listAll: Erro ao obter usuário:', userError);
+        throw new Error('Você precisa estar logado para ver jogadores');
+      }
+
+      console.log(`playersService.listAll: Usuário autenticado: ${user.id}`);
+      
+      // Verificar se o jogador já existe para o usuário atual
+      console.log(`Jogador já existe: ${user.id}`);
+      
+      console.log('Buscando jogadores...');
+      
+      // Consulta para jogadores próprios (criados pelo usuário)
+      const { data: myPlayersData, error: myPlayersError } = await supabase
+        .from('players')
+        .select('*')
+        .eq('created_by', user.id);
+
+      if (myPlayersError) {
+        console.error('playersService.listAll: Erro ao buscar jogadores próprios:', myPlayersError);
+        throw myPlayersError;
+      }
+
+      // Consulta para jogadores compartilhados (através da tabela user_player_relations)
+      const { data: sharedPlayersData, error: sharedPlayersError } = await supabase
+        .from('user_player_relations')
+        .select('player_id, is_primary, players(*)')
+        .eq('user_id', user.id)
+        .neq('players.created_by', user.id);
+
+      if (sharedPlayersError) {
+        console.error('playersService.listAll: Erro ao buscar jogadores compartilhados:', sharedPlayersError);
+        throw sharedPlayersError;
+      }
+      
+      // Processar jogadores próprios
+      const myPlayers = (myPlayersData || []).map(player => {
+        // Buscar a relação para determinar se é primário
+        return {
+          ...player,
+          isPrimary: false, // Valor padrão, será atualizado abaixo
+          isMine: true,
+          sharedPlayer: false,
+          isCreatedByOtherUser: false
+        };
+      });
+      
+      console.log(`Encontrados ${myPlayers.length} jogadores próprios`);
+      
+      // Processar jogadores compartilhados
+      const communityPlayers = (sharedPlayersData || []).map(relation => {
+        const player = relation.players;
+        return {
+          ...player,
+          isPrimary: relation.is_primary,
+          isMine: false,
+          sharedPlayer: true,
+          isCreatedByOtherUser: true
+        };
+      });
+      
+      console.log(`Encontrados ${communityPlayers.length} jogadores compartilhados`);
+      
+      // Buscar comunidades onde o usuário é organizador
+      const { data: organizerCommunities, error: organizerError } = await supabase
+        .from('community_members')
+        .select('community_id')
+        .eq('user_id', user.id)
+        .eq('is_organizer', true);
+      
+      if (organizerError) {
+        console.error('playersService.listAll: Erro ao buscar comunidades como organizador:', organizerError);
+      }
+      
+      console.log(`Usuário é organizador em ${organizerCommunities?.length || 0} comunidades`);
+      
+      // Buscar jogadores das comunidades onde o usuário é organizador
+      let communityPlayersData = [];
+      if (organizerCommunities && organizerCommunities.length > 0) {
+        const communityIds = organizerCommunities.map(c => c.community_id);
+        
+        const { data: communityPlayers, error: communityPlayersError } = await supabase
+          .from('community_players')
+          .select('player_id, players(*)')
+          .in('community_id', communityIds);
+        
+        if (communityPlayersError) {
+          console.error('playersService.listAll: Erro ao buscar jogadores das comunidades:', communityPlayersError);
+        } else if (communityPlayers) {
+          // Filtrar jogadores únicos
+          const uniquePlayerIds = new Set();
+          communityPlayersData = communityPlayers.filter(cp => {
+            if (!cp.player_id || uniquePlayerIds.has(cp.player_id)) return false;
+            uniquePlayerIds.add(cp.player_id);
+            return true;
+          }).map(cp => ({
+            ...cp.players,
+            isPrimary: false,
+            isMine: cp.players.created_by === user.id,
+            sharedPlayer: true,
+            isCreatedByOtherUser: cp.players.created_by !== user.id
+          }));
+        }
+      }
+      
+      console.log(`Encontrados ${communityPlayersData.length} jogadores adicionais das comunidades organizadas`);
+      
+      // Combinar todos os jogadores e remover duplicados
+      const allPlayerIds = new Set(myPlayers.map(p => p.id));
+      const allCommunityPlayers = [...communityPlayers];
+      
+      // Adicionar jogadores das comunidades que ainda não estão na lista
+      communityPlayersData.forEach(player => {
+        if (!allPlayerIds.has(player.id)) {
+          allCommunityPlayers.push(player);
+          allPlayerIds.add(player.id);
+        }
+      });
+      
+      console.log(`Total de jogadores encontrados: ${myPlayers.length + allCommunityPlayers.length}`);
+      console.log(`Organização final: ${myPlayers.length} próprios, ${allCommunityPlayers.length} compartilhados, ${communityPlayersData.length} de comunidades`);
+      
+      // Atualizar o status de primário para jogadores próprios
+      const { data: primaryRelations, error: primaryError } = await supabase
+        .from('user_player_relations')
+        .select('player_id, is_primary')
+        .eq('user_id', user.id)
+        .eq('is_primary', true);
+      
+      if (!primaryError && primaryRelations) {
+        const primaryIds = new Set(primaryRelations.map(r => r.player_id));
+        myPlayers.forEach(player => {
+          player.isPrimary = primaryIds.has(player.id);
+        });
+      }
+      
+      // Ordenar jogadores: primário primeiro, depois por nome
+      const sortedMyPlayers = myPlayers.sort((a, b) => {
+        if (a.isPrimary && !b.isPrimary) return -1;
+        if (!a.isPrimary && b.isPrimary) return 1;
+        return a.name.localeCompare(b.name);
+      });
+
+      const sortedCommunityPlayers = allCommunityPlayers.sort((a, b) => a.name.localeCompare(b.name));
+      
+      console.log('Finalizado carregamento de jogadores');
+      
+      return {
+        myPlayers: sortedMyPlayers,
+        communityPlayers: sortedCommunityPlayers
+      };
+    } catch (error) {
+      console.error('Erro ao listar todos os jogadores:', error);
+      console.log('Jogadores encontrados: 0');
+      console.log('Nenhum jogador encontrado ou resultado inválido');
+      console.log('Finalizado carregamento de jogadores');
+      return { myPlayers: [], communityPlayers: [] };
     }
   },
   
@@ -303,6 +472,21 @@ export const playersService = {
         throw new Error('Nome e telefone são obrigatórios');
       }
       
+      // Normalizar e validar o telefone brasileiro
+      const normalizedPhone = this.normalizePhoneNumber(player.phone);
+      console.log('[PlayerService] Telefone após remover caracteres especiais:', player.phone, '->', normalizedPhone);
+      
+      // Valida o telefone brasileiro
+      const validation = this.validateBrazilianPhone(normalizedPhone);
+      if (!validation.isValid) {
+        console.error('Erro de validação de telefone:', validation.errorMessage);
+        throw new Error(`Telefone inválido: ${validation.errorMessage}`);
+      }
+      
+      // Atualiza o telefone com o valor normalizado
+      player.phone = normalizedPhone;
+      console.log('[PlayerService] Normalização concluída:', player.phone, '->', normalizedPhone);
+      
       // Obter o usuário atual
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       
@@ -363,6 +547,67 @@ export const playersService = {
   },
   
   /**
+   * Normaliza um número de telefone brasileiro, removendo caracteres não numéricos
+   * @param phone Número de telefone a ser normalizado
+   * @returns Número de telefone normalizado (apenas dígitos)
+   */
+  normalizePhoneNumber(phone: string): string {
+    // Remove todos os caracteres não numéricos
+    const normalizedPhone = phone.replace(/\D/g, '');
+    console.log('[PlayerService] Telefone após remover caracteres especiais:', phone, '->', normalizedPhone);
+    return normalizedPhone;
+  },
+
+  /**
+   * Valida um número de telefone brasileiro
+   * @param phone Número de telefone a ser validado (já normalizado)
+   * @returns Um objeto com o resultado da validação e mensagem de erro se houver
+   */
+  validateBrazilianPhone(phone: string): {isValid: boolean, errorMessage?: string} {
+    const normalizedPhone = this.normalizePhoneNumber(phone);
+    
+    // Valida se tem 11 dígitos (padrão brasileiro com DDD e 9 no início)
+    if (normalizedPhone.length !== 11) {
+      return {
+        isValid: false, 
+        errorMessage: 'O telefone deve ter 11 dígitos incluindo DDD e o 9 inicial'
+      };
+    }
+    
+    // Valida se o terceiro dígito é 9 (padrão brasileiro para celulares)
+    if (normalizedPhone.charAt(2) !== '9') {
+      return {
+        isValid: false, 
+        errorMessage: 'O terceiro dígito deve ser 9 (padrão brasileiro para celulares)'
+      };
+    }
+    
+    // Valida se o DDD está entre 11 e 99
+    const ddd = parseInt(normalizedPhone.substring(0, 2));
+    if (ddd < 11 || ddd > 99) {
+      return {
+        isValid: false, 
+        errorMessage: 'O DDD deve estar entre 11 e 99'
+      };
+    }
+    
+    return {isValid: true};
+  },
+
+  /**
+   * Formata um número de telefone brasileiro para exibição
+   * @param phone Número de telefone a ser formatado
+   * @returns Número formatado no padrão (XX) XXXXX-XXXX
+   */
+  formatPhoneNumber(phone: string): string {
+    const normalizedPhone = this.normalizePhoneNumber(phone);
+    
+    if (normalizedPhone.length !== 11) return phone; // Retorna como está se não tiver 11 dígitos
+    
+    return `(${normalizedPhone.substring(0, 2)}) ${normalizedPhone.substring(2, 7)}-${normalizedPhone.substring(7)}`;
+  },
+
+  /**
    * Atualiza um jogador existente
    */
   async update(id: string, playerUpdates: Partial<Player>): Promise<Player> {
@@ -394,6 +639,24 @@ export const playersService = {
       if (!isAdmin && !isCreator) {
         console.error('Usuário não autorizado a atualizar este jogador');
         throw new Error('Você não tem permissão para atualizar este jogador');
+      }
+      
+      // Verificar se há atualização de telefone e validar
+      if (playerUpdates.phone) {
+        // Normaliza o telefone
+        const normalizedPhone = this.normalizePhoneNumber(playerUpdates.phone);
+        console.log('[PlayerService] Telefone normalizado:', normalizedPhone);
+        
+        // Valida o telefone brasileiro
+        const validation = this.validateBrazilianPhone(normalizedPhone);
+        
+        if (!validation.isValid) {
+          console.error('Erro de validação de telefone:', validation.errorMessage);
+          throw new Error(`Telefone inválido: ${validation.errorMessage}`);
+        }
+        
+        // Substitui o telefone pelos dígitos normalizados
+        playerUpdates.phone = normalizedPhone;
       }
       
       // Atualizar o jogador
