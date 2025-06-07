@@ -1,16 +1,30 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Dimensions, Animated, Image } from 'react-native';
 import styled from 'styled-components/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/core/contexts/ThemeProvider';
 import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { InternalHeader } from '@/components/layout/InternalHeader';
 
 const { width } = Dimensions.get('window');
 
+interface ThemeProps {
+  theme: {
+    colors: {
+      backgroundDark: string;
+      textPrimary: string;
+      textSecondary: string;
+      gray300: string;
+      primary: string;
+      white: string;
+    };
+  };
+}
+
 const Container = styled.View`
   flex: 1;
-  background-color: ${({ theme }) => theme.colors.backgroundDark};
+  background-color: ${(props: ThemeProps) => props.theme.colors.backgroundDark};
 `;
 
 const Slide = styled.View`
@@ -34,7 +48,7 @@ const SlideImage = styled.Image`
 `;
 
 const SlideTitle = styled.Text`
-  color: ${({ theme }) => theme.colors.textPrimary};
+  color: ${(props: ThemeProps) => props.theme.colors.textPrimary};
   font-size: 24px;
   font-weight: bold;
   text-align: center;
@@ -42,7 +56,7 @@ const SlideTitle = styled.Text`
 `;
 
 const SlideDescription = styled.Text`
-  color: ${({ theme }) => theme.colors.textSecondary};
+  color: ${(props: ThemeProps) => props.theme.colors.textSecondary};
   font-size: 16px;
   text-align: center;
   margin-bottom: 24px;
@@ -61,7 +75,7 @@ const Dot = styled.View`
   height: 8px;
   border-radius: 4px;
   margin: 0 4px;
-  background-color: ${({ theme }) => theme.colors.gray300};
+  background-color: ${(props: ThemeProps) => props.theme.colors.gray300};
 `;
 
 const ButtonsContainer = styled.View`
@@ -78,12 +92,29 @@ const Button = styled.TouchableOpacity`
 `;
 
 const ButtonText = styled.Text`
-  color: ${({ theme }) => theme.colors.primary};
+  color: ${(props: ThemeProps) => props.theme.colors.primary};
   font-size: 16px;
   font-weight: bold;
 `;
 
 export default function Onboarding() {
+  // Verificar se o usuário já completou o onboarding anteriormente
+  useEffect(() => {
+    const checkOnboardingStatus = async () => {
+      try {
+        const onboardingCompleted = await AsyncStorage.getItem('onboardingCompleted');
+        // Se o usuário já completou o onboarding, não precisa mostrar novamente
+        // Apenas redireciona para o dashboard
+        if (onboardingCompleted === 'true') {
+          router.replace('/dashboard');
+        }
+      } catch (error) {
+        console.error('Erro ao verificar status do onboarding:', error);
+      }
+    };
+    
+    checkOnboardingStatus();
+  }, []);
   const { colors } = useTheme();
   const router = useRouter();
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -133,15 +164,23 @@ export default function Onboarding() {
     setCurrentIndex(newIndex);
   };
 
-  const nextSlide = () => {
+  const nextSlide = async () => {
     if (currentIndex < slides.length - 1) {
       scrollRef.current?.scrollTo({ x: width * (currentIndex + 1), animated: true });
     } else {
-      router.replace('/dashboard');
+      // Marcar que o onboarding foi concluído
+      await AsyncStorage.setItem('onboardingCompleted', 'true');
+      // Redirecionar para a página de perfil
+      router.replace('/(pages)/profile');
     }
   };
 
-  const skip = () => router.replace('/dashboard');
+  const skip = async () => {
+    // Marcar que o onboarding foi concluído
+    await AsyncStorage.setItem('onboardingCompleted', 'true');
+    // Redirecionar para a página de perfil
+    router.replace('/(pages)/profile');
+  };
 
   return (
     <Container>

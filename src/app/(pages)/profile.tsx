@@ -1,5 +1,6 @@
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, Platform } from 'react-native';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '@/core/hooks/useAuth';
 import { supabase } from '@/core/lib/supabase';
 import { Stack, useRouter } from 'expo-router';
@@ -7,12 +8,27 @@ import styled from 'styled-components/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { PageTransition } from '@/components/Transitions';
 import { Header } from '@/components/layout/Header';
-import { useTheme } from 'styled-components/native';
+import { useTheme } from '@/core/contexts/ThemeProvider';
 import AlertModal from '@/components/feedback/AlertModal';
+
+interface ThemeProps {
+  theme: {
+    colors: {
+      backgroundDark: string;
+      backgroundLight: string;
+      textPrimary: string;
+      textSecondary: string;
+      accent: string;
+      primary: string;
+      white: string;
+      error?: string;
+    };
+  };
+}
 
 const Container = styled.View`
   flex: 1;
-  background-color: ${({ theme }: { theme: any }) => theme.colors.backgroundDark};
+  background-color: ${(props: ThemeProps) => props.theme.colors.backgroundDark};
 `;
 
 const ScrollContent = styled.ScrollView`
@@ -30,30 +46,34 @@ const InputContainer = styled.View`
 
 const Label = styled.Text`
   font-size: 16px;
-  color: ${({ theme }: { theme: any }) => theme.colors.textPrimary};
+  color: ${(props: ThemeProps) => props.theme.colors.textPrimary};
   font-weight: 500;
 `;
 
 const StyledInput = styled.TextInput`
-  background-color: ${({ theme }: { theme: any }) => theme.colors.backgroundLight};
+  background-color: ${(props: ThemeProps) => props.theme.colors.backgroundLight};
   padding: 16px;
   border-radius: 8px;
-  color: ${({ theme }: { theme: any }) => theme.colors.textPrimary};
+  color: ${(props: ThemeProps) => props.theme.colors.textPrimary};
   font-size: 16px;
 `;
 
-const SaveButton = styled.TouchableOpacity<{disabled?: boolean}>`
-  background-color: ${({ theme }: { theme: any }) => theme.colors.accent};
+interface ButtonProps extends ThemeProps {
+  disabled?: boolean;
+}
+
+const SaveButton = styled.TouchableOpacity<ButtonProps>`
+  background-color: ${(props: ThemeProps) => props.theme.colors.accent};
   padding: 16px;
   border-radius: 8px;
   align-items: center;
   justify-content: center;
   margin-top: 16px;
-  opacity: ${(props: {disabled?: boolean}) => props.disabled ? 0.7 : 1};
+  opacity: ${(props: ButtonProps) => props.disabled ? 0.7 : 1};
 `;
 
 const SubscriptionButton = styled.TouchableOpacity`
-  background-color: ${({ theme }: { theme: any }) => theme.colors.primary};
+  background-color: ${(props: ThemeProps) => props.theme.colors.primary};
   padding: 16px;
   border-radius: 8px;
   align-items: center;
@@ -62,12 +82,15 @@ const SubscriptionButton = styled.TouchableOpacity`
 `;
 
 const ButtonText = styled.Text`
-  color: ${({ theme }: { theme: any }) => theme.colors.white};
+  color: ${(props: ThemeProps) => props.theme.colors.white};
   font-size: 16px;
   font-weight: 600;
 `;
 
 export default function ProfileScreen() {
+  const [isFromOnboarding, setIsFromOnboarding] = useState(false);
+  const [showPhoneRequiredMessage, setShowPhoneRequiredMessage] = useState(false);
+  const phoneInputRef = useRef<TextInput>(null);
   const { user } = useAuth();
   const router = useRouter();
   const { colors } = useTheme();
@@ -90,8 +113,33 @@ export default function ProfileScreen() {
     if (user?.id) {
       console.log('useEffect - user?.id:', user?.id);
       loadProfile();
+      checkIfFromOnboarding();
     }
   }, [user?.id]);
+  
+  const checkIfFromOnboarding = async () => {
+    try {
+      const onboardingCompleted = await AsyncStorage.getItem('onboardingCompleted');
+      const onboardingFirstTime = await AsyncStorage.getItem('onboardingFirstTime');
+      
+      if (onboardingCompleted === 'true' && onboardingFirstTime !== 'false') {
+        // Primeira vez após completar o onboarding
+        setIsFromOnboarding(true);
+        setShowPhoneRequiredMessage(true);
+        // Marcar que não é mais a primeira vez
+        await AsyncStorage.setItem('onboardingFirstTime', 'false');
+        
+        // Focar no campo de telefone após um pequeno delay
+        setTimeout(() => {
+          if (phoneInputRef.current) {
+            phoneInputRef.current.focus();
+          }
+        }, 500);
+      }
+    } catch (error) {
+      console.error('Erro ao verificar status do onboarding:', error);
+    }
+  };
 
   async function loadProfile() {
     try {
@@ -173,6 +221,28 @@ export default function ProfileScreen() {
   }
 
   async function updateProfile() {
+    // Verificar se o telefone foi preenchido
+    if (!profile.phone_number) {
+      if (Platform.OS === 'web') {
+        setAlertModal({
+          visible: true,
+          title: 'Telefone Obrigatório',
+          message: 'O número de telefone é obrigatório para criar seu perfil de jogador e participar das competições.',
+          confirmAction: () => setAlertModal(prev => ({ ...prev, visible: false })),
+          cancelAction: () => {},
+        });
+      } else {
+        Alert.alert(
+          'Telefone Obrigatório',
+          'O número de telefone é obrigatório para criar seu perfil de jogador e participar das competições.'
+        );
+      }
+      // Focar no campo de telefone
+      if (phoneInputRef.current) {
+        phoneInputRef.current.focus();
+      }
+      return;
+    }
     try {
       setLoading(true);
 
@@ -401,8 +471,7 @@ export default function ProfileScreen() {
         />
         <Header
           title="Meu Perfil"
-          onNotificationPress={() => {}}
-          onProfilePress={() => router.back()}
+          showBackButton={true}
         />
         <ScrollContent showsVerticalScrollIndicator={false}>
           <Content>
@@ -410,7 +479,7 @@ export default function ProfileScreen() {
               <Label>Nome Completo</Label>
               <StyledInput
                 value={profile.full_name}
-                onChangeText={(text) => setProfile({ ...profile, full_name: text })}
+                onChangeText={(text: string) => setProfile({ ...profile, full_name: text })}
                 placeholder="Seu nome completo"
                 placeholderTextColor={colors.textSecondary}
               />
@@ -420,7 +489,7 @@ export default function ProfileScreen() {
               <Label>Apelido</Label>
               <StyledInput
                 value={profile.nickname}
-                onChangeText={(text) => setProfile({ ...profile, nickname: text })}
+                onChangeText={(text: string) => setProfile({ ...profile, nickname: text })}
                 placeholder="Seu apelido"
                 placeholderTextColor={colors.textSecondary}
               />
@@ -439,12 +508,21 @@ export default function ProfileScreen() {
             <InputContainer>
               <Label>Telefone</Label>
               <StyledInput
+                ref={phoneInputRef}
                 value={profile.phone_number}
-                onChangeText={(text) => setProfile({ ...profile, phone_number: text })}
+                onChangeText={(text: string) => {
+                  setProfile({ ...profile, phone_number: text });
+                  if (text) setShowPhoneRequiredMessage(false);
+                }}
                 placeholder="(00) 00000-0000"
                 placeholderTextColor={colors.textSecondary}
                 keyboardType="phone-pad"
               />
+              {showPhoneRequiredMessage && (
+                <Text style={{ color: '#FF3333', marginTop: 4, fontSize: 14 }}>
+                  * O telefone é obrigatório para participar das competições
+                </Text>
+              )}
             </InputContainer>
 
             <SaveButton onPress={updateProfile} disabled={loading}>
