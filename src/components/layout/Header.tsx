@@ -65,9 +65,10 @@ interface HeaderProps {
     title?: string;
     showBackButton?: boolean;
     isDashboard?: boolean;
+    onBack?: () => void;
 }
 
-export function Header({ title, showBackButton, isDashboard }: HeaderProps) {
+export function Header({ title, showBackButton, isDashboard, onBack }: HeaderProps) {
     const router = useRouter();
     const { signOut } = useAuth();
     const statusBarHeight = StatusBar.currentHeight || 0;
@@ -104,7 +105,7 @@ export function Header({ title, showBackButton, isDashboard }: HeaderProps) {
                             <Image source={dominoLogo} style={{ width: 160, height: 50, resizeMode: 'contain' }} />
                         </LogoContainer>
                     ) : showBackButton ? (
-                        <IconButton onPress={() => router.back()}>
+                        <IconButton onPress={onBack || (() => router.back())}>
                             <MaterialCommunityIcons name="arrow-left" size={24} color={colors.white} />
                         </IconButton>
                     ) : (

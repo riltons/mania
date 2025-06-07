@@ -272,45 +272,11 @@ function JogadoresScreen() {
                     .eq('id', userData.user.id)
                     .single();
                 
-                if (fetchError || !existingPlayer) {
-                    console.log('Criando jogador para o usuário atual...');
-                    const user = userData.user;
-                    const phoneSuffix = user.id.substring(0, 6);
-                    const newPlayer = {
-                        id: user.id,
-                        name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Jogador',
-                        phone: user.phone ? `${user.phone}-${phoneSuffix}` : `user-${phoneSuffix}`,
-                        created_by: user.id,
-                        is_active: true,
-                        created_at: new Date().toISOString(),
-                        updated_at: new Date().toISOString()
-                    };
-                    
-                    const { error: createError } = await supabase
-                        .from('players')
-                        .insert([newPlayer]);
-                        
-                    if (createError) {
-                        console.error('Erro ao criar jogador:', createError);
-                    } else {
-                        console.log('Jogador criado com sucesso');
-                        
-                        // Criar relação do usuário com o jogador
-                        const { error: relationError } = await supabase
-                            .from('user_player_relations')
-                            .upsert({
-                                user_id: user.id,
-                                player_id: user.id,
-                                is_primary: true,
-                                created_at: new Date().toISOString()
-                            }, {
-                                onConflict: 'user_id,player_id'
-                            });
-                            
-                        if (relationError) {
-                            console.error('Erro ao criar relação:', relationError);
-                        }
-                    }
+                if (!existingPlayer) {
+                    console.log('Nenhum jogador encontrado para o usuário atual.');
+                    console.log('O jogador deve ser criado na tela de perfil após o onboarding.');
+                    // Não criamos o jogador automaticamente aqui para evitar duplicação
+                    // A criação do jogador deve acontecer apenas na tela de perfil
                 } else {
                     console.log('Jogador já existe:', existingPlayer.id);
                 }

@@ -16,6 +16,7 @@ import { activityService } from "@/services/activityService";
 import { supabase } from "@/lib/supabase";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { DefaultTheme } from 'styled-components';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface Stats {
     totalGames: number;
@@ -387,7 +388,37 @@ const Dashboard: React.FC = () => {
         
         if (!authLoading) {
             if (isAuthenticated && user?.id) {
-                loadStatistics();
+                // Verificar se o usuário tem telefone cadastrado
+                const checkUserProfile = async () => {
+                    try {
+                        const { data, error } = await supabase
+                            .from('user_profiles')
+                            .select('phone_number')
+                            .eq('user_id', user.id)
+                            .single();
+                        
+                        if (error) {
+                            console.error('[Dashboard] Erro ao verificar perfil:', error);
+                            return;
+                        }
+                        
+                        // Se o usuário não tiver telefone cadastrado, redirecionar para a página de perfil
+                        if (!data?.phone_number) {
+                            console.log('[Dashboard] Usuário sem telefone cadastrado, redirecionando para perfil');
+                            // Definir flag para indicar que o telefone é obrigatório
+                            await AsyncStorage.setItem('phoneRequired', 'true');
+                            router.replace('/(pages)/profile' as any);
+                            return;
+                        }
+                        
+                        // Se tiver telefone, carregar estatísticas normalmente
+                        loadStatistics();
+                    } catch (error) {
+                        console.error('[Dashboard] Erro ao verificar perfil:', error);
+                    }
+                };
+                
+                checkUserProfile();
             } else {
                 console.log("[Dashboard] Usuário não autenticado, não carregando estatísticas");
                 // Definir estatísticas vazias para evitar exibição de dados antigos

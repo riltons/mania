@@ -104,9 +104,12 @@ export default function Onboarding() {
       try {
         const onboardingCompleted = await AsyncStorage.getItem('onboardingCompleted');
         // Se o usuário já completou o onboarding, não precisa mostrar novamente
-        // Apenas redireciona para o dashboard
+        // Redireciona para a página de perfil para garantir que o telefone seja cadastrado
         if (onboardingCompleted === 'true') {
-          router.replace('/dashboard');
+          console.log('Onboarding já foi concluído, redirecionando para perfil');
+          // Definir flag para indicar que é a primeira vez após o onboarding
+          await AsyncStorage.setItem('onboardingFirstTime', 'true');
+          router.replace('/(pages)/profile' as any);
         }
       } catch (error) {
         console.error('Erro ao verificar status do onboarding:', error);
@@ -170,21 +173,25 @@ export default function Onboarding() {
     } else {
       // Marcar que o onboarding foi concluído
       await AsyncStorage.setItem('onboardingCompleted', 'true');
+      // Definir flag para indicar que é a primeira vez após o onboarding
+      await AsyncStorage.setItem('onboardingFirstTime', 'true');
       // Redirecionar para a página de perfil
-      router.replace('/(pages)/profile');
+      router.replace('/(pages)/profile' as any);
     }
   };
 
   const skip = async () => {
     // Marcar que o onboarding foi concluído
     await AsyncStorage.setItem('onboardingCompleted', 'true');
+    // Definir flag para indicar que é a primeira vez após o onboarding
+    await AsyncStorage.setItem('onboardingFirstTime', 'true');
     // Redirecionar para a página de perfil
-    router.replace('/(pages)/profile');
+    router.replace('/(pages)/profile' as any);
   };
 
   return (
     <Container>
-      <InternalHeader title="Introdução ao Dominomania" onBack={() => router.replace('/dashboard')} />
+      <InternalHeader title="Introdução ao Dominomania" onBack={() => {}} />
       <Animated.ScrollView
         horizontal
         pagingEnabled

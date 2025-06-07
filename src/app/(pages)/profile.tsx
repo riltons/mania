@@ -121,13 +121,16 @@ export default function ProfileScreen() {
     try {
       const onboardingCompleted = await AsyncStorage.getItem('onboardingCompleted');
       const onboardingFirstTime = await AsyncStorage.getItem('onboardingFirstTime');
+      const phoneRequired = await AsyncStorage.getItem('phoneRequired');
       
-      if (onboardingCompleted === 'true' && onboardingFirstTime !== 'false') {
-        // Primeira vez após completar o onboarding
-        setIsFromOnboarding(true);
+      console.log('[Profile] Status do onboarding:', { onboardingCompleted, onboardingFirstTime, phoneRequired });
+      
+      // Verificar se veio do dashboard com flag de telefone obrigatório
+      if (phoneRequired === 'true') {
+        console.log('[Profile] Redirecionado do dashboard, telefone obrigatório');
         setShowPhoneRequiredMessage(true);
-        // Marcar que não é mais a primeira vez
-        await AsyncStorage.setItem('onboardingFirstTime', 'false');
+        // Limpar a flag após uso
+        await AsyncStorage.removeItem('phoneRequired');
         
         // Focar no campo de telefone após um pequeno delay
         setTimeout(() => {
@@ -135,6 +138,42 @@ export default function ProfileScreen() {
             phoneInputRef.current.focus();
           }
         }, 500);
+      }
+      
+      if (onboardingCompleted === 'true') {
+        // Verificar se é a primeira vez após completar o onboarding
+        if (onboardingFirstTime !== 'false') {
+          console.log('[Profile] Primeira vez após onboarding, mostrando mensagem de telefone obrigatório');
+          // Primeira vez após completar o onboarding
+          setIsFromOnboarding(true);
+          setShowPhoneRequiredMessage(true);
+          // Marcar que não é mais a primeira vez
+          await AsyncStorage.setItem('onboardingFirstTime', 'false');
+          
+          // Focar no campo de telefone após um pequeno delay
+          setTimeout(() => {
+            if (phoneInputRef.current) {
+              phoneInputRef.current.focus();
+            }
+          }, 500);
+        } else {
+          // Já passou pelo onboarding antes, verificar se tem telefone
+          const { data } = await supabase
+            .from('user_profiles')
+            .select('phone_number')
+            .eq('user_id', user?.id)
+            .single();
+          
+          if (!data?.phone_number) {
+            console.log('[Profile] Usuário sem telefone cadastrado, mostrando mensagem');
+            setShowPhoneRequiredMessage(true);
+            setTimeout(() => {
+              if (phoneInputRef.current) {
+                phoneInputRef.current.focus();
+              }
+            }, 500);
+          }
+        }
       }
     } catch (error) {
       console.error('Erro ao verificar status do onboarding:', error);
@@ -440,6 +479,11 @@ export default function ProfileScreen() {
       } else {
         Alert.alert('Sucesso', 'Perfil atualizado com sucesso!');
       }
+      
+      // Se veio do onboarding e agora tem telefone, redirecionar para o dashboard
+      if (isFromOnboarding && profile.phone_number) {
+        router.replace('/(tabs)/dashboard' as any);
+      }
     } catch (error) {
       console.error('Erro ao atualizar perfil:', error);
       if (Platform.OS === 'web') {
@@ -472,6 +516,38 @@ export default function ProfileScreen() {
         <Header
           title="Meu Perfil"
           showBackButton={true}
+          onBack={() => {
+            // Se o usuário veio do onboarding ou não tem telefone, não permitir sair sem preencher
+            if ((isFromOnboarding || showPhoneRequiredMessage) && !profile.phone_number) {
+              if (Platform.OS === 'web') {
+                setAlertModal({
+                  visible: true,
+                  title: 'Telefone Obrigatório',
+                  message: 'Você precisa cadastrar um número de telefone para continuar.',
+                  confirmAction: () => {
+                    setAlertModal(prev => ({ ...prev, visible: false }));
+                    if (phoneInputRef.current) {
+                      phoneInputRef.current.focus();
+                    }
+                  },
+                  cancelAction: () => {},
+                });
+              } else {
+                Alert.alert(
+                  'Telefone Obrigatório',
+                  'Você precisa cadastrar um número de telefone para continuar.',
+                  [{ text: 'OK', onPress: () => {
+                    if (phoneInputRef.current) {
+                      phoneInputRef.current.focus();
+                    }
+                  }}]
+                );
+              }
+              return;
+            }
+            // Se não tem restrição, permite voltar normalmente
+            router.back();
+          }}
         />
         <ScrollContent showsVerticalScrollIndicator={false}>
           <Content>
@@ -530,7 +606,7 @@ export default function ProfileScreen() {
                 {loading ? 'Salvando...' : 'Salvar Alterações'}
               </ButtonText>
             </SaveButton>
-            <SubscriptionButton onPress={() => router.push('/mensalidade')}>
+            <SubscriptionButton onPress={() => router.push('/(pages)/mensalidade')}>
               <ButtonText>Gerenciar Mensalidade</ButtonText>
             </SubscriptionButton>
           </Content>
@@ -539,4 +615,3 @@ export default function ProfileScreen() {
     </PageTransition>
   );
 }
-
