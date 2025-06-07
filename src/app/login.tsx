@@ -4,6 +4,16 @@ import { useRouter } from 'expo-router';
 import styled from 'styled-components/native';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '@/core/contexts/ThemeProvider';
+import { DefaultTheme } from 'styled-components';
+
+// Interfaces para tipagem dos componentes estilizados
+interface ThemeProps {
+    theme: DefaultTheme;
+}
+
+interface ButtonProps extends ThemeProps {
+    disabled?: boolean;
+}
 
 export default function Login() {
     const router = useRouter();
@@ -44,7 +54,7 @@ export default function Login() {
 
     return (
         <Container>
-            <StatusBar style="light" backgroundColor={colors.primary} />
+            <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
             <Content>
                 <Title>Login</Title>
                 
@@ -52,7 +62,7 @@ export default function Login() {
                     <InputLabel>Email</InputLabel>
                     <Input
                         placeholder="Digite seu email"
-                        placeholderTextColor={colors.textDisabled}
+                        placeholderTextColor={colors.text + '80'}
                         value={email}
                         onChangeText={setEmail}
                         keyboardType="email-address"
@@ -65,7 +75,7 @@ export default function Login() {
                     <InputLabel>Senha</InputLabel>
                     <Input
                         placeholder="Digite sua senha"
-                        placeholderTextColor={colors.textDisabled}
+                        placeholderTextColor={colors.text + '80'}
                         value={password}
                         onChangeText={setPassword}
                         secureTextEntry
@@ -94,7 +104,7 @@ export default function Login() {
 
 const Container = styled.View`
     flex: 1;
-    background-color: ${({ theme }) => theme.colors.backgroundDark};
+    background-color: ${({ theme }: ThemeProps) => theme.colors.backgroundDark};
 `;
 
 const Content = styled.View`
@@ -106,7 +116,7 @@ const Content = styled.View`
 const Title = styled.Text`
     font-size: 32px;
     font-weight: bold;
-    color: ${({ theme }) => theme.colors.primary};
+    color: ${({ theme }: ThemeProps) => theme.colors.primary};
     margin-bottom: 32px;
     text-align: center;
 `;
@@ -118,31 +128,32 @@ const InputContainer = styled.View`
 const InputLabel = styled.Text`
     font-size: 16px;
     font-weight: 500;
-    color: ${({ theme }) => theme.colors.textPrimary};
+    color: ${({ theme }: ThemeProps) => theme.colors.textPrimary};
     margin-bottom: 8px;
 `;
 
 const Input = styled.TextInput`
-    background-color: ${({ theme }) => theme.colors.tertiary};
+    background-color: ${({ theme }: ThemeProps) => theme.colors.tertiary};
     border-radius: 8px;
     padding: 16px;
     font-size: 16px;
-    color: ${({ theme }) => theme.colors.textPrimary};
+    color: ${({ theme }: ThemeProps) => theme.colors.textPrimary};
+    border: 1px solid ${({ theme }: ThemeProps) => theme.colors.primary + '50'};
 `;
 
 const LoginButton = styled.TouchableOpacity`
-    background-color: ${({ theme }) => theme.colors.primary};
+    background-color: ${({ theme }: ButtonProps) => theme.colors.primary};
     border-radius: 8px;
     padding: 16px;
     align-items: center;
     margin-top: 24px;
-    opacity: ${({ disabled }) => (disabled ? 0.7 : 1)};
+    opacity: ${({ disabled }: ButtonProps) => (disabled ? 0.7 : 1)};
 `;
 
 const LoginButtonText = styled.Text`
     font-size: 16px;
     font-weight: bold;
-    color: ${({ theme }) => theme.colors.gray900};
+    color: ${({ theme }: ThemeProps) => theme.colors.white};
 `;
 
 const ForgotPasswordButton = styled.TouchableOpacity`
@@ -152,7 +163,7 @@ const ForgotPasswordButton = styled.TouchableOpacity`
 `;
 
 const ForgotPasswordText = styled.Text`
-    color: ${({ theme }) => theme.colors.primary};
+    color: ${({ theme }: ThemeProps) => theme.colors.primary};
     font-size: 14px;
 `;
 
@@ -164,5 +175,5 @@ const SignUpButton = styled.TouchableOpacity`
 
 const SignUpButtonText = styled.Text`
     font-size: 16px;
-    color: ${({ theme }) => theme.colors.primary};
+    color: ${({ theme }: ThemeProps) => theme.colors.primary};
 `;

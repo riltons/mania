@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Alert, ActivityIndicator, StatusBar, ScrollView } from 'react-native';
+import { Alert, ActivityIndicator, StatusBar } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import styled from 'styled-components/native';
 import { useAuth } from '../hooks/useAuth';
@@ -7,6 +7,16 @@ import { userService } from '../services/userService';
 import { useTheme } from '@/core/contexts/ThemeProvider';
 import { supabase } from '@/core/lib/supabase';
 import { subscriptionService } from '../services/subscriptionService';
+import { DefaultTheme } from 'styled-components';
+
+// Interfaces para tipagem dos componentes estilizados
+interface ThemeProps {
+    theme: DefaultTheme;
+}
+
+interface ButtonProps extends ThemeProps {
+    disabled?: boolean;
+}
 
 export default function Register() {
     const router = useRouter();
@@ -88,118 +98,143 @@ export default function Register() {
 
     return (
         <Container>
-            <StatusBar backgroundColor={colors.primary} barStyle="light-content" />
-            <ScrollContent showsVerticalScrollIndicator={false}>
-                <FormContainer>
-                    <Title>Criar Conta</Title>
+            <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
+            <Content>
+                <Title>Criar Conta</Title>
 
+                <InputContainer>
+                    <InputLabel>Nome completo</InputLabel>
                     <Input
-                        placeholder="Nome completo"
+                        placeholder="Digite seu nome completo"
                         value={form.fullName}
                         onChangeText={(text: string) => setForm({ ...form, fullName: text })}
-                        placeholderTextColor={colors.gray300}
+                        placeholderTextColor={colors.text + '80'}
                     />
+                </InputContainer>
 
+                <InputContainer>
+                    <InputLabel>E-mail</InputLabel>
                     <Input
-                        placeholder="E-mail"
+                        placeholder="Digite seu e-mail"
                         value={form.email}
                         onChangeText={(text: string) => setForm({ ...form, email: text })}
                         keyboardType="email-address"
                         autoCapitalize="none"
-                        placeholderTextColor={colors.gray300}
+                        placeholderTextColor={colors.text + '80'}
                     />
+                </InputContainer>
 
+                <InputContainer>
+                    <InputLabel>Senha</InputLabel>
                     <Input
-                        placeholder="Senha"
+                        placeholder="Digite sua senha"
                         value={form.password}
                         onChangeText={(text: string) => setForm({ ...form, password: text })}
                         secureTextEntry
-                        placeholderTextColor={colors.gray300}
+                        placeholderTextColor={colors.text + '80'}
                     />
+                </InputContainer>
 
+                <InputContainer>
+                    <InputLabel>Confirmar senha</InputLabel>
                     <Input
-                        placeholder="Confirmar senha"
+                        placeholder="Confirme sua senha"
                         value={form.confirmPassword}
                         onChangeText={(text: string) => setForm({ ...form, confirmPassword: text })}
                         secureTextEntry
-                        placeholderTextColor={colors.gray300}
+                        placeholderTextColor={colors.text + '80'}
                     />
+                </InputContainer>
 
+                <InputContainer>
+                    <InputLabel>Apelido (opcional)</InputLabel>
                     <Input
-                        placeholder="Apelido (opcional)"
+                        placeholder="Digite um apelido (opcional)"
                         value={form.nickname}
                         onChangeText={(text: string) => setForm({ ...form, nickname: text })}
-                        placeholderTextColor={colors.gray300}
+                        placeholderTextColor={colors.text + '80'}
                     />
+                </InputContainer>
 
-                    <Button onPress={handleRegister} disabled={loading}>
-                        {loading ? (
-                            <ActivityIndicator color={colors.white} />
-                        ) : (
-                            <ButtonText>Criar Conta</ButtonText>
-                        )}
-                    </Button>
+                <Button onPress={handleRegister} disabled={loading}>
+                    {loading ? (
+                        <ActivityIndicator color={colors.white} />
+                    ) : (
+                        <ButtonText>Criar Conta</ButtonText>
+                    )}
+                </Button>
 
-                    <LinkButton onPress={() => router.push('/login')}>
-                        <LinkText>Já tem uma conta? Faça login</LinkText>
-                    </LinkButton>
-                </FormContainer>
-            </ScrollContent>
+                <LoginButton onPress={() => router.push('/login')}>
+                    <LoginButtonText>Já tem uma conta? Faça login</LoginButtonText>
+                </LoginButton>
+            </Content>
         </Container>
     );
 }
 
 const Container = styled.View`
     flex: 1;
-    background-color: ${props => props.theme.colors.backgroundDark};
+    background-color: ${({ theme }: ThemeProps) => theme.colors.backgroundDark};
 `;
 
-const ScrollContent = styled.ScrollView`
+const Content = styled.View`
     flex: 1;
-`;
-
-const FormContainer = styled.View`
-    padding: 20px;
+    padding: 24px;
+    justify-content: center;
 `;
 
 const Title = styled.Text`
-    font-size: 24px;
+    font-size: 32px;
     font-weight: bold;
-    color: props => props.theme.colors.gray100;
-    margin-bottom: 24px;
+    color: ${({ theme }: ThemeProps) => theme.colors.primary};
+    margin-bottom: 32px;
     text-align: center;
 `;
 
-const Input = styled.TextInput`
-    background-color: props => props.theme.colors.backgroundMedium;
-    border-radius: 8px;
-    padding: 12px;
+const InputContainer = styled.View`
     margin-bottom: 16px;
-    color: props => props.theme.colors.gray100;
+`;
+
+const InputLabel = styled.Text`
     font-size: 16px;
+    font-weight: 500;
+    color: ${({ theme }: ThemeProps) => theme.colors.textPrimary};
+    margin-bottom: 8px;
+`;
+
+const Input = styled.TextInput`
+    background-color: ${({ theme }: ThemeProps) => theme.colors.tertiary};
+    border-radius: 8px;
+    padding: 16px;
+    font-size: 16px;
+    color: ${({ theme }: ThemeProps) => theme.colors.textPrimary};
+    border: 1px solid ${({ theme }: ThemeProps) => theme.colors.primary + '50'};
 `;
 
 const Button = styled.TouchableOpacity`
-    background-color: ${props => props.disabled ? props.theme.colors.primary + '80' : props.theme.colors.primary};
+    background-color: ${({ theme, disabled }: ButtonProps) => disabled ? theme.colors.primary + '80' : theme.colors.primary};
     border-radius: 8px;
     padding: 16px;
+    align-items: center;
+    margin-top: 24px;
+    opacity: ${({ disabled }: ButtonProps) => (disabled ? 0.7 : 1)};
+`;
+
+const ButtonText = styled.Text`
+    font-size: 16px;
+    font-weight: bold;
+    color: ${({ theme }: ThemeProps) => theme.colors.white};
+`;
+
+const LoginButton = styled.TouchableOpacity`
+    padding: 12px;
     align-items: center;
     margin-top: 8px;
 `;
 
-const ButtonText = styled.Text`
-    color: props => props.theme.colors.white;
-    font-size: 16px;
-    font-weight: bold;
-`;
-
-const LinkButton = styled.TouchableOpacity`
-    margin-top: 16px;
-    align-items: center;
-`;
-
-const LinkText = styled.Text`
-    color: props => props.theme.colors.primary;
+const LoginButtonText = styled.Text`
     font-size: 14px;
+    color: ${({ theme }: ThemeProps) => theme.colors.primary};
+    text-align: center;
 `;
 
