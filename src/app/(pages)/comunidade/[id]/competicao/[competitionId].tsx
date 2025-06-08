@@ -11,6 +11,7 @@ import { gameService, Game } from '@/services/gameService';
 import { playerService } from '@/services/playerService';
 import { InternalHeader } from '@/components/InternalHeader';
 import CustomModal from '@/components/CustomModal';
+import { PlayerAvatar } from '@/components/PlayerAvatar';
 
 interface Competition {
     id: string;
@@ -63,8 +64,8 @@ export default function CompetitionDetails() {
     const { colors } = useTheme();
     const [competition, setCompetition] = useState<Competition | null>(null);
     const [games, setGames] = useState<(Game & { 
-        team1_players?: { id: string; name: string; }[];
-        team2_players?: { id: string; name: string; }[];
+        team1_players?: { id: string; name: string; avatar_url?: string | null; }[];
+        team2_players?: { id: string; name: string; avatar_url?: string | null; }[];
     })[]>([]);
     const [members, setMembers] = useState<Member[]>([]);
     const [communityMembers, setCommunityMembers] = useState<Member[]>([]);
@@ -143,13 +144,13 @@ export default function CompetitionDetails() {
             const team1Players = await Promise.all(game.team1.map(async (playerId: string) => {
                 const member = members.find(m => m.player_id === playerId);
                 console.log(`[CompetitionDetails] Buscando jogador ${playerId} no time 1, encontrado: ${!!member}`);
-                return member?.players || { id: playerId, name: 'Jogador não encontrado' };
+                return member?.players || { id: playerId, name: 'Jogador não encontrado', avatar_url: null };
             }));
             
             const team2Players = await Promise.all(game.team2.map(async (playerId: string) => {
                 const member = members.find(m => m.player_id === playerId);
                 console.log(`[CompetitionDetails] Buscando jogador ${playerId} no time 2, encontrado: ${!!member}`);
-                return member?.players || { id: playerId, name: 'Jogador não encontrado' };
+                return member?.players || { id: playerId, name: 'Jogador não encontrado', avatar_url: null };
             }));
             
             return {
@@ -319,18 +320,26 @@ export default function CompetitionDetails() {
                                 <GameTeams>
                                     <TeamScore colors={colors}>
                                         <Score colors={colors}>{item.team1_score}</Score>
-                                        <TeamName colors={colors}>
-                                            {item.team1_players?.map(player => player.name).join(' e ')}
-                                        </TeamName>
+                                        <View style={{width: '100%'}}>
+                                            {item.team1Players?.map((player, i) => (
+                                                <Text key={i} style={{color: colors.gray300, fontSize: 14, marginVertical: 2}}>
+                                                    {player.name}
+                                                </Text>
+                                            ))}
+                                        </View>
                                     </TeamScore>
                                     
                                     <Versus colors={colors}>X</Versus>
                                     
                                     <TeamScore colors={colors}>
                                         <Score colors={colors}>{item.team2_score}</Score>
-                                        <TeamName colors={colors}>
-                                            {item.team2_players?.map(player => player.name).join(' e ')}
-                                        </TeamName>
+                                        <View style={{width: '100%'}}>
+                                            {item.team2Players?.map((player, i) => (
+                                                <Text key={i} style={{color: colors.gray300, fontSize: 14, marginVertical: 2}}>
+                                                    {player.name}
+                                                </Text>
+                                            ))}
+                                        </View>
                                     </TeamScore>
                                 </GameTeams>
 
@@ -422,18 +431,42 @@ export default function CompetitionDetails() {
                                                 <GameTeams>
                                                     <TeamScore colors={colors}>
                                                         <Score colors={colors}>{item.team1_score}</Score>
-                                                        <TeamName colors={colors}>
-                                                            {item.team1_players?.map(player => player.name).join(' e ')}
-                                                        </TeamName>
+                                                        <PlayerContainer>
+                                                            {item.team1Players?.map((player, index) => (
+                                                                <PlayerItem key={player.id}>
+                                                                    <PlayerAvatar 
+                                                                        avatarUrl={player.avatar_url}
+                                                                        name={player.name}
+                                                                        size={30}
+                                                                    />
+                                                                    <TeamName colors={colors}>{player.name}</TeamName>
+                                                                    {index < (item.team1Players?.length || 0) - 1 && (
+                                                                        <SmallText colors={colors}>e</SmallText>
+                                                                    )}
+                                                                </PlayerItem>
+                                                            ))}
+                                                        </PlayerContainer>
                                                     </TeamScore>
                                                     
                                                     <Versus colors={colors}>X</Versus>
                                                     
                                                     <TeamScore colors={colors}>
                                                         <Score colors={colors}>{item.team2_score}</Score>
-                                                        <TeamName colors={colors}>
-                                                            {item.team2_players?.map(player => player.name).join(' e ')}
-                                                        </TeamName>
+                                                        <PlayerContainer>
+                                                            {item.team2Players?.map((player, index) => (
+                                                                <PlayerItem key={player.id}>
+                                                                    <PlayerAvatar 
+                                                                        avatarUrl={player.avatar_url}
+                                                                        name={player.name}
+                                                                        size={30}
+                                                                    />
+                                                                    <TeamName colors={colors}>{player.name}</TeamName>
+                                                                    {index < (item.team2Players?.length || 0) - 1 && (
+                                                                        <SmallText colors={colors}>e</SmallText>
+                                                                    )}
+                                                                </PlayerItem>
+                                                            ))}
+                                                        </PlayerContainer>
                                                     </TeamScore>
                                                 </GameTeams>
 
@@ -491,18 +524,42 @@ export default function CompetitionDetails() {
                                     <GameTeams>
                                         <TeamScore colors={colors}>
                                             <Score colors={colors}>{item.team1_score}</Score>
-                                            <TeamName colors={colors}>
-                                                {item.team1_players?.map(player => player.name).join(' e ')}
-                                            </TeamName>
+                                            <PlayerContainer>
+                                                {item.team1Players?.map((player, index) => (
+                                                    <PlayerItem key={player.id}>
+                                                        <PlayerAvatar 
+                                                            avatarUrl={player.avatar_url}
+                                                            name={player.name}
+                                                            size={28}
+                                                        />
+                                                        <TeamName colors={colors}>{player.name}</TeamName>
+                                                        {index < (item.team1Players?.length || 0) - 1 && (
+                                                            <SmallText colors={colors}> e </SmallText>
+                                                        )}
+                                                    </PlayerItem>
+                                                ))}
+                                            </PlayerContainer>
                                         </TeamScore>
                                         
                                         <Versus colors={colors}>X</Versus>
                                         
                                         <TeamScore colors={colors}>
                                             <Score colors={colors}>{item.team2_score}</Score>
-                                            <TeamName colors={colors}>
-                                                {item.team2_players?.map(player => player.name).join(' e ')}
-                                            </TeamName>
+                                            <PlayerContainer>
+                                                {item.team2Players?.map((player, index) => (
+                                                    <PlayerItem key={player.id}>
+                                                        <PlayerAvatar 
+                                                            avatarUrl={player.avatar_url}
+                                                            name={player.name}
+                                                            size={28}
+                                                        />
+                                                        <TeamName colors={colors}>{player.name}</TeamName>
+                                                        {index < (item.team2Players?.length || 0) - 1 && (
+                                                            <SmallText colors={colors}> e </SmallText>
+                                                        )}
+                                                    </PlayerItem>
+                                                ))}
+                                            </PlayerContainer>
                                         </TeamScore>
                                     </GameTeams>
 
@@ -726,7 +783,7 @@ const GameTeams = styled.View`
 `;
 
 const TeamScore = styled.View<{ winner?: boolean }>`
-    align-items: center;
+    align-items: flex-start;
     flex: 1;
     background-color: ${props => props.winner ? props.colors.primary + '20' : 'transparent'};
     padding: 8px;
@@ -737,18 +794,44 @@ const Score = styled.Text`
     color: ${props => props.colors.gray100};
     font-size: 32px;
     font-weight: bold;
+    align-self: center;
+    width: 100%;
+    text-align: center;
+    margin-bottom: 8px;
 `;
 
 const TeamName = styled.Text`
     color: ${props => props.colors.gray300};
     font-size: 14px;
-    margin-top: 4px;
+    margin-left: 6px;
 `;
 
 const Versus = styled.Text`
     color: ${props => props.colors.gray300};
     font-size: 20px;
     margin-horizontal: 16px;
+`;
+
+const PlayerContainer = styled.View`
+    flex-direction: column;
+    align-items: flex-start;
+    margin-top: 8px;
+    width: 100%;
+    padding-horizontal: 8px;
+`;
+
+const PlayerItem = styled.View`
+    flex-direction: row;
+    align-items: center;
+    margin-vertical: 4px;
+    justify-content: flex-start;
+    width: 100%;
+`;
+
+const SmallText = styled.Text`
+    color: ${props => props.colors.gray300};
+    font-size: 14px;
+    margin-horizontal: 6px;
 `;
 
 const GameStatus = styled.Text<{ status: 'pending' | 'in_progress' | 'finished' }>`
