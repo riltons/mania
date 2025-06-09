@@ -300,14 +300,30 @@ export const playersService = {
       console.log(`Encontrados ${communityPlayers.length} jogadores compartilhados`);
       
       // Buscar comunidades onde o usuário é organizador
-      const { data: organizerCommunities, error: organizerError } = await supabase
-        .from('community_members')
-        .select('community_id')
-        .eq('user_id', user.id)
-        .eq('is_organizer', true);
+      // Primeiro, buscamos os jogadores associados ao usuário
+      const { data: userPlayers, error: playersError } = await supabase
+        .from('user_player_relations')
+        .select('player_id')
+        .eq('user_id', user.id);
       
-      if (organizerError) {
-        console.error('playersService.listAll: Erro ao buscar comunidades como organizador:', organizerError);
+      let organizerCommunities: Array<{ community_id: string }> = [];
+      
+      if (playersError) {
+        console.error('playersService.listAll: Erro ao buscar jogadores do usuário:', playersError);
+      } else if (userPlayers && userPlayers.length > 0) {
+        const playerIds = userPlayers.map(up => up.player_id);
+        
+        // Agora buscamos as comunidades onde esses jogadores são membros
+        const { data: communities, error: organizerError } = await supabase
+          .from('community_members')
+          .select('community_id')
+          .in('player_id', playerIds);
+          
+        if (organizerError) {
+          console.error('playersService.listAll: Erro ao buscar comunidades como organizador:', organizerError);
+        } else if (communities) {
+          organizerCommunities = communities;
+        }
       }
       
       console.log(`Usuário é organizador em ${organizerCommunities?.length || 0} comunidades`);
@@ -317,17 +333,17 @@ export const playersService = {
       if (organizerCommunities && organizerCommunities.length > 0) {
         const communityIds = organizerCommunities.map(c => c.community_id);
         
-        const { data: communityPlayers, error: communityPlayersError } = await supabase
-          .from('community_players')
+        const { data: communityMemberData, error: communityPlayersError } = await supabase
+          .from('community_members')
           .select('player_id, players(*)')
           .in('community_id', communityIds);
         
         if (communityPlayersError) {
           console.error('playersService.listAll: Erro ao buscar jogadores das comunidades:', communityPlayersError);
-        } else if (communityPlayers) {
+        } else if (communityMemberData) {
           // Filtrar jogadores únicos
           const uniquePlayerIds = new Set();
-          communityPlayersData = communityPlayers.filter(cp => {
+          communityPlayersData = communityMemberData.filter(cp => {
             if (!cp.player_id || uniquePlayerIds.has(cp.player_id)) return false;
             uniquePlayerIds.add(cp.player_id);
             return true;
@@ -373,13 +389,29 @@ export const playersService = {
       }
       
       // Ordenar jogadores: primário primeiro, depois por nome
-      const sortedMyPlayers = myPlayers.sort((a, b) => {
+      const sortedMyPlayers = [...myPlayers].sort((a, b) => {
+        // Verificar se algum dos jogadores é primário
         if (a.isPrimary && !b.isPrimary) return -1;
         if (!a.isPrimary && b.isPrimary) return 1;
-        return a.name.localeCompare(b.name);
+        
+        // Se ambos têm nome, ordena por nome
+        if (a.name && b.name) {
+          return a.name.localeCompare(b.name);
+        }
+        
+        // Se algum não tem nome, coloca por último
+        if (!a.name) return 1;
+        if (!b.name) return -1;
+        
+        return 0;
       });
 
-      const sortedCommunityPlayers = allCommunityPlayers.sort((a, b) => a.name.localeCompare(b.name));
+      // Ordenar jogadores da comunidade por nome, tratando valores nulos
+      const sortedCommunityPlayers = [...allCommunityPlayers].sort((a, b) => {
+        if (!a.name) return 1;
+        if (!b.name) return -1;
+        return a.name.localeCompare(b.name);
+      });
       
       console.log('Finalizado carregamento de jogadores');
       
@@ -683,63 +715,122 @@ export const playersService = {
   },
   
   /**
-   * Exclui um jogador
+   * Exclui um jogador e todas as suas relações
+   * @param id ID do jogador a ser excluído
+   * @throws {Error} Se o usuário não estiver autenticado, não tiver permissão ou ocorrer um erro na exclusão
    */
   async delete(id: string): Promise<void> {
+    console.log('[playersService] Iniciando exclusão do jogador:', id);
+
+    if (!id) {
+      console.error('[playersService] ID do jogador não fornecido');
+      throw new Error('ID do jogador é obrigatório');
+    }
+
     try {
-      // Obter o usuário atual
+      // 1. Obter o usuário atual
       const { data: { user }, error: userError } = await supabase.auth.getUser();
-      
+
       if (userError || !user) {
-        console.error('Erro ao obter usuário:', userError);
-        throw new Error('Você precisa estar logado para excluir um jogador');
+        console.error('[playersService] Erro ao obter usuário:', userError);
+        throw new Error('Você precisa estar autenticado para excluir um jogador');
       }
-      
-      // Buscar o jogador para verificar permissões
-      const { data: existingPlayer, error: fetchError } = await supabase
+      console.log('[playersService] Usuário autenticado:', user.id);
+
+      // 2. Verificar permissões (buscando o jogador e quem o criou)
+      console.log('[playersService] Verificando permissões...');
+      const { data: playerData, error: fetchError } = await supabase
         .from('players')
-        .select('created_by')
+        .select('id, created_by, name, is_active') // Adicionado is_active para log, se necessário
         .eq('id', id)
         .single();
-      
-      if (fetchError) {
-        console.error('Erro ao buscar jogador:', fetchError);
-        throw new Error('Não foi possível encontrar o jogador para exclusão');
+
+      if (fetchError || !playerData) {
+        console.error('[playersService] Jogador não encontrado:', fetchError);
+        throw new Error('Jogador não encontrado');
       }
-      
-      // Verificar se o usuário é o criador do jogador ou um administrador
+
       const isAdmin = user.user_metadata?.role === 'admin';
-      const isCreator = existingPlayer.created_by === user.id;
-      
+      const isCreator = playerData.created_by === user.id;
+
+      console.log('[playersService] Permissões verificadas:', {
+        isAdmin,
+        isCreator,
+        playerCreatedBy: playerData.created_by,
+        playerIsActive: playerData.is_active,
+        currentUser: user.id
+      });
+
       if (!isAdmin && !isCreator) {
-        console.error('Usuário não autorizado a excluir este jogador');
-        throw new Error('Você não tem permissão para excluir este jogador');
+        console.error('[playersService] Acesso negado: usuário não é admin nem criador');
+        throw new Error('Você não tem permissão para excluir/inativar este jogador');
       }
-      
-      // Primeiro, excluir todas as relações do jogador
+
+      // 3. Verificar se o jogador tem jogos associados
+      console.log('[playersService] Verificando se o jogador tem jogos associados...');
+      const { count: gamePlayerCount, error: gamePlayerError } = await supabase
+        .from('game_players')
+        .select('id', { count: 'exact', head: true })
+        .eq('player_id', id);
+
+      if (gamePlayerError) {
+        console.error('[playersService] Erro ao verificar jogos do jogador:', gamePlayerError);
+        throw new Error('Não foi possível verificar os jogos do jogador.');
+      }
+
+      const hasGames = gamePlayerCount && gamePlayerCount > 0;
+      console.log(`[playersService] Jogador ${id} tem jogos: ${hasGames}`);
+
+      // 4. Excluir relacionamento em user_player_relations para o usuário atual
+      // Isso é feito independentemente de o jogador ser inativado ou excluído,
+      // para remover a associação do jogador com o usuário que solicitou a exclusão.
+      console.log('[playersService] Excluindo relacionamento usuário-jogador para o usuário atual...');
       const { error: relationsError } = await supabase
         .from('user_player_relations')
         .delete()
-        .eq('player_id', id);
-      
+        .eq('player_id', id)
+        .eq('user_id', user.id); // Garante que apenas a relação do usuário atual seja removida
+
       if (relationsError) {
-        console.error('Erro ao excluir relações do jogador:', relationsError);
-        throw new Error('Não foi possível excluir as relações do jogador');
+        console.error('[playersService] Erro ao excluir relacionamento usuário-jogador:', relationsError);
+        throw new Error('Não foi possível remover o relacionamento do jogador com o usuário.');
       }
-      
-      // Depois, excluir o jogador
-      const { error: deleteError } = await supabase
-        .from('players')
-        .delete()
-        .eq('id', id);
-      
-      if (deleteError) {
-        console.error('Erro ao excluir jogador:', deleteError);
-        throw new Error('Não foi possível excluir o jogador');
+      console.log(`[playersService] Relacionamento usuário-jogador para ${id} e ${user.id} excluído.`);
+
+      // 5. Lógica condicional de exclusão ou inativação
+      if (hasGames) {
+        // Se tem jogos, apenas inativar o jogador na tabela 'players'
+        console.log(`[playersService] Jogador ${id} tem jogos. Inativando...`);
+        const { error: updateError } = await supabase
+          .from('players')
+          .update({ is_active: false })
+          .eq('id', id);
+
+        if (updateError) {
+          console.error('[playersService] Erro ao inativar jogador:', updateError);
+          throw new Error('Não foi possível inativar o jogador.');
+        }
+        console.log(`[playersService] Jogador ${id} inativado com sucesso.`);
+      } else {
+        // Se não tem jogos, excluir o jogador da tabela 'players'
+        // A política RLS na tabela 'players' garantirá que apenas o criador ou admin possa fazer isso.
+        console.log(`[playersService] Jogador ${id} não tem jogos. Excluindo fisicamente...`);
+        const { error: deleteError } = await supabase
+          .from('players')
+          .delete()
+          .eq('id', id);
+
+        if (deleteError) {
+          console.error('[playersService] Erro ao excluir jogador fisicamente:', deleteError);
+          throw new Error('Não foi possível excluir o jogador fisicamente.');
+        }
+        console.log(`[playersService] Jogador ${id} excluído fisicamente com sucesso.`);
       }
-    } catch (error) {
-      console.error('Erro ao excluir jogador:', error);
-      throw error instanceof Error ? error : new Error('Ocorreu um erro ao excluir o jogador');
+    } catch (error: any) { // Adicionada tipagem 'any' para o erro do catch
+      console.error('[playersService] Erro durante a exclusão:', error);
+      throw error instanceof Error
+        ? error
+        : new Error('Ocorreu um erro inesperado ao excluir o jogador');
     }
   },
   
@@ -796,37 +887,30 @@ export const playersService = {
    */
   async getPrimaryPlayer(): Promise<Player | null> {
     try {
-      // Obter o usuário atual
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       
       if (userError || !user) {
         console.error('Erro ao obter usuário:', userError);
-        throw new Error('Você precisa estar logado para obter seu jogador primário');
-      }
-      
-      // Buscar o jogador primário usando uma consulta mais robusta com RPC
-      const { data: primaryPlayerData, error } = await supabase
-        .rpc('get_primary_player', { p_user_id: user.id });
-      
-      if (error) {
-        // Se não encontrar nenhum jogador primário, não é um erro, retorna null
-        if (error.code === 'PGRST116' || error.code === 'P0003') {
-          return null;
-        }
-        console.error('Erro ao buscar jogador primário:', error);
-        throw new Error('Não foi possível buscar o jogador primário');
-      }
-      
-      // Se não encontrou nenhum jogador primário, retorna null
-      if (!primaryPlayerData || primaryPlayerData.length === 0) {
         return null;
       }
       
-      // Retorna o primeiro jogador (deveria haver apenas um)
-      return primaryPlayerData[0] as Player;
+      // Buscar o jogador primário do usuário
+      const { data: primaryPlayer, error } = await supabase
+        .from('user_player_relations')
+        .select('player:players(*)')
+        .eq('user_id', user.id)
+        .eq('is_primary', true)
+        .single();
+      
+      if (error) {
+        console.error('Erro ao buscar jogador primário:', error);
+        return null;
+      }
+      
+      return primaryPlayer?.player as Player | null;
     } catch (error) {
       console.error('Erro ao obter jogador primário:', error);
-      throw new Error('Ocorreu um erro ao obter o jogador primário');
+      return null;
     }
   }
 };

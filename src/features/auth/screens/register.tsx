@@ -222,7 +222,8 @@ const Input = styled(TextInput).attrs<ThemeProps>((props: ThemeProps) => ({
     margin-bottom: 15px;
     color: ${(props: ThemeProps) => props.theme.colors.text};
     font-size: 16px;
-`;
+
+    `;
 
 const RegisterButton = styled.TouchableOpacity<ButtonProps>`
     background-color: ${(props: ButtonProps) => 

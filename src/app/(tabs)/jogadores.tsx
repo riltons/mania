@@ -248,10 +248,10 @@ function JogadoresScreen() {
     const [refreshing, setRefreshing] = useState(false);
 
     const loadPlayers = async () => {
+        console.log('Iniciando carregamento de jogadores...');
+        setLoading(true);
+        
         try {
-            console.log('Iniciando carregamento de jogadores...');
-            setLoading(true);
-            
             // Verificar se o usuário está autenticado
             const { data: userData, error: userError } = await supabase.auth.getUser();
             
@@ -262,42 +262,22 @@ function JogadoresScreen() {
                 return;
             }
             
-            console.log('Usuário autenticado:', userData.user.id);
+            const userId = userData.user.id;
+            console.log('Usuário autenticado:', userId);
             
-            // 1. Primeiro, garantir que o jogador do usuário atual existe
-            try {
-                const { data: existingPlayer, error: fetchError } = await supabase
-                    .from('players')
-                    .select('*')
-                    .eq('id', userData.user.id)
-                    .single();
-                
-                if (!existingPlayer) {
-                    console.log('Nenhum jogador encontrado para o usuário atual.');
-                    console.log('O jogador deve ser criado na tela de perfil após o onboarding.');
-                    // Não criamos o jogador automaticamente aqui para evitar duplicação
-                    // A criação do jogador deve acontecer apenas na tela de perfil
-                } else {
-                    console.log('Jogador já existe:', existingPlayer.id);
-                }
-            } catch (error) {
-                console.error('Erro ao verificar/criar jogador:', error);
-            }
+            // Limpar estados atuais
+            setMyPlayers([]);
+            setCommunityPlayers([]);
+            setOrganizedCommunityPlayers([]);
             
-            // 2. Buscar todos os jogadores com uma única chamada
+            // Buscar todos os jogadores do usuário (próprios e compartilhados)
             console.log('Buscando jogadores...');
-            const result = await playersService.list({
-                includeShared: true,
-                includeOwn: true
-            });
+            const { myPlayers: myPlayerList = [], communityPlayers: communityPlayerList = [] } = await playersService.listAll();
             
-            // Verificar e processar os jogadores retornados
-            const myPlayerList = result.myPlayers || [];
-            const communityPlayerList = result.communityPlayers || [];
+            console.log(`Encontrados ${myPlayerList.length} jogadores próprios`);
+            console.log(`Encontrados ${communityPlayerList.length} jogadores da comunidade`);
             
-            console.log(`Jogadores encontrados: ${myPlayerList.length + communityPlayerList.length}`);
-            
-            // Criar arrays para organizar os jogadores
+            // Processar e organizar os jogadores
             const addedPlayerIds = new Set<string>();
             const ownPlayers: Player[] = [];
             const sharedPlayers: Player[] = [];
@@ -305,15 +285,12 @@ function JogadoresScreen() {
             
             // Processar jogadores próprios
             myPlayerList.forEach((player: Player) => {
-                if (!player.id || addedPlayerIds.has(player.id)) return;
+                if (!player?.id || addedPlayerIds.has(player.id)) return;
                 
                 player.isCreatedByOtherUser = false;
                 player.sharedPlayer = false;
                 ownPlayers.push(player);
-                
-                if (player.id) {
-                    addedPlayerIds.add(player.id);
-                }
+                addedPlayerIds.add(player.id);
             });
             
             // Processar jogadores compartilhados e de comunidade
@@ -330,29 +307,32 @@ function JogadoresScreen() {
                     communityPlayers.push(player);
                 }
                 
-                if (player.id) {
-                    addedPlayerIds.add(player.id);
-                }
+                addedPlayerIds.add(player.id);
             });
             
             // Garantir que o jogador do usuário está na primeira posição
-            const userPlayerIndex = ownPlayers.findIndex((p: Player) => p.id === userData.user?.id);
-            if (userPlayerIndex > 0) {
-                const [userPlayer] = ownPlayers.splice(userPlayerIndex, 1);
-                ownPlayers.unshift(userPlayer);
+            if (ownPlayers.length > 0) {
+                const userPlayerIndex = ownPlayers.findIndex((p: Player) => p.id === userId);
+                if (userPlayerIndex > 0) {
+                    const [userPlayer] = ownPlayers.splice(userPlayerIndex, 1);
+                    ownPlayers.unshift(userPlayer);
+                }
             }
             
             console.log(`Organização final: ${ownPlayers.length} próprios, ${sharedPlayers.length} compartilhados, ${communityPlayers.length} de comunidades`);
             
-            // Atualizar os estados uma única vez
-            setMyPlayers(ownPlayers);
-            setCommunityPlayers(sharedPlayers);
-            setOrganizedCommunityPlayers(communityPlayers);
+            // Atualizar os estados com os novos dados
+            setMyPlayers([...ownPlayers]);
+            setCommunityPlayers([...sharedPlayers]);
+            setOrganizedCommunityPlayers([...communityPlayers]);
+            
+            console.log('Jogadores carregados com sucesso');
         } catch (error) {
             console.error('Erro ao carregar jogadores:', error);
             Alert.alert('Erro', 'Não foi possível carregar os jogadores');
         } finally {
             setLoading(false);
+            setRefreshing(false);
             console.log('Finalizado carregamento de jogadores');
         }
     };
@@ -372,31 +352,82 @@ function JogadoresScreen() {
         loadPlayers().finally(() => setRefreshing(false));
     };
 
-    const handleDelete = (player: Player) => {
-        Alert.alert(
-            'Confirmar exclusão',
-            `Deseja realmente excluir o jogador ${player.name}?`,
-            [
-                {
-                    text: 'Cancelar',
-                    style: 'cancel'
-                },
-                {
-                    text: 'Excluir',
-                    style: 'destructive',
-                    onPress: async () => {
-                        try {
-                            await playersService.delete(player.id);
-                            Alert.alert('Sucesso', 'Jogador excluído com sucesso');
-                            loadPlayers();
-                        } catch (error) {
-                            console.error('Erro ao excluir jogador:', error);
-                            Alert.alert('Erro', 'Não foi possível excluir o jogador');
+    const handleDelete = async (player: Player) => {
+        try {
+            // Usar o ID original do jogador (removendo o prefixo 'my-player-' se existir)
+            const playerId = player.id?.replace(/^my-player-/, '');
+            
+            if (!playerId) {
+                throw new Error('ID do jogador inválido');
+            }
+            
+            console.log(`[handleDelete] Iniciando exclusão do jogador ID: ${playerId}`);
+            
+            // Mostrar confirmação antes de excluir
+            const confirmDelete = await new Promise<boolean>((resolve) => {
+                Alert.alert(
+                    'Confirmar exclusão',
+                    `Deseja realmente excluir o jogador ${player.name}?`,
+                    [
+                        {
+                            text: 'Cancelar',
+                            style: 'cancel',
+                            onPress: () => resolve(false)
+                        },
+                        {
+                            text: 'Excluir',
+                            style: 'destructive',
+                            onPress: () => resolve(true)
                         }
-                    }
-                }
-            ]
-        );
+                    ]
+                );
+            });
+            
+            if (!confirmDelete) {
+                console.log('[handleDelete] Exclusão cancelada pelo usuário');
+                return;
+            }
+            
+            setLoading(true);
+            
+            // Atualização otimista da UI
+            const previousMyPlayers = [...myPlayers];
+            const previousCommunityPlayers = [...communityPlayers];
+            const previousOrganizedPlayers = [...organizedCommunityPlayers];
+            
+            // Remover o jogador da UI imediatamente
+            setMyPlayers(prev => prev.filter(p => p.id !== player.id));
+            setCommunityPlayers(prev => prev.filter(p => p.id !== player.id));
+            setOrganizedCommunityPlayers(prev => prev.filter(p => p.id !== player.id));
+            
+            try {
+                // Chamar o serviço para excluir o jogador
+                await playersService.delete(playerId);
+                console.log(`[handleDelete] Jogador ${playerId} excluído com sucesso`);
+                
+                // Recarregar a lista para garantir sincronização
+                await loadPlayers();
+                
+                Alert.alert('Sucesso', 'Jogador excluído com sucesso');
+            } catch (error) {
+                console.error('[handleDelete] Erro ao excluir jogador:', error);
+                
+                // Reverter para o estado anterior em caso de erro
+                setMyPlayers(previousMyPlayers);
+                setCommunityPlayers(previousCommunityPlayers);
+                setOrganizedCommunityPlayers(previousOrganizedPlayers);
+                
+                throw error;
+            }
+        } catch (error) {
+            console.error('[handleDelete] Erro no processo de exclusão:', error);
+            Alert.alert(
+                'Erro', 
+                error instanceof Error ? error.message : 'Não foi possível excluir o jogador'
+            );
+        } finally {
+            setLoading(false);
+        }
     };
 
     const renderPlayerItem = ({
@@ -413,7 +444,11 @@ function JogadoresScreen() {
             marginBottom: 12
         }}>
             {/* Área de informações do jogador */}
-            <Pressable onPress={() => router.push(`/jogador/jogador/${item.id}/jogos`)}>
+            <Pressable onPress={() => {
+                // Usar o ID original do jogador (removendo o prefixo 'my-player-' se existir)
+                const playerId = item.id?.replace(/^my-player-/, '');
+                router.push(`/jogador/jogador/${playerId}/jogos`);
+            }}>
                 <View style={{
                     flexDirection: 'row',
                     alignItems: 'flex-start',
@@ -500,7 +535,11 @@ function JogadoresScreen() {
             }}>
                 {/* Botão de edição */}
                 <Pressable 
-                    onPress={() => router.push(`/jogador/jogador/${item.id}/editar`)}
+                    onPress={() => {
+                        // Usar o ID original do jogador (removendo o prefixo 'my-player-' se existir)
+                        const playerId = item.id?.replace(/^my-player-/, '');
+                        router.push(`/jogador/jogador/${playerId}/editar`);
+                    }}
                     style={{
                         padding: 10,
                         marginLeft: 10,
