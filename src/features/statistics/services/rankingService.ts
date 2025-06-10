@@ -133,8 +133,9 @@ export const rankingService = {
             if (communityIds.length > 0) {
                 const { data: members, error: membersError } = await supabase
                     .from('community_members')
-                    .select('player_id, players (id, name, avatar_url)')
-                    .in('community_id', communityIds);
+                    .select('player_id, players!inner(id, name, avatar_url, is_active)')
+                    .in('community_id', communityIds)
+                    .eq('players.is_active', true);
                 
                 if (membersError) {
                     console.error('Erro ao buscar membros das comunidades:', membersError.message);
@@ -147,7 +148,8 @@ export const rankingService = {
                 console.log('RankingService: Buscando todos os jogadores...');
                 const { data: allPlayers, error: playersError } = await supabase
                     .from('players')
-                    .select('id, name, avatar_url');
+                    .select('id, name, avatar_url, is_active')
+                    .eq('is_active', true);
                 
                 if (playersError) {
                     console.error('Erro ao buscar todos os jogadores:', playersError.message);

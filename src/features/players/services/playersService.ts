@@ -66,7 +66,8 @@ export const playersService = {
           const { data: ownPlayers, error: ownError, count: ownCount } = await supabase
             .from('players')
             .select('*, user_player_relations(user_id, is_primary)', { count: 'exact' })
-            .eq('created_by', user.id);
+            .eq('created_by', user.id)
+            .eq('is_active', true);
             
           if (searchTerm) {
             // Aplicar filtro de busca
@@ -158,8 +159,9 @@ export const playersService = {
             // Buscar jogadores dessas comunidades
             const { data: communityPlayers, error: playersError } = await supabase
               .from('community_members')
-              .select('player_id, players(id, name, phone, created_at, nickname, created_by, avatar_url)')
-              .in('community_id', communityIds);
+              .select('player_id, players!inner(id, name, phone, created_at, nickname, created_by, avatar_url, is_active)')
+              .in('community_id', communityIds)
+              .eq('players.is_active', true);
               
             if (playersError) {
               console.error('Erro ao buscar jogadores das comunidades organizadas:', playersError);
@@ -252,7 +254,8 @@ export const playersService = {
       const { data: myPlayersData, error: myPlayersError } = await supabase
         .from('players')
         .select('*')
-        .eq('created_by', user.id);
+        .eq('created_by', user.id)
+        .eq('is_active', true);
 
       if (myPlayersError) {
         console.error('playersService.listAll: Erro ao buscar jogadores próprios:', myPlayersError);
@@ -262,9 +265,10 @@ export const playersService = {
       // Consulta para jogadores compartilhados (através da tabela user_player_relations)
       const { data: sharedPlayersData, error: sharedPlayersError } = await supabase
         .from('user_player_relations')
-        .select('player_id, is_primary, players(*)')
+        .select('player_id, is_primary, players!inner(*)')
         .eq('user_id', user.id)
-        .neq('players.created_by', user.id);
+        .neq('players.created_by', user.id)
+        .eq('players.is_active', true);
 
       if (sharedPlayersError) {
         console.error('playersService.listAll: Erro ao buscar jogadores compartilhados:', sharedPlayersError);
@@ -335,8 +339,9 @@ export const playersService = {
         
         const { data: communityMemberData, error: communityPlayersError } = await supabase
           .from('community_members')
-          .select('player_id, players(*)')
-          .in('community_id', communityIds);
+          .select('player_id, players!inner(*)')
+          .in('community_id', communityIds)
+          .eq('players.is_active', true);
         
         if (communityPlayersError) {
           console.error('playersService.listAll: Erro ao buscar jogadores das comunidades:', communityPlayersError);
@@ -766,8 +771,10 @@ export const playersService = {
         throw new Error('Você não tem permissão para excluir/inativar este jogador');
       }
 
-      // 3. Verificar se o jogador tem jogos associados
+      // 3. Verificar se o jogador tem jogos ou outras associações relevantes
       console.log('[playersService] Verificando se o jogador tem jogos associados...');
+      
+      // 3.1 Verificar na tabela game_players
       const { count: gamePlayerCount, error: gamePlayerError } = await supabase
         .from('game_players')
         .select('id', { count: 'exact', head: true })
@@ -777,9 +784,69 @@ export const playersService = {
         console.error('[playersService] Erro ao verificar jogos do jogador:', gamePlayerError);
         throw new Error('Não foi possível verificar os jogos do jogador.');
       }
-
-      const hasGames = gamePlayerCount && gamePlayerCount > 0;
-      console.log(`[playersService] Jogador ${id} tem jogos: ${hasGames}`);
+      
+      // 3.2 Alternativa: Buscar todos os jogos e verificar manualmente se o jogador está presente nos times
+      console.log(`[playersService] Buscando jogos para verificar manualmente se o jogador ${id} está em algum time`)
+      
+      const { data: allGames, error: allGamesError } = await supabase
+        .from('games')
+        .select('id, team1, team2'); // Corrigido os nomes das colunas de acordo com o schema real
+      
+      if (allGamesError) {
+        console.error('[playersService] Erro ao buscar jogos para verificar teams:', allGamesError);
+        throw new Error('Não foi possível buscar jogos para verificar os times do jogador.');
+      }
+      
+      // Contando manualmente quantos jogos contém o ID do jogador em algum dos times
+      let gamesTeam1Count = 0;
+      let gamesTeam2Count = 0;
+      
+      allGames?.forEach(game => {
+        try {
+          // Verifica se o array existe e contém o ID, independentemente do formato
+          const team1Players = Array.isArray(game.team1) ? 
+              game.team1 : 
+              (typeof game.team1 === 'string' ? 
+                  JSON.parse(game.team1) : 
+                  []);
+                  
+          const team2Players = Array.isArray(game.team2) ? 
+              game.team2 : 
+              (typeof game.team2 === 'string' ? 
+                  JSON.parse(game.team2) : 
+                  []);
+          
+          if (team1Players.includes(id)) gamesTeam1Count++;
+          if (team2Players.includes(id)) gamesTeam2Count++;
+        } catch (e) {
+          console.warn(`[playersService] Erro ao processar times do jogo ${game.id}:`, e);
+        }
+      });
+      
+      console.log(`[playersService] Contagens manuais: time1=${gamesTeam1Count}, time2=${gamesTeam2Count}`);
+      
+      // Total de jogos em que o jogador está em algum time
+      const gamesTeamCount = gamesTeam1Count + gamesTeam2Count;
+      
+      // 3.3 Verificar na tabela competition_members
+      const { count: competitionMemberCount, error: competitionMemberError } = await supabase
+        .from('competition_members')
+        .select('id', { count: 'exact', head: true })
+        .eq('player_id', id);
+        
+      if (competitionMemberError) {
+        console.error('[playersService] Erro ao verificar competições do jogador:', competitionMemberError);
+        throw new Error('Não foi possível verificar as competições do jogador.');
+      }
+      
+      // Considera que o jogador tem jogos se estiver associado a qualquer uma dessas tabelas
+      const hasGames = 
+        (gamePlayerCount && gamePlayerCount > 0) || 
+        (gamesTeamCount && gamesTeamCount > 0) || 
+        (competitionMemberCount && competitionMemberCount > 0);
+        
+      console.log(`[playersService] Jogador ${id} tem jogos/competições: ${hasGames}`)
+      console.log(`[playersService] Detalhes: game_players=${gamePlayerCount}, games_team1=${gamesTeam1Count}, games_team2=${gamesTeam2Count}, total_teams=${gamesTeamCount}, competition_members=${competitionMemberCount}`);
 
       // 4. Excluir relacionamento em user_player_relations para o usuário atual
       // Isso é feito independentemente de o jogador ser inativado ou excluído,
