@@ -210,6 +210,51 @@ export const gameService = {
                 });
             }
 
+            // Inserir jogadores na tabela game_players
+            try {
+                // Obter nomes dos jogadores
+                const { data: team1Players } = await supabase
+                    .from('players')
+                    .select('id, name')
+                    .in('id', data.team1);
+
+                const { data: team2Players } = await supabase
+                    .from('players')
+                    .select('id, name')
+                    .in('id', data.team2);
+
+                // Mapear jogadores para o formato esperado
+                const gamePlayers = [
+                    ...(team1Players?.map(player => ({
+                        game_id: newGame.id,
+                        player_id: player.id,
+                        player_name: player.name,
+                        team: 1
+                    })) || []),
+                    ...(team2Players?.map(player => ({
+                        game_id: newGame.id,
+                        player_id: player.id,
+                        player_name: player.name,
+                        team: 2
+                    })) || [])
+                ];
+
+                // Inserir jogadores na tabela game_players
+                if (gamePlayers.length > 0) {
+                    const { error: insertError } = await supabase
+                        .from('game_players')
+                        .insert(gamePlayers);
+
+                    if (insertError) {
+                        console.error('Erro ao inserir jogadores do jogo:', insertError);
+                        // Não lançamos o erro para não falhar a criação do jogo
+                    }
+                }
+            } catch (error) {
+                console.error('Erro ao processar jogadores do jogo:', error);
+                // Não lançamos o erro para não falhar a criação do jogo
+            }
+
             return newGame;
         } catch (error) {
             console.error('Erro ao criar jogo:', error);
