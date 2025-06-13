@@ -183,42 +183,70 @@ export const rankingService = {
         // Buscar estatísticas dos jogadores
         console.log('PlayerIds para busca:', playerIds);
         
-        // Buscar todos os jogos
-        const games: Game[] = [];
-        try {
-            const { data: allGames, error: gamesError } = await supabase
-                .from('games')
-                .select('*')
-                .neq('status', 'pending')
-                .order('created_at', { ascending: false });
+        // Buscar todos os jogos finalizados
+        const { data: gamesData, error: gamesError } = await supabase
+            .from('games')
+            .select('*')
+            .eq('status', 'finished');
 
-            if (gamesError) {
-                console.error('RankingService: Erro ao buscar jogos:', gamesError.message);
-            } else if (allGames) {
-                // Converter os jogos para o tipo Game, garantindo valores padrão
-                const validGames = (allGames as SupabaseGame[]).map(game => ({
-                    id: game.id,
-                    team1: game.team1 || [],
-                    team2: game.team2 || [],
-                    team1_score: game.team1_score || 0,
-                    team2_score: game.team2_score || 0,
-                    status: game.status || 'finished',
-                    is_buchuda: Boolean(game.is_buchuda),
-                    is_buchuda_de_re: Boolean(game.is_buchuda_de_re),
-                    created_at: game.created_at || new Date().toISOString()
-                }));
-                
-                games.push(...validGames);
-                console.log(`Encontrados ${games.length} jogos no total`);
-            }
-        } catch (error) {
-            console.error('Erro ao buscar jogos:', error);
+        if (gamesError) {
+            console.error('Erro ao buscar jogos:', gamesError);
             return [];
+        }
+
+        // Converter os dados para o tipo Game com validação
+        const safeGames: Game[] = [];
+        
+        if (gamesData && Array.isArray(gamesData)) {
+            for (const game of gamesData) {
+                try {
+                    // Garantir que os times sejam arrays de strings
+                    const team1 = Array.isArray(game.team1) 
+                        ? game.team1.map(id => String(id)).filter(Boolean)
+                        : [];
+                        
+                    const team2 = Array.isArray(game.team2) 
+                        ? game.team2.map(id => String(id)).filter(Boolean)
+                        : [];
+                    
+                    // Garantir que as rodadas tenham o formato correto
+                    const rounds: GameRound[] = Array.isArray(game.rounds) 
+                        ? game.rounds.map((round: any) => ({
+                            type: round.type || 'simple',
+                            winner_team: round.winner_team || null,
+                            has_bonus: Boolean(round.has_bonus)
+                        }))
+                        : [];
+                    
+                    // Criar objeto de jogo seguro
+                    const safeGame: Game = {
+                        id: String(game.id || ''),
+                        competition_id: game.competition_id || '',
+                        team1,
+                        team2,
+                        status: 'finished', // Já filtramos por jogos finalizados
+                        team1_score: Number(game.team1_score) || 0,
+                        team2_score: Number(game.team2_score) || 0,
+                        created_at: game.created_at || new Date().toISOString(),
+                        rounds,
+                        last_round_was_tie: Boolean(game.last_round_was_tie),
+                        team1_was_losing_5_0: Boolean(game.team1_was_losing_5_0),
+                        team2_was_losing_5_0: Boolean(game.team2_was_losing_5_0),
+                        is_buchuda: Boolean(game.is_buchuda),
+                        is_buchuda_de_re: Boolean(game.is_buchuda_de_re)
+                    };
+                    
+                    safeGames.push(safeGame);
+                } catch (error) {
+                    console.error('Erro ao processar jogo:', error, game);
+                    continue;
+                }
+            }
         }
 
         // Calcular estatísticas para cada jogador
         const playerStats = playerIds.map(playerId => {
-            const playerGames = games.filter(game => 
+            const playerGames = safeGames.filter(game => 
                 game.team1.includes(playerId) || game.team2.includes(playerId)
             );
 

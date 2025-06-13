@@ -1,0 +1,30 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "paths": {
+      "@/*": [
+        "./src-new/*"
+      ],
+      "@/types": [
+        "./src-new/core/types"
+      ],
+      "@/core/*": [
+        "./src-new/core/*"
+      ],
+      "@/features/*": [
+        "./src-new/features/*"
+      ],
+      "@/app/*": [
+        "./src-new/app/*"
+      ]
+    }
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    ".expo/types/**/*.ts",
+    "expo-env.d.ts"
+  ]
+}
