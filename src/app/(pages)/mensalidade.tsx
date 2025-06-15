@@ -12,78 +12,86 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { PageTransition } from '@/components/Transitions';
 import AlertModal from '@/components/feedback/AlertModal';
 
-const Container = styled.View`
+interface ThemeProps {
+  theme: any;
+}
+
+const Container = styled.View<ThemeProps>`
   flex: 1;
-  background-color: ${({ theme }: { theme: any }) => theme.colors.backgroundDark};
+  background-color: ${(props: ThemeProps) => props.theme.colors.backgroundDark};
   padding: 20px;
 `;
 
-const Card = styled.View`
-  background-color: ${({ theme }: { theme: any }) => theme.colors.backgroundLight};
+const Card = styled.View<ThemeProps>`
+  background-color: ${(props: ThemeProps) => props.theme.colors.backgroundLight};
   border-radius: 12px;
   padding: 20px;
   margin-bottom: 20px;
   elevation: 3;
-  shadow-color: #000;
+  shadow-color: ${(props: ThemeProps) => props.theme.colors.black};
   shadow-offset: 0px 2px;
   shadow-opacity: 0.1;
   shadow-radius: 4px;
 `;
 
-const Title = styled.Text`
-  color: ${({ theme }: { theme: any }) => theme.colors.textPrimary};
+const Title = styled.Text<ThemeProps>`
+  color: ${(props: ThemeProps) => props.theme.colors.textPrimary};
   font-size: 22px;
   font-weight: bold;
   margin-bottom: 16px;
 `;
 
-const SectionTitle = styled.Text`
-  color: ${({ theme }: { theme: any }) => theme.colors.textPrimary};
+const SectionTitle = styled.Text<ThemeProps>`
+  color: ${(props: ThemeProps) => props.theme.colors.textPrimary};
   font-size: 18px;
   font-weight: bold;
   margin-bottom: 12px;
   margin-top: 8px;
 `;
 
-const InfoText = styled.Text`
-  color: ${({ theme }: { theme: any }) => theme.colors.textSecondary};
+const InfoText = styled.Text<ThemeProps>`
+  color: ${(props: ThemeProps) => props.theme.colors.textSecondary};
   font-size: 16px;
   margin-bottom: 8px;
 `;
 
-const HighlightText = styled.Text`
-  color: ${({ theme }: { theme: any }) => theme.colors.primary};
-  font-size: 16px;
-  font-weight: bold;
-  margin-bottom: 8px;
-`;
-
-const WarningText = styled.Text`
-  color: ${({ theme }: { theme: any }) => theme.colors.warning};
+const HighlightText = styled.Text<ThemeProps>`
+  color: ${(props: ThemeProps) => props.theme.colors.primary};
   font-size: 16px;
   font-weight: bold;
   margin-bottom: 8px;
 `;
 
-const ActionButton = styled.TouchableOpacity<{disabled?: boolean}>`
-  background-color: ${({ theme }: { theme: any }) => theme.colors.primary};
+const WarningText = styled.Text<ThemeProps>`
+  color: ${(props: ThemeProps) => props.theme.colors.warning};
+  font-size: 16px;
+  font-weight: bold;
+  margin-bottom: 8px;
+`;
+
+interface ActionButtonProps extends ThemeProps {
+  disabled?: boolean;
+}
+
+const ActionButton = styled.TouchableOpacity<ActionButtonProps>`
+  background-color: ${(props: ActionButtonProps) => props.theme.colors.primary};
   padding: 16px;
   border-radius: 8px;
   align-items: center;
   margin-top: 20px;
-  opacity: ${({ disabled }: { disabled?: boolean }) => (disabled ? 0.6 : 1)};
+  opacity: ${(props: ActionButtonProps) => (props.disabled ? 0.6 : 1)};
 `;
 
-const SecondaryButton = styled.TouchableOpacity`
-  background-color: ${({ theme }: { theme: any }) => theme.colors.secondary};
+const SecondaryButton = styled.TouchableOpacity<ThemeProps>`
+  background-color: ${(props: ThemeProps) => props.theme.colors.secondary};
   padding: 16px;
   border-radius: 8px;
   align-items: center;
   margin-top: 12px;
 `;
 
-const ButtonText = styled.Text`
-  color: ${({ theme }: { theme: any }) => theme.colors.white};
+const ButtonText = styled.Text<ThemeProps>`
+  color: ${(props: ThemeProps) => props.theme.colors.white};
   font-size: 16px;
   font-weight: bold;
 `;
@@ -94,15 +102,15 @@ const FeatureItem = styled.View`
   margin-bottom: 8px;
 `;
 
-const FeatureText = styled.Text`
-  color: ${({ theme }: { theme: any }) => theme.colors.textSecondary};
+const FeatureText = styled.Text<ThemeProps>`
+  color: ${(props: ThemeProps) => props.theme.colors.textSecondary};
   font-size: 14px;
   margin-left: 8px;
 `;
 
-const Divider = styled.View`
+const Divider = styled.View<ThemeProps>`
   height: 1px;
-  background-color: ${({ theme }: { theme: any }) => theme.colors.border};
+  background-color: ${(props: ThemeProps) => props.theme.colors.border};
   margin-vertical: 16px;
 `;
 

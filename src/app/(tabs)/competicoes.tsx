@@ -216,7 +216,7 @@ const SaveButton = styled(TouchableOpacity)<ThemeProps>`
 `;
 
 const SaveButtonText = styled(Text)<ThemeProps>`
-  color: #fff;
+  color: ${({ theme }: ThemeProps) => theme.colors.white};
   font-size: 16px;
   font-weight: bold;
 `;

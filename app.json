@@ -7,14 +7,15 @@
     "icon": "./src/assets/icon.png",
     "scheme": "rnnotion",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "splash": {
       "image": "./src/assets/splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#8257E5"
     },
     "updates": {
-      "fallbackToCacheTimeout": 0
+      "fallbackToCacheTimeout": 0,
+      "enabled": false
     },
     "assetBundlePatterns": [
       "**/*"
@@ -29,8 +30,7 @@
         "backgroundColor": "#8257E5"
       },
       "package": "com.rnnotion",
-      "buildType": "apk",
-      "jsEngine": "hermes",
+      "jsEngine": "jsc",
       "softwareKeyboardLayoutMode": "pan"
     },
     "web": {

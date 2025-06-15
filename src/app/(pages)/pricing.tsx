@@ -7,49 +7,57 @@ import { useTheme } from '@/core/contexts/ThemeProvider';
 import { useSubscription } from '@/hooks/useSubscription';
 import { PlanInfo } from '@/services/playBillingService';
 
-const Container = styled.ScrollView<{theme?: any}>`
+interface ThemeProps {
+  theme: any;
+}
+
+const Container = styled.ScrollView<ThemeProps>`
   flex: 1;
-  background-color: ${({ theme }) => theme.colors.backgroundDark};
+  background-color: ${(props: ThemeProps) => props.theme.colors.backgroundDark};
   padding: 20px;
 `;
 
-const PlanCard = styled.View<{theme?: any}>`
-  background-color: ${({ theme }) => theme.colors.backgroundLight};
-  border: 1px solid ${({ theme }) => theme.colors.border};
+const PlanCard = styled.View<ThemeProps>`
+  background-color: ${(props: ThemeProps) => props.theme.colors.backgroundLight};
+  border: 1px solid ${(props: ThemeProps) => props.theme.colors.border};
   border-radius: 8px;
   padding: 16px;
   margin-bottom: 16px;
 `;
 
-const Title = styled.Text<{theme?: any}>`
-  color: ${({ theme }) => theme.colors.textPrimary};
+const Title = styled.Text<ThemeProps>`
+  color: ${(props: ThemeProps) => props.theme.colors.textPrimary};
   font-size: 18px;
   font-weight: bold;
 `;
 
-const PriceText = styled.Text<{theme?: any}>`
-  color: ${({ theme }) => theme.colors.textSecondary};
+const PriceText = styled.Text<ThemeProps>`
+  color: ${(props: ThemeProps) => props.theme.colors.textSecondary};
   font-size: 16px;
   margin-vertical: 8px;
 `;
 
-const FeatureText = styled.Text<{theme?: any}>`
-  color: ${({ theme }) => theme.colors.textSecondary};
+const FeatureText = styled.Text<ThemeProps>`
+  color: ${(props: ThemeProps) => props.theme.colors.textSecondary};
   font-size: 14px;
   margin-vertical: 2px;
 `;
 
-const SubscribeButton = styled.TouchableOpacity<{theme?: any; disabled?: boolean}>`
-  background-color: ${({ theme }) => theme.colors.primary};
+interface SubscribeButtonProps extends ThemeProps {
+  disabled?: boolean;
+}
+
+const SubscribeButton = styled.TouchableOpacity<SubscribeButtonProps>`
+  background-color: ${(props: SubscribeButtonProps) => props.theme.colors.primary};
   padding: 12px;
   border-radius: 8px;
   align-items: center;
   margin-top: 12px;
-  opacity: ${({ disabled }) => (disabled ? 0.6 : 1)};
+  opacity: ${(props: SubscribeButtonProps) => (props.disabled ? 0.6 : 1)};
 `;
 
-const ButtonText = styled.Text`
-  color: #fff;
+const ButtonText = styled.Text<ThemeProps>`
+  color: ${(props: ThemeProps) => props.theme.colors.white};
   font-weight: bold;
 `;
 

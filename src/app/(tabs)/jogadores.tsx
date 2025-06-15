@@ -179,7 +179,7 @@ const StatLabel = styled.Text<StyledProps>`
     text-align: center;
 `;
 
-const ActionsContainer = styled.View`
+const ActionsContainer = styled.View<StyledProps>`
     flex-direction: row;
     align-items: center;
     justify-content: flex-end;
@@ -187,14 +187,14 @@ const ActionsContainer = styled.View`
     width: 100%;
     padding-top: 8px;
     border-top-width: 1px;
-    border-top-color: #e9ecef;
+    border-top-color: ${(props: StyledProps) => props.theme.colors.border || '#e9ecef'};
 `;
 
-const ActionButton = styled.Pressable`
+const ActionButton = styled.Pressable<StyledProps>`
     padding: 10px;
     margin-left: 10px;
     border-radius: 20px;
-    background-color: #e9ecef;
+    background-color: ${(props: StyledProps) => props.theme.colors.backgroundLight || '#e9ecef'};
     align-items: center;
     justify-content: center;
     min-width: 40px;

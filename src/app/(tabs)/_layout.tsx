@@ -1,17 +1,18 @@
 import React from 'react';
-import { View } from 'react-native';
+import { View, Platform, StatusBar } from 'react-native';
 import { Tabs } from 'expo-router';
-import { Platform } from 'react-native';
 import { useEffect } from 'react';
 import * as NavigationBar from 'expo-navigation-bar';
-import { colors } from '@/styles/colors';
 import { useTheme } from '@/core/contexts/ThemeProvider';
 import { Feather } from '@expo/vector-icons';
 import { BottomNavigation } from '@/components/layout/BottomNavigation';
 import styled from 'styled-components/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TabRoutesLayout() {
     const { colors } = useTheme();
+    const insets = useSafeAreaInsets();
+    const BOTTOM_NAV_HEIGHT = 60; // Altura fixa da navegação inferior
 
     useEffect(() => {
         async function configureNavigationBar() {
@@ -23,11 +24,13 @@ export default function TabRoutesLayout() {
         }
 
         configureNavigationBar();
-    }, []);
+    }, [colors]);
 
     return (
         <Container>
-            <Content>
+            <Content style={{
+                paddingBottom: BOTTOM_NAV_HEIGHT + (insets.bottom || 0)
+            }}>
                 <Tabs
                     screenOptions={{
                         headerShown: false,
@@ -86,7 +89,10 @@ export default function TabRoutesLayout() {
                     />
                 </Tabs>
             </Content>
-            <NavigationContainer>
+            <NavigationContainer style={{
+                height: BOTTOM_NAV_HEIGHT + (insets.bottom || 0),
+                paddingBottom: insets.bottom || 0
+            }}>
                 <BottomNavigation />
             </NavigationContainer>
         </Container>
@@ -96,20 +102,50 @@ export default function TabRoutesLayout() {
 const Container = styled.View`
     flex: 1;
     position: relative;
+    padding-top: ${Platform.OS === 'android' ? StatusBar.currentHeight : 0}px;
 `;
 
-const Content = styled.View`
+interface ContentProps {
+    theme: {
+        colors: {
+            backgroundDark: string;
+        };
+    };
+}
+
+const Content = styled.View<ContentProps>`
     flex: 1;
-    padding-bottom: 60px;
+    background-color: ${(props: ContentProps) => props.theme.colors.backgroundDark};
+    padding-top: ${Platform.OS === 'ios' ? 44 : 0}px; /* Altura aproximada do Header */
 `;
 
-const NavigationContainer = styled.View`
+interface ThemeProps {
+    theme: {
+        colors: {
+            backgroundMedium: string;
+            border: string;
+        };
+    };
+}
+
+interface ThemeType {
+    colors: {
+        backgroundMedium: string;
+        border: string;
+    };
+}
+
+interface NavigationContainerProps {
+    theme: ThemeType;
+    style?: any;
+}
+
+const NavigationContainer = styled.View<NavigationContainerProps>`
     position: absolute;
     bottom: 0;
     left: 0;
     right: 0;
-    background-color: ${({ theme }) => theme.colors.backgroundMedium};
+    background-color: ${(props: NavigationContainerProps) => props.theme.colors.backgroundMedium};
     border-top-width: 1px;
-    border-top-color: ${({ theme }) => theme.colors.border};
-    height: 60px;
+    border-top-color: ${(props: NavigationContainerProps) => props.theme.colors.border};
 `;

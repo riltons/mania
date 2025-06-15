@@ -8,36 +8,41 @@ import { useRouter } from 'expo-router';
 import { useSubscription } from '@/hooks/useSubscription';
 import { SubscriptionWithPlan } from '@/services/playBillingService';
 
-const Container = styled.View`
+const Container = styled.View<{theme: any}>`
   flex: 1;
-  background-color: ${({ theme }: { theme: any }) => theme.colors.backgroundDark};
+  background-color: ${({ theme }) => theme.colors.backgroundDark};
   padding: 20px;
 `;
 
-const Title = styled.Text`
-  color: ${({ theme }: { theme: any }) => theme.colors.textPrimary};
+const Title = styled.Text<{theme: any}>`
+  color: ${({ theme }) => theme.colors.textPrimary};
   font-size: 20px;
   font-weight: bold;
   margin-bottom: 12px;
 `;
 
-const InfoText = styled.Text`
-  color: ${({ theme }: { theme: any }) => theme.colors.textSecondary};
+const InfoText = styled.Text<{theme: any}>`
+  color: ${({ theme }) => theme.colors.textSecondary};
   font-size: 16px;
   margin-bottom: 8px;
 `;
 
-const ActionButton = styled.TouchableOpacity<{disabled?: boolean}>`
-  background-color: ${({ theme }: { theme: any }) => theme.colors.primary};
+interface ActionButtonProps {
+  theme: any;
+  disabled?: boolean;
+}
+
+const ActionButton = styled.TouchableOpacity<ActionButtonProps>`
+  background-color: ${({ theme }) => theme.colors.primary};
   padding: 12px;
   border-radius: 8px;
   align-items: center;
   margin-top: 20px;
-  opacity: ${({ disabled }: { disabled?: boolean }) => (disabled ? 0.6 : 1)};
+  opacity: ${({ disabled }) => (disabled ? 0.6 : 1)};
 `;
 
-const ButtonText = styled.Text`
-  color: #fff;
+const ButtonText = styled.Text<{theme: any}>`
+  color: ${({ theme }) => theme.colors.white};
   font-weight: bold;
 `;
 

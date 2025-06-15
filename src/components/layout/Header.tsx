@@ -9,7 +9,7 @@ interface ThemeProps {
   theme: DefaultTheme;
 }
 import React from 'react';
-import { TouchableOpacity, StatusBar, Platform, View, Image } from 'react-native';
+import { TouchableOpacity, StatusBar, Platform, View, Image, useWindowDimensions } from 'react-native';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 
 // Importando a logo completa
@@ -18,6 +18,7 @@ import dominoLogo from '@/assets/dominomania-logo.png';
 
 const SafeAreaView = styled.View`
     background-color: ${colors.primary};
+    padding-top: ${Platform.OS === 'android' ? StatusBar.currentHeight : 0}px;
 `;
 
 const Container = styled.View<{ statusBarHeight: number } & ThemeProps>`
@@ -26,7 +27,8 @@ const Container = styled.View<{ statusBarHeight: number } & ThemeProps>`
     justify-content: space-between;
     padding: 12px;
     background-color: ${colors.primary};
-    padding-top: ${({ statusBarHeight }: { statusBarHeight: number }) => Platform.OS === 'ios' ? 44 : 16}px;
+    padding-top: ${Platform.OS === 'ios' ? 12 : 8}px;
+    padding-bottom: ${Platform.OS === 'ios' ? 12 : 8}px;
     width: 100%;
 `;
 
@@ -97,8 +99,12 @@ export function Header({ title, showBackButton, isDashboard, onBack }: HeaderPro
 
     return (
         <SafeAreaView>
-            <StatusBar backgroundColor={colors.primary} barStyle="light-content" />
-            <Container statusBarHeight={statusBarHeight}>
+            <StatusBar 
+                backgroundColor="transparent" 
+                barStyle="light-content" 
+                translucent 
+            />
+            <Container statusBarHeight={statusBarHeight} style={{ marginTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 }}>
                 <LeftContainer>
                     {isDashboard ? (
                         <LogoContainer>

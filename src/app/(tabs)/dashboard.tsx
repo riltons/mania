@@ -9,7 +9,7 @@ import { useRouter, Link } from "expo-router";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { LineChart } from "@/components/WebLineChart";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/core/contexts/AuthProvider";
 import { statisticsService } from "@/services/statisticsService";
 import { rankingService } from "@/services/rankingService";
 import { activityService } from "@/services/activityService";
@@ -307,7 +307,7 @@ const calculatePosition = (index: number, items: RankableItem[]): number => {
 const Dashboard: React.FC = () => {
     const { colors } = useTheme();
     const router = useRouter();
-    const { user, isAuthenticated, loading: authLoading } = useAuth();
+    const { user, isAuthenticated, isLoading: authLoading } = useAuth();
     
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -393,7 +393,7 @@ const Dashboard: React.FC = () => {
                     try {
                         const { data, error } = await supabase
                             .from('user_profiles')
-                            .select('phone_number')
+                            .select('*')
                             .eq('user_id', user.id)
                             .single();
                         
@@ -403,7 +403,7 @@ const Dashboard: React.FC = () => {
                         }
                         
                         // Se o usuário não tiver telefone cadastrado, redirecionar para a página de perfil
-                        if (!data?.phone_number) {
+                        if (!data || !('phone_number' in data) || !data.phone_number) {
                             console.log('[Dashboard] Usuário sem telefone cadastrado, redirecionando para perfil');
                             // Definir flag para indicar que o telefone é obrigatório
                             await AsyncStorage.setItem('phoneRequired', 'true');
