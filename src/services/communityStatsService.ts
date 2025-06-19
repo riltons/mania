@@ -188,8 +188,11 @@ export const communityStatsService = {
             // Buscar estatísticas de duplas
             const pairStats: PairStats[] = await this.calculatePairStats(communityId, playersMap);
 
+            // Ordenar jogadores por pontuação (score) em ordem decrescente
+            const sortedPlayerStats = [...playerStats].sort((a, b) => b.score - a.score);
+
             return {
-                players: playerStats,
+                players: sortedPlayerStats,
                 pairs: pairStats
             };
         } catch (error) {
