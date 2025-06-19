@@ -2,11 +2,24 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import styled from 'styled-components/native';
-import { useTheme } from '@/contexts/ThemeProvider';
+import { useTheme } from '@/core/contexts/ThemeProvider';
 import { Feather } from '@expo/vector-icons';
 import { communityStatsService, CommunityStats } from '@/services/communityStatsService';
 import { communityService } from '@/services/communityService';
 import { InternalHeader } from '@/components/InternalHeader';
+
+// Interface para tipagem dos styled components
+interface ThemeProps {
+  theme: {
+    colors: {
+      backgroundDark: string;
+      backgroundLight: string;
+      textPrimary: string;
+      textSecondary: string;
+      primary: string;
+    };
+  };
+}
 
 export default function CommunityStatsPage() {
     const router = useRouter();
@@ -131,9 +144,9 @@ export default function CommunityStatsPage() {
     );
 }
 
-const Container = styled.View`
+const Container = styled.View<ThemeProps>`
     flex: 1;
-    background-color: ${props => props.theme.colors.backgroundDark};
+    background-color: ${(props: ThemeProps) => props.theme.colors.backgroundDark};
     padding: 0;
 `;
 
@@ -152,31 +165,31 @@ const Section = styled.View`
     margin-bottom: 24px;
 `;
 
-const SectionTitle = styled.Text`
+const SectionTitle = styled.Text<ThemeProps>`
     font-size: 20px;
     font-weight: bold;
-    color: ${props => props.theme.colors.gray100};
+    color: ${(props: ThemeProps) => props.theme.colors.textPrimary};
     margin-bottom: 16px;
 `;
 
-const StatCard = styled.View`
-    background-color: ${props => props.theme.colors.backgroundLight};
+const StatCard = styled.View<ThemeProps>`
+    background-color: ${(props: ThemeProps) => props.theme.colors.backgroundLight};
     border-radius: 8px;
     padding: 16px;
     margin-bottom: 16px;
 `;
 
-const PlayerName = styled.Text`
+const PlayerName = styled.Text<ThemeProps>`
     font-size: 18px;
     font-weight: bold;
-    color: ${props => props.theme.colors.gray100};
+    color: ${(props: ThemeProps) => props.theme.colors.textPrimary};
     margin-bottom: 12px;
 `;
 
-const PairNames = styled.Text`
+const PairNames = styled.Text<ThemeProps>`
     font-size: 18px;
     font-weight: bold;
-    color: ${props => props.theme.colors.gray100};
+    color: ${(props: ThemeProps) => props.theme.colors.textPrimary};
     margin-bottom: 12px;
 `;
 
@@ -190,14 +203,14 @@ const StatItem = styled.View`
     align-items: center;
 `;
 
-const StatLabel = styled.Text`
+const StatLabel = styled.Text<ThemeProps>`
     font-size: 14px;
-    color: ${props => props.theme.colors.textSecondary};
+    color: ${(props: ThemeProps) => props.theme.colors.textSecondary};
     margin-bottom: 4px;
 `;
 
-const StatValue = styled.Text`
+const StatValue = styled.Text<ThemeProps>`
     font-size: 16px;
     font-weight: bold;
-    color: ${props => props.theme.colors.primary};
+    color: ${(props: ThemeProps) => props.theme.colors.primary};
 `;
