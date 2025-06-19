@@ -36,14 +36,34 @@ export type CommunityStats = {
 export const communityStatsService = {
     async getCommunityStats(communityId: string): Promise<CommunityStats> {
         try {
-            // Buscar jogadores da comunidade
+            // Buscar jogadores da comunidade através da tabela community_members
+            const { data: communityMembers, error: membersError } = await supabase
+                .from('community_members')
+                .select('player_id')
+                .eq('community_id', communityId);
+
+            if (membersError) {
+                throw new Error(`Erro ao buscar membros da comunidade: ${membersError.message}`);
+            }
+
+            if (!communityMembers || communityMembers.length === 0) {
+                return {
+                    players: [],
+                    pairs: []
+                };
+            }
+
+            // Extrair IDs dos jogadores
+            const playerIds = communityMembers.map(member => member.player_id);
+
+            // Buscar dados dos jogadores
             const { data: communityPlayers, error: playersError } = await supabase
                 .from('players')
                 .select('id, name')
-                .eq('community_id', communityId);
+                .in('id', playerIds);
 
             if (playersError) {
-                throw new Error(`Erro ao buscar jogadores da comunidade: ${playersError.message}`);
+                throw new Error(`Erro ao buscar dados dos jogadores: ${playersError.message}`);
             }
 
             const playerStats: PlayerStats[] = [];
@@ -56,7 +76,7 @@ export const communityStatsService = {
 
             // Para cada jogador, buscar suas estatísticas
             for (const player of communityPlayers || []) {
-                // Buscar jogos do jogador
+                // Buscar jogos do jogador filtrados por comunidade
                 const { data: gameStats, error: gameStatsError } = await supabase
                     .from('game_players')
                     .select(`
