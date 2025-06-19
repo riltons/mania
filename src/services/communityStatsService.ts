@@ -76,21 +76,45 @@ export const communityStatsService = {
 
             // Para cada jogador, buscar suas estatísticas
             for (const player of communityPlayers || []) {
-                // Buscar jogos do jogador filtrados por comunidade
+                // Primeiro, buscar todos os jogos das competições da comunidade
+                const { data: communityGames, error: communityGamesError } = await supabase
+                    .from('games')
+                    .select(`
+                        id,
+                        competition_id,
+                        competitions!inner(community_id)
+                    `)
+                    .eq('competitions.community_id', communityId);
+
+                if (communityGamesError) {
+                    console.error(`Erro ao buscar jogos da comunidade:`, communityGamesError);
+                    continue;
+                }
+
+                if (!communityGames || communityGames.length === 0) {
+                    // Jogador sem jogos na comunidade
+                    playerStats.push({
+                        id: player.id,
+                        name: player.name,
+                        score: 0,
+                        wins: 0,
+                        losses: 0,
+                        buchudas_given: 0,
+                        buchudas_taken: 0,
+                        buchudas_de_re_given: 0,
+                        buchudas_de_re_taken: 0
+                    });
+                    continue;
+                }
+
+                const gameIds = communityGames.map(game => game.id);
+
+                // Buscar estatísticas do jogador nos jogos da comunidade
                 const { data: gameStats, error: gameStatsError } = await supabase
                     .from('game_players')
-                    .select(`
-                        is_winner,
-                        is_buchuda,
-                        is_buchuda_de_re,
-                        score,
-                        games!inner(
-                            competition_id,
-                            competitions!inner(community_id)
-                        )
-                    `)
+                    .select('is_winner, is_buchuda, is_buchuda_de_re, score')
                     .eq('player_id', player.id)
-                    .eq('games.competitions.community_id', communityId);
+                    .in('game_id', gameIds);
 
                 if (gameStatsError) {
                     console.error(`Erro ao buscar estatísticas do jogador ${player.name}:`, gameStatsError);
@@ -106,34 +130,31 @@ export const communityStatsService = {
                 const totalScore = stats.reduce((sum, s) => sum + (s.score || 0), 0);
 
                 // Buscar buchudas recebidas (quando outros jogadores fizeram buchuda contra este jogador)
-                const { data: buchudasTaken, error: buchudasTakenError } = await supabase
+                // Para isso, precisamos buscar todos os game_players dos jogos onde este jogador participou
+                const { data: allGamePlayers, error: allGamePlayersError } = await supabase
                     .from('game_players')
-                    .select(`
-                        games!inner(
-                            id,
-                            game_players!inner(is_buchuda, is_buchuda_de_re),
-                            competition_id,
-                            competitions!inner(community_id)
-                        )
-                    `)
-                    .eq('player_id', player.id)
-                    .eq('games.competitions.community_id', communityId);
+                    .select('is_buchuda, is_buchuda_de_re, game_id')
+                    .in('game_id', gameIds)
+                    .neq('player_id', player.id); // Excluir o próprio jogador
 
                 let buchudas_taken = 0;
                 let buchudas_de_re_taken = 0;
 
-                if (!buchudasTakenError && buchudasTaken) {
-                    for (const gameData of buchudasTaken) {
-                        const game = gameData.games;
-                        if (game && game.game_players) {
-                            // Contar buchudas feitas por outros jogadores neste jogo
-                            buchudas_taken += game.game_players.filter((gp: { is_buchuda: boolean, player_id: string }) => 
-                                gp.is_buchuda && gp.player_id !== player.id
-                            ).length;
-                            buchudas_de_re_taken += game.game_players.filter((gp: { is_buchuda_de_re: boolean, player_id: string }) => 
-                                gp.is_buchuda_de_re && gp.player_id !== player.id
-                            ).length;
+                if (!allGamePlayersError && allGamePlayers) {
+                    // Agrupar por game_id para contar buchudas por jogo
+                    const gamePlayersByGame = new Map<string, any[]>();
+                    allGamePlayers.forEach(gp => {
+                        if (!gamePlayersByGame.has(gp.game_id)) {
+                            gamePlayersByGame.set(gp.game_id, []);
                         }
+                        gamePlayersByGame.get(gp.game_id)!.push(gp);
+                    });
+
+                    // Para cada jogo onde o jogador participou, contar buchudas feitas por outros
+                    for (const gameId of gameIds) {
+                        const otherPlayersInGame = gamePlayersByGame.get(gameId) || [];
+                        buchudas_taken += otherPlayersInGame.filter(gp => gp.is_buchuda).length;
+                        buchudas_de_re_taken += otherPlayersInGame.filter(gp => gp.is_buchuda_de_re).length;
                     }
                 }
 
