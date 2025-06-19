@@ -76,22 +76,27 @@ export const communityStatsService = {
 
             // Para cada jogador, buscar suas estatísticas
             for (const player of communityPlayers || []) {
-                // Primeiro, buscar todos os jogos das competições da comunidade
-                const { data: communityGames, error: communityGamesError } = await supabase
+                // Buscar jogos da comunidade onde o jogador participou
+                const { data: gamesData, error: gamesError } = await supabase
                     .from('games')
                     .select(`
                         id,
-                        competition_id,
+                        team1,
+                        team2,
+                        team1_score,
+                        team2_score,
+                        status,
                         competitions!inner(community_id)
                     `)
-                    .eq('competitions.community_id', communityId);
+                    .eq('competitions.community_id', communityId)
+                    .in('status', ['finished', 'buchuda', 'buchuda_de_re']);
 
-                if (communityGamesError) {
-                    console.error(`Erro ao buscar jogos da comunidade:`, communityGamesError);
+                if (gamesError) {
+                    console.error(`Erro ao buscar jogos para o jogador ${player.name}:`, gamesError);
                     continue;
                 }
 
-                if (!communityGames || communityGames.length === 0) {
+                if (!gamesData || gamesData.length === 0) {
                     // Jogador sem jogos na comunidade
                     playerStats.push({
                         id: player.id,
@@ -107,56 +112,65 @@ export const communityStatsService = {
                     continue;
                 }
 
-                const gameIds = communityGames.map(game => game.id);
+                // Filtrar jogos onde o jogador participou
+                const playerGames = gamesData.filter(game => {
+                    const team1 = Array.isArray(game.team1) ? game.team1 : [];
+                    const team2 = Array.isArray(game.team2) ? game.team2 : [];
+                    return team1.includes(player.id) || team2.includes(player.id);
+                });
 
-                // Buscar estatísticas do jogador nos jogos da comunidade
-                const { data: gameStats, error: gameStatsError } = await supabase
-                    .from('game_players')
-                    .select('is_winner, is_buchuda, is_buchuda_de_re, score')
-                    .eq('player_id', player.id)
-                    .in('game_id', gameIds);
-
-                if (gameStatsError) {
-                    console.error(`Erro ao buscar estatísticas do jogador ${player.name}:`, gameStatsError);
-                    continue;
-                }
-
-                // Calcular estatísticas
-                const stats = gameStats || [];
-                const wins = stats.filter(s => s.is_winner).length;
-                const losses = stats.length - wins;
-                const buchudas_given = stats.filter(s => s.is_buchuda).length;
-                const buchudas_de_re_given = stats.filter(s => s.is_buchuda_de_re).length;
-                const totalScore = stats.reduce((sum, s) => sum + (s.score || 0), 0);
-
-                // Buscar buchudas recebidas (quando outros jogadores fizeram buchuda contra este jogador)
-                // Para isso, precisamos buscar todos os game_players dos jogos onde este jogador participou
-                const { data: allGamePlayers, error: allGamePlayersError } = await supabase
-                    .from('game_players')
-                    .select('is_buchuda, is_buchuda_de_re, game_id')
-                    .in('game_id', gameIds)
-                    .neq('player_id', player.id); // Excluir o próprio jogador
-
+                let wins = 0;
+                let losses = 0;
+                let pointsGained = 0;
+                let pointsLost = 0;
+                let buchudas_given = 0;
                 let buchudas_taken = 0;
+                let buchudas_de_re_given = 0;
                 let buchudas_de_re_taken = 0;
 
-                if (!allGamePlayersError && allGamePlayers) {
-                    // Agrupar por game_id para contar buchudas por jogo
-                    const gamePlayersByGame = new Map<string, any[]>();
-                    allGamePlayers.forEach(gp => {
-                        if (!gamePlayersByGame.has(gp.game_id)) {
-                            gamePlayersByGame.set(gp.game_id, []);
-                        }
-                        gamePlayersByGame.get(gp.game_id)!.push(gp);
-                    });
+                // Calcular estatísticas baseado nos jogos
+                for (const game of playerGames) {
+                    const team1 = Array.isArray(game.team1) ? game.team1 : [];
+                    const team2 = Array.isArray(game.team2) ? game.team2 : [];
+                    const isInTeam1 = team1.includes(player.id);
+                    const isInTeam2 = team2.includes(player.id);
 
-                    // Para cada jogo onde o jogador participou, contar buchudas feitas por outros
-                    for (const gameId of gameIds) {
-                        const otherPlayersInGame = gamePlayersByGame.get(gameId) || [];
-                        buchudas_taken += otherPlayersInGame.filter(gp => gp.is_buchuda).length;
-                        buchudas_de_re_taken += otherPlayersInGame.filter(gp => gp.is_buchuda_de_re).length;
+                    if (!isInTeam1 && !isInTeam2) continue;
+
+                    const team1Score = game.team1_score || 0;
+                    const team2Score = game.team2_score || 0;
+
+                    // Determinar se ganhou ou perdeu
+                    const team1Won = team1Score > team2Score;
+                    const playerWon = (isInTeam1 && team1Won) || (isInTeam2 && !team1Won);
+
+                    if (playerWon) {
+                        wins++;
+                        pointsGained += isInTeam1 ? team1Score : team2Score;
+                    } else {
+                        losses++;
+                        pointsLost += isInTeam1 ? team1Score : team2Score;
+                    }
+
+                    // Calcular buchudas baseado no status do jogo
+                    if (game.status === 'buchuda') {
+                        // Se o jogo terminou em buchuda, o time vencedor fez buchuda
+                        if (playerWon) {
+                            buchudas_given++;
+                        } else {
+                            buchudas_taken++;
+                        }
+                    } else if (game.status === 'buchuda_de_re') {
+                        // Se o jogo terminou em buchuda de ré, o time vencedor fez buchuda de ré
+                        if (playerWon) {
+                            buchudas_de_re_given++;
+                        } else {
+                            buchudas_de_re_taken++;
+                        }
                     }
                 }
+
+                const totalScore = pointsGained - pointsLost;
 
                 playerStats.push({
                     id: player.id,
