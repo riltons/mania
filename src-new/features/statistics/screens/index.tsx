@@ -1,14 +1,14 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, ActivityIndicator } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, FlatList } from 'react-native';
 import styled from 'styled-components/native';
-import { useTheme } from '@/core/contexts/ThemeProvider';
-import { InternalHeader } from '@/components/layout/InternalHeader';
-import { PageTransition } from '@/components/Transitions';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { rankingService, PairRanking } from '@/features/statistics/services/rankingService';
+import { useTheme } from '../../../core/contexts/ThemeProvider';
+import { InternalHeader } from '../../../core/components/navigation/InternalHeader';
+import { PageTransition } from '../../../core/components/transitions/PageTransition';
+import { rankingService, PairRanking } from '../services/rankingService';
 import { useRouter } from 'expo-router';
-import { LoggedLayout } from '@/components/layout/LoggedLayout';
-import { PlayerAvatar } from '@/components/data-display/PlayerAvatar';
+import { LoadingState, ErrorState, EmptyState } from '../../../core/components/feedback';
+import { useAsyncState } from '../../../core/hooks';
+import { PlayerAvatar } from '../../../core/components/data-display/PlayerAvatar';
 
 const Container = styled.View`
     flex: 1;
@@ -110,43 +110,8 @@ const StatLabel = styled.Text`
     text-align: center;
 `;
 
-const LoadingContainer = styled.View`
-    flex: 1;
-    justify-content: center;
-    align-items: center;
-    padding: 20px;
-`;
-
-const ErrorContainer = styled.View`
-    flex: 1;
-    justify-content: center;
-    align-items: center;
-    padding: 20px;
-`;
-
-const ErrorText = styled.Text`
-    color: ${({ theme }) => theme.colors.error};
-    font-size: 16px;
-    text-align: center;
-`;
-
-const EmptyContainer = styled.View`
-    flex: 1;
-    justify-content: center;
-    align-items: center;
-    padding: 20px;
-`;
-
-const EmptyText = styled.Text`
-    color: ${({ theme }) => theme.colors.gray300};
-    font-size: 16px;
-    text-align: center;
-`;
-
 export default function TopDuplas() {
-    const [pairs, setPairs] = useState<PairRanking[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const { data: pairs, loading, error, setData, setError, setLoading } = useAsyncState<PairRanking[]>([]);
     const { colors } = useTheme();
     const router = useRouter();
 
@@ -155,14 +120,12 @@ export default function TopDuplas() {
     }, []);
 
     const loadPairs = async () => {
+        setLoading(true);
         try {
             const data = await rankingService.getTopPairs();
-            setPairs(data);
-            setError(null);
+            setData(data);
         } catch (err) {
             setError('Erro ao carregar o ranking de duplas');
-        } finally {
-            setLoading(false);
         }
     };
 
@@ -223,51 +186,42 @@ export default function TopDuplas() {
 
     if (loading) {
         return (
-            <LoggedLayout>
-                <Container>
-                    <InternalHeader title="Top Duplas" />
-                    <LoadingContainer>
-                        <ActivityIndicator size="large" color={colors.primary} />
-                    </LoadingContainer>
-                </Container>
-            </LoggedLayout>
+            <Container>
+                <InternalHeader title="Top Duplas" />
+                <LoadingState message="Carregando ranking..." />
+            </Container>
         );
     }
 
     if (error) {
         return (
-            <LoggedLayout>
-                <Container>
-                    <InternalHeader title="Top Duplas" />
-                    <ErrorContainer>
-                        <ErrorText>{error}</ErrorText>
-                    </ErrorContainer>
-                </Container>
-            </LoggedLayout>
+            <Container>
+                <InternalHeader title="Top Duplas" />
+                <ErrorState message={error} onRetry={loadPairs} />
+            </Container>
         );
     }
 
     return (
-        <LoggedLayout>
-            <PageTransition>
-                <Container>
-                    <InternalHeader title="Top Duplas" />
-                    <Content>
-                        {pairs.length > 0 ? (
-                            <FlatList
-                                data={pairs}
-                                renderItem={renderPair}
-                                keyExtractor={(item, index) => item.player1Id && item.player2Id ? `${item.player1Id}-${item.player2Id}` : `pair-${index}`}
-                            />
-                        ) : (
-                            <EmptyContainer>
-                                <EmptyText>Nenhuma dupla encontrada</EmptyText>
-                            </EmptyContainer>
-                        )}
-                    </Content>
-                </Container>
-            </PageTransition>
-        </LoggedLayout>
+        <PageTransition>
+            <Container>
+                <InternalHeader title="Top Duplas" />
+                <Content>
+                    {pairs && pairs.length > 0 ? (
+                        <FlatList
+                            data={pairs}
+                            renderItem={renderPair}
+                            keyExtractor={(item, index) => item.player1?.id && item.player2?.id ? `${item.player1.id}-${item.player2.id}` : `pair-${index}`}
+                        />
+                    ) : (
+                        <EmptyState 
+                            message="Nenhuma dupla encontrada" 
+                            icon="people-outline"
+                        />
+                    )}
+                </Content>
+            </Container>
+        </PageTransition>
     );
 }
 

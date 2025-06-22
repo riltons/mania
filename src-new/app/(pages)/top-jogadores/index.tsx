@@ -1,14 +1,16 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, ActivityIndicator, TouchableOpacity } from 'react-native';
-import { PlayerAvatar } from '@/components/data-display/PlayerAvatar';
+import React, { useEffect } from 'react';
+import { FlatList, TouchableOpacity } from 'react-native';
+import { PlayerAvatar } from '../../../core/components/data-display/PlayerAvatar';
 import styled from 'styled-components/native';
-import { useTheme } from '@/core/contexts/ThemeProvider';
-import { ThemeType } from '@/theme';
-import { InternalHeader } from '@/components/layout/InternalHeader';
-import { PageTransition } from '@/components/Transitions';
+import { useTheme } from '../../../core/contexts/ThemeProvider';
+import { ThemeType } from '../../../core/theme';
+import { InternalHeader } from '../../../core/components/navigation/InternalHeader';
+import { PageTransition } from '../../../core/components/transitions/PageTransition';
 import { Feather } from '@expo/vector-icons';
-import { rankingService, PlayerRanking } from '@/features/statistics/services/rankingService';
+import { rankingService, PlayerRanking } from '../../../features/statistics/services/rankingService';
 import { useRouter } from 'expo-router';
+import { LoadingState, ErrorState, EmptyState } from '../../../core/components/feedback';
+import { useAsyncState } from '../../../core/hooks';
 
 const Container = styled.View`
     flex: 1;
@@ -77,43 +79,8 @@ const StatLabel = styled.Text`
     text-align: center;
 `;
 
-const LoadingContainer = styled.View`
-    flex: 1;
-    justify-content: center;
-    align-items: center;
-    padding: 20px;
-`;
-
-const ErrorContainer = styled.View`
-    flex: 1;
-    justify-content: center;
-    align-items: center;
-    padding: 20px;
-`;
-
-const ErrorText = styled.Text`
-    color: ${({ theme }: { theme: ThemeType }) => theme.colors.error};
-    font-size: 16px;
-    text-align: center;
-`;
-
-const EmptyContainer = styled.View`
-    flex: 1;
-    justify-content: center;
-    align-items: center;
-    padding: 20px;
-`;
-
-const EmptyText = styled.Text`
-    color: ${({ theme }: { theme: ThemeType }) => theme.colors.gray300};
-    font-size: 16px;
-    text-align: center;
-`;
-
 export default function TopJogadores() {
-  const [players, setPlayers] = useState<PlayerRanking[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data: players, loading, error, setData, setError, setLoading } = useAsyncState<PlayerRanking[]>([]);
   const router = useRouter();
   const theme = useTheme();
   const colors = theme.colors;
@@ -123,14 +90,13 @@ export default function TopJogadores() {
   }, []);
 
   async function loadPlayers() {
+    setLoading(true);
     try {
       const data = await rankingService.getTopPlayers();
-      setPlayers(data);
+      setData(data);
     } catch (error) {
       console.error('Erro ao carregar jogadores:', error);
       setError('Erro ao carregar jogadores. Tente novamente mais tarde.');
-    } finally {
-      setLoading(false);
     }
   }
 
@@ -138,9 +104,7 @@ export default function TopJogadores() {
         return (
             <Container>
                 <InternalHeader title="Top Jogadores" />
-                <LoadingContainer>
-                    <ActivityIndicator size="large" color={colors.primary} />
-                </LoadingContainer>
+                <LoadingState message="Carregando ranking..." />
             </Container>
         );
     }
@@ -149,20 +113,19 @@ export default function TopJogadores() {
         return (
             <Container>
                 <InternalHeader title="Top Jogadores" />
-                <ErrorContainer>
-                    <ErrorText>{error}</ErrorText>
-                </ErrorContainer>
+                <ErrorState message={error} onRetry={loadPlayers} />
             </Container>
         );
     }
 
-    if (players.length === 0) {
+    if (!players || players.length === 0) {
         return (
             <Container>
                 <InternalHeader title="Top Jogadores" />
-                <EmptyContainer>
-                    <EmptyText>Nenhum jogador encontrado</EmptyText>
-                </EmptyContainer>
+                <EmptyState 
+                    message="Nenhum jogador encontrado" 
+                    icon="person-outline"
+                />
             </Container>
         );
     }
@@ -221,7 +184,7 @@ export default function TopJogadores() {
     return (
         <PageTransition>
             <Container>
-                <InternalHeader title="Top Jogadores" rightContent={
+                <InternalHeader title="Top Jogadores" rightComponent={
                         <TouchableOpacity onPress={() => router.push('/')}>
                             <Feather name="bar-chart-2" size={24} color={colors.gray100} />
                         </TouchableOpacity>
