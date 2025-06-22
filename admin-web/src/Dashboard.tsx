@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from './lib/supabase';
-import './Dashboard.css';
+import RankingSidebar from './components/RankingSidebar';
+import './dashboard.css';
 
 interface Game {
   id: string;
@@ -361,84 +362,94 @@ const Dashboard: React.FC = () => {
           {formatLastUpdated(lastUpdated)}
         </div>
 
-        <div className="competition-selector">
-          <h2>Filtrar por Competição</h2>
-          <div className="competition-chips">
-            <button
-              className={`competition-chip ${selectedCompetitionId === null ? 'selected' : ''}`}
-              onClick={() => setSelectedCompetitionId(null)}
-            >
-              Todas as Competições
-            </button>
-            {competitions.map((competition) => (
-              <button
-                key={competition.id}
-                className={`competition-chip ${selectedCompetitionId === competition.id ? 'selected' : ''}`}
-                onClick={() => setSelectedCompetitionId(competition.id)}
-              >
-                {competition.name}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="dashboard-section">
-          <div className="section-header in-progress">
-            <div className="section-title">
-              <i className="icon">▶</i>
-              <h2>Jogos em Andamento</h2>
-            </div>
-            <div className="count-badge">{ongoingGames.length}</div>
-          </div>
-          <div className="section-content">
-            {ongoingGames.length > 0 ? (
-              ongoingGames.map(renderGameCard)
-            ) : (
-              <div className="empty-state">
-                <h3>Nenhum jogo em andamento</h3>
-                <p>Quando houver jogos sendo realizados, eles aparecerão aqui</p>
+        <div className="dashboard-with-sidebar">
+          <div className="dashboard-main-content">
+            <div className="competition-selector">
+              <h2>Filtrar por Competição</h2>
+              <div className="competition-chips">
+                <button
+                  className={`competition-chip ${selectedCompetitionId === null ? 'selected' : ''}`}
+                  onClick={() => setSelectedCompetitionId(null)}
+                >
+                  Todas as Competições
+                </button>
+                {competitions.map((competition) => (
+                  <button
+                    key={competition.id}
+                    className={`competition-chip ${selectedCompetitionId === competition.id ? 'selected' : ''}`}
+                    onClick={() => setSelectedCompetitionId(competition.id)}
+                  >
+                    {competition.name}
+                  </button>
+                ))}
               </div>
-            )}
-          </div>
-        </div>
-
-        <div className="dashboard-section">
-          <div className="section-header finished">
-            <div className="section-title">
-              <i className="icon">✓</i>
-              <h2>Jogos Finalizados (Última Hora)</h2>
             </div>
-            <div className="count-badge">{finishedGames.length}</div>
-          </div>
-          <div className="section-content">
-            {finishedGames.length > 0 ? (
-              finishedGames.map(renderGameCard)
-            ) : (
-              <div className="empty-state">
-                <h3>Nenhum jogo finalizado recentemente</h3>
-                <p>Jogos finalizados na última hora aparecerão aqui</p>
+            <div className="dashboard-section">
+              <div className="section-header in-progress">
+                <div className="section-title">
+                  <i className="icon">▶</i>
+                  <h2>Jogos em Andamento</h2>
+                </div>
+                <div className="count-badge">{ongoingGames.length}</div>
               </div>
-            )}
-          </div>
-        </div>
-
-        <div className="dashboard-section">
-          <div className="section-header pending">
-            <div className="section-title">
-              <i className="icon">⏱</i>
-              <h2>Próximos Jogos</h2>
+              <div className="section-content">
+                {ongoingGames.length > 0 ? (
+                  ongoingGames.map(renderGameCard)
+                ) : (
+                  <div className="empty-state">
+                    <h3>Nenhum jogo em andamento</h3>
+                    <p>Quando houver jogos sendo realizados, eles aparecerão aqui</p>
+                  </div>
+                )}
+              </div>
             </div>
-            <div className="count-badge">{upcomingGames.length}</div>
-          </div>
-          <div className="section-content">
-            {upcomingGames.length > 0 ? (
-              upcomingGames.map(renderGameCard)
-            ) : (
-              <div className="empty-state">
-                <h3>Nenhum jogo agendado</h3>
-                <p>Jogos pendentes aparecerão aqui quando forem criados</p>
+
+            <div className="dashboard-section">
+              <div className="section-header finished">
+                <div className="section-title">
+                  <i className="icon">✓</i>
+                  <h2>Jogos Finalizados (Última Hora)</h2>
+                </div>
+                <div className="count-badge">{finishedGames.length}</div>
               </div>
-            )}
+              <div className="section-content">
+                {finishedGames.length > 0 ? (
+                  finishedGames.map(renderGameCard)
+                ) : (
+                  <div className="empty-state">
+                    <h3>Nenhum jogo finalizado recentemente</h3>
+                    <p>Jogos finalizados na última hora aparecerão aqui</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="dashboard-section">
+              <div className="section-header pending">
+                <div className="section-title">
+                  <i className="icon">⏱</i>
+                  <h2>Próximos Jogos</h2>
+                </div>
+                <div className="count-badge">{upcomingGames.length}</div>
+              </div>
+              <div className="section-content">
+                {upcomingGames.length > 0 ? (
+                  upcomingGames.map(renderGameCard)
+                ) : (
+                  <div className="empty-state">
+                    <h3>Nenhum jogo agendado</h3>
+                    <p>Jogos pendentes aparecerão aqui quando forem criados</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="dashboard-sidebar">
+            <RankingSidebar 
+              selectedCompetitionId={selectedCompetitionId}
+              competitions={competitions}
+            />
           </div>
         </div>
       </div>
