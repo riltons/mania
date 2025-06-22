@@ -1,35 +1,22 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Definir tipos para o Vite
-interface ImportMetaEnv {
-  readonly VITE_SUPABASE_URL: string;
-  readonly VITE_SUPABASE_ANON_KEY: string;
-  readonly VITE_SUPABASE_SERVICE_KEY?: string;
-}
+// Configuração direta do Supabase (mesma configuração do app principal)
+const supabaseUrl = 'https://euqnfrvptiriujrdebpr.supabase.co';
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV1cW5mcnZwdGlyaXVqcmRlYnByIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDUwNDk4MjQsImV4cCI6MjA2MDYyNTgyNH0.67e4m4mT2CjxgrWoSbYnhubXt3GcweQgdPhq2oalKuM';
+const supabaseServiceKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV1cW5mcnZwdGlyaXVqcmRlYnByIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0NTA0OTgyNCwiZXhwIjoyMDYwNjI1ODI0fQ.71SbUyiabSKssQy1K8pErep2IC9gyZmKCl7MqI3NSSM';
 
-interface ImportMeta {
-  readonly env: ImportMetaEnv;
-}
-
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY ?? '').trim();
-console.log('[supabase] carregado', { url: supabaseUrl, key: supabaseAnonKey ? supabaseAnonKey.slice(0, 10) + '…' : 'undef' });
+console.log('[supabase] Dashboard Web configurado', { 
+  url: supabaseUrl, 
+  key: supabaseAnonKey.slice(0, 10) + '…' 
+});
 
 // Cliente padrão com chave anônima (para usuários comuns)
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // Cliente administrativo com chave de serviço (apenas para admin)
 export const getAdminClient = () => {
-  const serviceKey = import.meta.env.VITE_SUPABASE_SERVICE_KEY;
-  
-  // Se a chave de serviço não estiver definida, retorna o cliente padrão
-  if (!serviceKey) {
-    console.log('Chave de serviço não encontrada, usando cliente padrão');
-    return supabase;
-  }
-  
   return createClient(
     supabaseUrl,
-    serviceKey
+    supabaseServiceKey
   );
 };

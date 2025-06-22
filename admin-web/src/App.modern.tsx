@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { supabase, getAdminClient } from './lib/supabase';
 import { Session } from '@supabase/supabase-js';
 import LoginPage from './Login';
+import Dashboard from './Dashboard';
 
 // Tipos e estado
 interface RecentUser { email: string; created_at: string; }
@@ -34,6 +36,7 @@ function App() {
   const [stats, setStats] = useState<Stats>(initialStats);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentView, setCurrentView] = useState<'admin' | 'jogos'>('admin');
   const [theme, setTheme] = useState<'light'|'dark'>(() => 
     (localStorage.getItem('theme') as 'light'|'dark') || 'light'
   );
@@ -177,11 +180,25 @@ function App() {
         </div>
         
         <div className="nav-menu">
-          <div className="nav-item active">
+          <div 
+            className={`nav-item ${currentView === 'admin' ? 'active' : ''}`}
+            onClick={() => setCurrentView('admin')}
+            style={{ cursor: 'pointer' }}
+          >
             <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
             </svg>
-            Dashboard
+            Dashboard Admin
+          </div>
+          <div 
+            className={`nav-item ${currentView === 'jogos' ? 'active' : ''}`}
+            onClick={() => setCurrentView('jogos')}
+            style={{ cursor: 'pointer' }}
+          >
+            <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            Jogos Online
           </div>
           <div className="nav-item">
             <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -211,14 +228,17 @@ function App() {
         </div>
       </div>
       
-      <div className="main-content">
-        <div className="page-header">
-          <h1 className="page-title">Dashboard</h1>
+      {currentView === 'jogos' ? (
+        <Dashboard />
+      ) : (
+        <div className="main-content">
+          <div className="page-header">
+            <h1 className="page-title">Dashboard Admin</h1>
           
           <div style={{display: 'flex', gap: '1rem', alignItems: 'center'}}>
             <div className="search-bar">
               <input type="text" placeholder="Pesquisar..." />
-              <button>
+              <button title="Pesquisar">
                 <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
@@ -500,7 +520,8 @@ function App() {
             </div>
           </div>
         </div>
-      </div>
+        </div>
+      )}
     </div>
   );
 }

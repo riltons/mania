@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "start": "vite",
     "dev": "vite",
     "build": "vite build",
     "serve": "vite preview"
@@ -11,6 +12,7 @@
     "@supabase/supabase-js": "^2.48.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "react-router-dom": "^6.8.0",
     "styled-components": "^6.1.15"
   },
   "devDependencies": {
