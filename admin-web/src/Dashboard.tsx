@@ -357,13 +357,28 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      <div className="dashboard-content">
-        <div className="last-updated">
-          {formatLastUpdated(lastUpdated)}
-        </div>
+      <div className="dashboard-with-sidebar" style={{
+        display: 'flex',
+        flexDirection: 'row',
+        gap: '32px',
+        alignItems: 'flex-start',
+        padding: '0 32px 32px',
+        width: '100%'
+      }}>
+        <div className="dashboard-main-content" style={{
+          flex: 1,
+          width: '60%'
+        }}>
+          <div className="dashboard-content" style={{
+            maxWidth: 'none',
+            margin: 0,
+            padding: 0,
+            width: '100%'
+          }}>
+            <div className="last-updated">
+              {formatLastUpdated(lastUpdated)}
+            </div>
 
-        <div className="dashboard-with-sidebar">
-          <div className="dashboard-main-content">
             <div className="competition-selector">
               <h2>Filtrar por Competição</h2>
               <div className="competition-chips">
@@ -384,6 +399,7 @@ const Dashboard: React.FC = () => {
                 ))}
               </div>
             </div>
+
             <div className="dashboard-section">
               <div className="section-header in-progress">
                 <div className="section-title">
@@ -444,13 +460,17 @@ const Dashboard: React.FC = () => {
               </div>
             </div>
           </div>
+        </div>
 
-          <div className="dashboard-sidebar">
-            <RankingSidebar 
-              selectedCompetitionId={selectedCompetitionId}
-              competitions={competitions}
-            />
-          </div>
+        <div className="dashboard-sidebar" style={{
+          position: 'sticky',
+          top: '32px',
+          flexShrink: 0
+        }}>
+          <RankingSidebar 
+            selectedCompetitionId={selectedCompetitionId}
+            competitions={competitions}
+          />
         </div>
       </div>
 

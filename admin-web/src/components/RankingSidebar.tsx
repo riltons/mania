@@ -42,17 +42,6 @@ const RankingSidebar: React.FC<RankingSidebarProps> = ({ selectedCompetitionId, 
     }
   }, [selectedCompetitionId]);
 
-  if (!selectedCompetitionId) {
-    return (
-      <div className="ranking-sidebar">
-        <div className="ranking-header">
-          <h3>📊 Rankings</h3>
-          <p>Selecione uma competição para ver os rankings</p>
-        </div>
-      </div>
-    );
-  }
-
   const renderPlayerRanking = () => (
     <div className="ranking-content">
       {playerRanking.length > 0 ? (
@@ -144,17 +133,130 @@ const RankingSidebar: React.FC<RankingSidebarProps> = ({ selectedCompetitionId, 
     </div>
   );
 
+  // SEMPRE RETORNA O COMPONENTE VISÍVEL
   return (
-    <div className="ranking-sidebar">
+    <>
+      <style>{`
+        /* ESTILOS FORÇADOS PARA SIDEBAR RANKINGS */
+        .ranking-sidebar .ranking-item {
+          display: flex !important;
+          align-items: center !important;
+          gap: 16px !important;
+          padding: 18px 20px !important;
+          min-height: 84px !important;
+          width: 100% !important;
+          box-sizing: border-box !important;
+        }
+        
+        .ranking-sidebar .ranking-item .rank-position {
+          min-width: 48px !important;
+          text-align: center !important;
+          flex-shrink: 0 !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          font-size: 1.6rem !important;
+          font-weight: 800 !important;
+        }
+        
+        .ranking-sidebar .ranking-item .player-info,
+        .ranking-sidebar .ranking-item .pair-info {
+          flex: 1 !important;
+          display: flex !important;
+          align-items: center !important;
+          gap: 16px !important;
+          overflow: hidden !important;
+        }
+        
+        .ranking-sidebar .ranking-item .player-avatar {
+          width: 56px !important;
+          height: 56px !important;
+          border-radius: 50% !important;
+          flex-shrink: 0 !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          background: linear-gradient(135deg, #8257e5 0%, #00875f 100%) !important;
+          font-size: 1.3rem !important;
+        }
+        
+        .ranking-sidebar .ranking-item .player-avatar.small {
+          width: 46px !important;
+          height: 46px !important;
+          font-size: 1.1rem !important;
+        }
+        
+        .ranking-sidebar .ranking-item .player-details,
+        .ranking-sidebar .ranking-item .pair-details {
+          flex: 1 !important;
+          display: flex !important;
+          flex-direction: column !important;
+          justify-content: center !important;
+          gap: 4px !important;
+          overflow: hidden !important;
+        }
+        
+        .ranking-sidebar .ranking-item .player-name {
+          font-size: 1.2rem !important;
+          font-weight: 700 !important;
+          line-height: 1.2 !important;
+        }
+        
+        .ranking-sidebar .ranking-item .pair-names {
+          font-size: 1.1rem !important;
+          font-weight: 700 !important;
+          line-height: 1.2 !important;
+        }
+        
+        .ranking-sidebar .ranking-item .player-stats,
+        .ranking-sidebar .ranking-item .pair-stats {
+          font-size: 0.95rem !important;
+          gap: 8px !important;
+        }
+        
+        .ranking-sidebar .ranking-item .points {
+          min-width: 65px !important;
+          text-align: right !important;
+          flex-shrink: 0 !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: flex-end !important;
+          padding-left: 10px !important;
+          font-size: 1.5rem !important;
+          font-weight: 800 !important;
+        }
+        
+        .ranking-sidebar .ranking-item .pair-avatars {
+          display: flex !important;
+          gap: 4px !important;
+          flex-shrink: 0 !important;
+          align-items: center !important;
+        }
+      `}</style>
+      
+      <div className="ranking-sidebar" style={{
+        width: '480px',
+        minWidth: '480px',
+        maxWidth: '480px',
+        minHeight: '600px',
+        maxHeight: 'calc(100vh - 300px)',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden'
+      }}>
       <div className="ranking-header">
         <h3>📊 Rankings</h3>
-        {competitionStatus && (
-          <div className="competition-info">
-            <div className="competition-name">{competitionStatus.name}</div>
-            {competitionStatus.isFinished && (
-              <div className="finished-badge">🏆 FINALIZADA</div>
-            )}
-          </div>
+        {!selectedCompetitionId ? (
+          <p>Selecione uma competição para ver os rankings</p>
+        ) : (
+          competitionStatus && (
+            <div className="competition-info">
+              <div className="competition-name">{competitionStatus.name}</div>
+              {competitionStatus.isFinished && (
+                <div className="finished-badge">🏆 FINALIZADA</div>
+              )}
+            </div>
+          )
         )}
       </div>
 
@@ -178,32 +280,37 @@ const RankingSidebar: React.FC<RankingSidebarProps> = ({ selectedCompetitionId, 
         </div>
       )}
 
-      <div className="ranking-tabs">
-        <button
-          className={`tab-button ${activeTab === 'players' ? 'active' : ''}`}
-          onClick={() => setActiveTab('players')}
-        >
-          👤 Jogadores
-        </button>
-        <button
-          className={`tab-button ${activeTab === 'pairs' ? 'active' : ''}`}
-          onClick={() => setActiveTab('pairs')}
-        >
-          👥 Duplas
-        </button>
-      </div>
-
-      {loading ? (
-        <div className="loading-rankings">
-          <div className="loading-spinner"></div>
-          <p>Carregando rankings...</p>
-        </div>
-      ) : (
+      {selectedCompetitionId && (
         <>
-          {activeTab === 'players' ? renderPlayerRanking() : renderPairRanking()}
+          <div className="ranking-tabs">
+            <button
+              className={`tab-button ${activeTab === 'players' ? 'active' : ''}`}
+              onClick={() => setActiveTab('players')}
+            >
+              👤 Jogadores
+            </button>
+            <button
+              className={`tab-button ${activeTab === 'pairs' ? 'active' : ''}`}
+              onClick={() => setActiveTab('pairs')}
+            >
+              👥 Duplas
+            </button>
+          </div>
+
+          {loading ? (
+            <div className="loading-rankings">
+              <div className="loading-spinner"></div>
+              <p>Carregando rankings...</p>
+            </div>
+          ) : (
+            <>
+              {activeTab === 'players' ? renderPlayerRanking() : renderPairRanking()}
+            </>
+          )}
         </>
       )}
     </div>
+    </>
   );
 };
 
