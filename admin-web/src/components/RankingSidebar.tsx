@@ -138,6 +138,37 @@ const RankingSidebar: React.FC<RankingSidebarProps> = ({ selectedCompetitionId, 
     <>
       <style>{`
         /* ESTILOS FORÇADOS PARA SIDEBAR RANKINGS */
+        .ranking-sidebar .ranking-header {
+          padding: 32px 28px 28px 28px !important;
+        }
+        
+        .ranking-sidebar .ranking-header h3 {
+          margin: 0 0 16px 0 !important;
+        }
+        
+        .ranking-sidebar .competition-info {
+          margin-top: 20px !important;
+          margin-bottom: 8px !important;
+        }
+        
+        .ranking-sidebar .competition-name {
+          margin-bottom: 12px !important;
+        }
+        
+        .ranking-sidebar .ranking-tabs {
+          margin-top: 16px !important;
+          margin-bottom: 8px !important;
+        }
+        
+        .ranking-sidebar .tab-button {
+          padding: 24px 20px !important;
+          margin: 0 4px !important;
+        }
+        
+        .ranking-sidebar .ranking-content {
+          padding: 20px 0 24px 0 !important;
+        }
+        
         .ranking-sidebar .ranking-item {
           display: flex !important;
           align-items: center !important;

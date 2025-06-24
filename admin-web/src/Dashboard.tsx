@@ -377,6 +377,12 @@ const Dashboard: React.FC = () => {
           }}>
             <div className="last-updated">
               {formatLastUpdated(lastUpdated)}
+              {loading && (
+                <span className="loading-indicator">
+                  <span className="loading-dot"></span>
+                  Atualizando...
+                </span>
+              )}
             </div>
 
             <div className="competition-selector">
@@ -474,12 +480,7 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {loading && (
-        <div className="loading-overlay">
-          <div className="loading-spinner"></div>
-          <p>Carregando dados...</p>
-        </div>
-      )}
+
     </div>
   );
 };
