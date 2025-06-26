@@ -139,129 +139,185 @@ const RankingSidebar: React.FC<RankingSidebarProps> = ({ selectedCompetitionId, 
       <style>{`
         /* ESTILOS FORÇADOS PARA SIDEBAR RANKINGS */
         .ranking-sidebar .ranking-header {
-          padding: 32px 28px 28px 28px !important;
+          padding: 32px 16px 28px 16px !important;
         }
-        
         .ranking-sidebar .ranking-header h3 {
           margin: 0 0 16px 0 !important;
         }
-        
         .ranking-sidebar .competition-info {
           margin-top: 20px !important;
           margin-bottom: 8px !important;
         }
-        
         .ranking-sidebar .competition-name {
           margin-bottom: 12px !important;
         }
-        
         .ranking-sidebar .ranking-tabs {
           margin-top: 16px !important;
           margin-bottom: 8px !important;
-        }
-        
-        .ranking-sidebar .tab-button {
-          padding: 24px 20px !important;
-          margin: 0 4px !important;
-        }
-        
-        .ranking-sidebar .ranking-content {
-          padding: 20px 0 24px 0 !important;
-        }
-        
-        .ranking-sidebar .ranking-item {
+          padding: 0 16px !important;
           display: flex !important;
-          align-items: center !important;
-          gap: 16px !important;
-          padding: 18px 20px !important;
-          min-height: 84px !important;
           width: 100% !important;
           box-sizing: border-box !important;
         }
-        
+        .ranking-sidebar .tab-button {
+          padding: 20px 12px !important;
+          margin: 0 !important;
+          flex: 1 !important;
+          border-radius: 8px 8px 0 0 !important;
+          width: 50% !important;
+        }
+        .ranking-sidebar .ranking-content {
+          padding: 16px 0 20px 0 !important;
+          width: 100% !important;
+          box-sizing: border-box !important;
+        }
+        .ranking-sidebar .ranking-item {
+          display: flex !important;
+          align-items: center !important;
+          gap: 12px !important;
+          padding: 16px 10px !important;
+          min-height: 76px !important;
+          width: 100% !important;
+          box-sizing: border-box !important;
+          margin-bottom: 8px !important;
+        }
         .ranking-sidebar .ranking-item .rank-position {
-          min-width: 48px !important;
+          min-width: 40px !important;
           text-align: center !important;
           flex-shrink: 0 !important;
           display: flex !important;
           align-items: center !important;
           justify-content: center !important;
-          font-size: 1.6rem !important;
+          font-size: 1.4rem !important;
           font-weight: 800 !important;
         }
-        
-        .ranking-sidebar .ranking-item .player-info,
+        .ranking-sidebar .ranking-item .player-info {
+          flex: 1 !important;
+          display: flex !important;
+          align-items: center !important;
+          gap: 12px !important;
+          min-width: 0 !important;
+          overflow: hidden !important;
+        }
         .ranking-sidebar .ranking-item .pair-info {
           flex: 1 !important;
           display: flex !important;
           align-items: center !important;
-          gap: 16px !important;
+          gap: 10px !important;
+          min-width: 0 !important;
           overflow: hidden !important;
         }
-        
         .ranking-sidebar .ranking-item .player-avatar {
-          width: 56px !important;
-          height: 56px !important;
+          width: 48px !important;
+          height: 48px !important;
           border-radius: 50% !important;
           flex-shrink: 0 !important;
           display: flex !important;
           align-items: center !important;
           justify-content: center !important;
           background: linear-gradient(135deg, #8257e5 0%, #00875f 100%) !important;
-          font-size: 1.3rem !important;
+          font-size: 1.2rem !important;
         }
-        
         .ranking-sidebar .ranking-item .player-avatar.small {
-          width: 46px !important;
-          height: 46px !important;
-          font-size: 1.1rem !important;
+          width: 40px !important;
+          height: 40px !important;
+          font-size: 1rem !important;
         }
-        
         .ranking-sidebar .ranking-item .player-details,
         .ranking-sidebar .ranking-item .pair-details {
           flex: 1 !important;
           display: flex !important;
           flex-direction: column !important;
           justify-content: center !important;
-          gap: 4px !important;
+          gap: 3px !important;
+          min-width: 0 !important;
           overflow: hidden !important;
         }
-        
         .ranking-sidebar .ranking-item .player-name {
-          font-size: 1.2rem !important;
-          font-weight: 700 !important;
-          line-height: 1.2 !important;
-        }
-        
-        .ranking-sidebar .ranking-item .pair-names {
           font-size: 1.1rem !important;
           font-weight: 700 !important;
-          line-height: 1.2 !important;
+          line-height: 1.3 !important;
+          white-space: nowrap !important;
+          overflow: hidden !important;
+          text-overflow: ellipsis !important;
         }
-        
+        .ranking-sidebar .ranking-item .pair-names {
+          font-size: 1rem !important;
+          font-weight: 700 !important;
+          line-height: 1.3 !important;
+          white-space: nowrap !important;
+          overflow: hidden !important;
+          text-overflow: ellipsis !important;
+        }
         .ranking-sidebar .ranking-item .player-stats,
         .ranking-sidebar .ranking-item .pair-stats {
           font-size: 0.95rem !important;
           gap: 8px !important;
         }
-        
         .ranking-sidebar .ranking-item .points {
-          min-width: 65px !important;
+          min-width: 50px !important;
           text-align: right !important;
           flex-shrink: 0 !important;
           display: flex !important;
           align-items: center !important;
           justify-content: flex-end !important;
-          padding-left: 10px !important;
-          font-size: 1.5rem !important;
+          padding-left: 8px !important;
+          margin-right: 0 !important;
+          font-size: 1.4rem !important;
           font-weight: 800 !important;
         }
-        
         .ranking-sidebar .ranking-item .pair-avatars {
           display: flex !important;
-          gap: 4px !important;
+          gap: 2px !important;
           flex-shrink: 0 !important;
           align-items: center !important;
+        }
+        
+        /* ESTILOS UNIFICADOS PARA TODOS OS CARDS - LARGURA TOTAL */
+        .ranking-sidebar .ranking-item {
+          padding: 16px 16px !important;
+          gap: 12px !important;
+          margin: 0 16px 8px 16px !important;
+          width: calc(100% - 32px) !important;
+          box-sizing: border-box !important;
+          display: flex !important;
+          align-items: center !important;
+        }
+        
+        /* FORÇAR ALTURA TOTAL - REGRAS CRÍTICAS */
+        .ranking-sidebar {
+          height: 100% !important;
+          min-height: 100% !important;
+          max-height: none !important;
+          overflow: visible !important;
+          overflow-x: visible !important;
+          overflow-y: visible !important;
+          display: flex !important;
+          flex-direction: column !important;
+          width: 100% !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          box-sizing: border-box !important;
+        }
+        .ranking-content {
+          flex: 1 1 auto !important;
+          height: 100% !important;
+          min-height: 100% !important;
+          max-height: none !important;
+          overflow: visible !important;
+          display: flex !important;
+          flex-direction: column !important;
+        }
+        .ranking-list {
+          flex: 1 !important;
+          height: 100% !important;
+          overflow: visible !important;
+          padding: 0 !important;
+          margin: 0 !important;
+          display: flex !important;
+          flex-direction: column !important;
+          width: 100% !important;
+          box-sizing: border-box !important;
         }
       `}</style>
       
@@ -269,11 +325,12 @@ const RankingSidebar: React.FC<RankingSidebarProps> = ({ selectedCompetitionId, 
         width: '480px',
         minWidth: '480px',
         maxWidth: '480px',
-        minHeight: '600px',
-        maxHeight: 'calc(100vh - 300px)',
         display: 'flex',
         flexDirection: 'column',
-        overflow: 'hidden'
+        margin: 0,
+        padding: 0,
+        boxSizing: 'border-box',
+        overflow: 'visible'
       }}>
       <div className="ranking-header">
         <h3>📊 Rankings</h3>

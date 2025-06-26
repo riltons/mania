@@ -346,28 +346,70 @@ const Dashboard: React.FC = () => {
     );
   };
 
+  // Função de logout
+  const handleLogout = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error('Erro ao fazer logout:', error);
+      }
+    } catch (error) {
+      console.error('Erro inesperado no logout:', error);
+    }
+  };
+
   return (
     <div className="dashboard">
       <div className="dashboard-header">
         <h1>🏆 Jogos Online - Ao Vivo</h1>
         <p>Acompanhe os jogos em tempo real</p>
-        <div className="live-indicator">
-          <div className="live-dot"></div>
-          <span>AO VIVO</span>
+        {/* Container dos elementos do canto direito - agora horizontal */}
+        <div style={{
+          position: 'absolute',
+          top: '20px',
+          right: '20px',
+          display: 'flex',
+          flexDirection: 'row', // horizontal
+          alignItems: 'center',
+          gap: '18px',
+          minWidth: 'max-content',
+          zIndex: 10
+        }}>
+          <div className="live-indicator">
+            <div className="live-dot"></div>
+            <span>AO VIVO</span>
+          </div>
+          <button 
+            onClick={handleLogout}
+            title="Fazer logout"
+            className="logout-button"
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path 
+                d="M16 17L21 12M21 12L16 7M21 12H9M9 3H7.8C6.11984 3 5.27976 3 4.63803 3.32698C4.07354 3.6146 3.6146 4.07354 3.32698 4.63803C3 5.27976 3 6.11984 3 7.8V16.2C3 17.8802 3 18.7202 3.32698 19.362C3.6146 19.9265 4.07354 20.3854 4.63803 20.6731C5.27976 21 6.11984 21 7.8 21H9" 
+                stroke="currentColor" 
+                strokeWidth="2" 
+                strokeLinecap="round" 
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
         </div>
       </div>
 
       <div className="dashboard-with-sidebar" style={{
         display: 'flex',
         flexDirection: 'row',
-        gap: '32px',
-        alignItems: 'flex-start',
-        padding: '0 32px 32px',
-        width: '100%'
+        gap: '20px',
+        padding: '0 16px 32px',
+        width: '100%',
+        maxWidth: '100vw',
+        overflow: 'visible'
       }}>
         <div className="dashboard-main-content" style={{
           flex: 1,
-          width: '60%'
+          width: 'calc(100% - 480px - 20px)',
+          minWidth: '0'
         }}>
           <div className="dashboard-content" style={{
             maxWidth: 'none',
@@ -469,9 +511,11 @@ const Dashboard: React.FC = () => {
         </div>
 
         <div className="dashboard-sidebar" style={{
-          position: 'sticky',
-          top: '32px',
-          flexShrink: 0
+          width: '480px',
+          minWidth: '480px',
+          maxWidth: '480px',
+          flexShrink: 0,
+          overflow: 'visible'
         }}>
           <RankingSidebar 
             selectedCompetitionId={selectedCompetitionId}
