@@ -139,7 +139,7 @@ const RankingSidebar: React.FC<RankingSidebarProps> = ({ selectedCompetitionId, 
       <style>{`
         /* ESTILOS FORÇADOS PARA SIDEBAR RANKINGS */
         .ranking-sidebar .ranking-header {
-          padding: 32px 16px 28px 16px !important;
+          padding: 24px 16px 20px 16px !important;
         }
         .ranking-sidebar .ranking-header h3 {
           margin: 0 0 16px 0 !important;
@@ -154,7 +154,7 @@ const RankingSidebar: React.FC<RankingSidebarProps> = ({ selectedCompetitionId, 
         .ranking-sidebar .ranking-tabs {
           margin-top: 16px !important;
           margin-bottom: 8px !important;
-          padding: 0 16px !important;
+          padding: 0 12px !important;
           display: flex !important;
           width: 100% !important;
           box-sizing: border-box !important;
@@ -175,11 +175,11 @@ const RankingSidebar: React.FC<RankingSidebarProps> = ({ selectedCompetitionId, 
           display: flex !important;
           align-items: center !important;
           gap: 12px !important;
-          padding: 16px 10px !important;
-          min-height: 76px !important;
-          width: 100% !important;
+          padding: 14px 12px !important;
+          min-height: 70px !important;
+          width: calc(100% - 24px) !important;
           box-sizing: border-box !important;
-          margin-bottom: 8px !important;
+          margin: 0 12px 12px 12px !important;
         }
         .ranking-sidebar .ranking-item .rank-position {
           min-width: 40px !important;
@@ -198,6 +198,8 @@ const RankingSidebar: React.FC<RankingSidebarProps> = ({ selectedCompetitionId, 
           gap: 12px !important;
           min-width: 0 !important;
           overflow: hidden !important;
+          padding: 0 !important;
+          margin: 0 !important;
         }
         .ranking-sidebar .ranking-item .pair-info {
           flex: 1 !important;
@@ -206,6 +208,8 @@ const RankingSidebar: React.FC<RankingSidebarProps> = ({ selectedCompetitionId, 
           gap: 10px !important;
           min-width: 0 !important;
           overflow: hidden !important;
+          padding: 0 !important;
+          margin: 0 !important;
         }
         .ranking-sidebar .ranking-item .player-avatar {
           width: 48px !important;
@@ -229,9 +233,11 @@ const RankingSidebar: React.FC<RankingSidebarProps> = ({ selectedCompetitionId, 
           display: flex !important;
           flex-direction: column !important;
           justify-content: center !important;
-          gap: 3px !important;
+          gap: 6px !important;
           min-width: 0 !important;
           overflow: hidden !important;
+          padding: 0 4px 0 0 !important;
+          margin: 0 !important;
         }
         .ranking-sidebar .ranking-item .player-name {
           font-size: 1.1rem !important;
@@ -240,6 +246,8 @@ const RankingSidebar: React.FC<RankingSidebarProps> = ({ selectedCompetitionId, 
           white-space: nowrap !important;
           overflow: hidden !important;
           text-overflow: ellipsis !important;
+          margin: 0 0 4px 0 !important;
+          padding: 0 !important;
         }
         .ranking-sidebar .ranking-item .pair-names {
           font-size: 1rem !important;
@@ -248,11 +256,18 @@ const RankingSidebar: React.FC<RankingSidebarProps> = ({ selectedCompetitionId, 
           white-space: nowrap !important;
           overflow: hidden !important;
           text-overflow: ellipsis !important;
+          margin: 0 0 4px 0 !important;
+          padding: 0 !important;
         }
         .ranking-sidebar .ranking-item .player-stats,
         .ranking-sidebar .ranking-item .pair-stats {
           font-size: 0.95rem !important;
           gap: 8px !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          display: flex !important;
+          align-items: center !important;
+          flex-wrap: wrap !important;
         }
         .ranking-sidebar .ranking-item .points {
           min-width: 50px !important;
@@ -261,10 +276,11 @@ const RankingSidebar: React.FC<RankingSidebarProps> = ({ selectedCompetitionId, 
           display: flex !important;
           align-items: center !important;
           justify-content: flex-end !important;
-          padding-left: 8px !important;
-          margin-right: 0 !important;
+          padding-left: 12px !important;
+          margin: 0 !important;
           font-size: 1.4rem !important;
           font-weight: 800 !important;
+          border-left: 1px solid rgba(130, 87, 229, 0.2) !important;
         }
         .ranking-sidebar .ranking-item .pair-avatars {
           display: flex !important;
@@ -275,13 +291,14 @@ const RankingSidebar: React.FC<RankingSidebarProps> = ({ selectedCompetitionId, 
         
         /* ESTILOS UNIFICADOS PARA TODOS OS CARDS - LARGURA TOTAL */
         .ranking-sidebar .ranking-item {
-          padding: 16px 16px !important;
+          padding: 14px 12px !important;
           gap: 12px !important;
-          margin: 0 16px 8px 16px !important;
-          width: calc(100% - 32px) !important;
+          margin: 0 12px 12px 12px !important;
+          width: calc(100% - 24px) !important;
           box-sizing: border-box !important;
           display: flex !important;
           align-items: center !important;
+          min-height: 70px !important;
         }
         
         /* FORÇAR ALTURA TOTAL - REGRAS CRÍTICAS */

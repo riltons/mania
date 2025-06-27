@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from './lib/supabase';
 import RankingSidebar from './components/RankingSidebar';
 import './dashboard.css';
+import './balanced-spacing.css';
 
 interface Game {
   id: string;

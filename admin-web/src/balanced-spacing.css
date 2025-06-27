@@ -1,0 +1,238 @@
+/* =============================================== */
+/* ESPAÇAMENTOS BALANCEADOS - VERSÃO EQUILIBRADA */
+/* =============================================== */
+
+/* Espaçamento moderado entre avatar e nome */
+.game-card .player-container {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  text-align: center !important;
+  margin-bottom: 16px !important;
+  padding: 8px 4px !important;
+}
+
+.game-card .player-avatar {
+  margin-bottom: 12px !important; /* Espaço moderado entre avatar e nome */
+  margin-right: 0 !important;
+  margin-left: 0 !important;
+  margin-top: 0 !important;
+}
+
+.game-card .player-name {
+  margin-top: 0 !important;
+  margin-bottom: 4px !important;
+  padding-top: 0 !important;
+  line-height: 1.3 !important;
+}
+
+/* Placar central com espaçamento controlado */
+.game-card .score-container {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin: 0 24px !important; /* Margem moderada */
+  padding: 8px 12px !important;
+  gap: 0 !important;
+}
+
+.game-card .score {
+  font-size: 4rem !important;
+  font-weight: 800 !important;
+  margin: 0 !important;
+  padding: 0 12px !important; /* Padding reduzido */
+  line-height: 1 !important;
+}
+
+.game-card .separator {
+  font-size: 2.5rem !important;
+  margin: 0 16px !important; /* Espaço moderado do separador */
+  padding: 0 !important;
+  line-height: 1 !important;
+}
+
+/* Container dos jogadores com gap moderado */
+.game-card .players-container {
+  display: flex !important;
+  justify-content: center !important;
+  gap: 32px !important; /* Gap moderado entre jogadores */
+  margin-bottom: 20px !important;
+  padding: 8px 0 !important;
+}
+
+/* Container dos times equilibrado */
+.game-card .teams-container {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  margin-bottom: 24px !important;
+  padding: 12px 16px !important;
+}
+
+.game-card .team-container {
+  flex: 1 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  padding: 8px !important;
+  max-width: 250px !important; /* Largura máxima reduzida */
+}
+
+/* Game card geral com padding controlado */
+.game-card {
+  margin-bottom: 24px !important;
+  padding: 24px !important; /* Padding interno moderado */
+  min-height: auto !important; /* Remove altura mínima forçada */
+}
+
+/* Seções com espaçamento moderado */
+.dashboard-section {
+  margin-bottom: 36px !important; /* Reduzido de 60px */
+}
+
+.section-content {
+  padding: 24px !important; /* Reduzido de 40px */
+}
+
+/* Game header equilibrado */
+.game-card .game-header {
+  margin-bottom: 20px !important;
+  padding-bottom: 8px !important;
+}
+
+/* Detalhes do jogo */
+.game-card .game-details {
+  margin-top: 20px !important;
+  padding-top: 20px !important;
+  border-top: 1px solid rgba(124, 124, 138, 0.3) !important;
+}
+
+.game-card .detail-item {
+  text-align: center !important;
+  padding: 6px 8px !important;
+  margin: 0 2px !important;
+}
+
+/* Rankings com espaçamento moderado */
+.ranking-item {
+  margin-bottom: 12px !important;
+  padding: 14px !important;
+  min-height: 70px !important; /* Altura reduzida */
+}
+
+.ranking-sidebar .ranking-item {
+  margin: 0 12px 12px 12px !important;
+  padding: 14px 12px !important;
+  width: calc(100% - 24px) !important;
+}
+
+/* Layout principal equilibrado */
+.dashboard-with-sidebar {
+  gap: 24px !important; /* Gap moderado */
+  padding: 0 20px 32px 20px !important;
+}
+
+.dashboard-header {
+  margin-bottom: 32px !important;
+  padding: 40px 24px !important; /* Padding reduzido */
+}
+
+/* Correções para rankings horizontais */
+.ranking-item .player-info,
+.ranking-item .pair-info {
+  gap: 12px !important; /* Gap moderado */
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.ranking-item .player-details,
+.ranking-item .pair-details {
+  gap: 4px !important;
+  padding: 0 2px 0 0 !important;
+}
+
+.ranking-item .player-name,
+.ranking-item .pair-names {
+  margin: 0 0 4px 0 !important;
+}
+
+.ranking-item .player-stats,
+.ranking-item .pair-stats {
+  gap: 6px !important;
+}
+
+.ranking-item .points {
+  padding-left: 8px !important;
+  margin: 0 !important;
+}
+
+/* Responsividade balanceada */
+@media (max-width: 1400px) {
+  .game-card .players-container {
+    gap: 28px !important;
+  }
+  
+  .game-card .score-container {
+    margin: 0 20px !important;
+  }
+  
+  .game-card .separator {
+    margin: 0 14px !important;
+  }
+}
+
+@media (max-width: 1200px) {
+  .game-card .players-container {
+    gap: 24px !important;
+  }
+  
+  .game-card .score-container {
+    margin: 0 16px !important;
+  }
+  
+  .game-card .separator {
+    margin: 0 12px !important;
+  }
+  
+  .game-card .score {
+    padding: 0 8px !important;
+  }
+  
+  .game-card {
+    padding: 20px !important;
+  }
+  
+  .dashboard-with-sidebar {
+    gap: 20px !important;
+    padding: 0 16px 24px 16px !important;
+  }
+}
+
+/* Garantir que elementos não ultrapassem limites */
+.game-card,
+.ranking-item,
+.dashboard-section {
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+}
+
+.game-card .teams-container {
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+}
+
+.game-card .score-container {
+  width: auto !important;
+  max-width: calc(100% - 48px) !important;
+  overflow: hidden !important;
+}
+
+/* Remover altura mínima excessiva */
+.dashboard .game-card {
+  min-height: auto !important;
+}
+
+.dashboard .section-content {
+  min-height: 120px !important;
+} 

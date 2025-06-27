@@ -1,0 +1,241 @@
+/* ============================================= */
+/* CORREÇÕES ESPECÍFICAS PARA CARDS DE JOGOS   */
+/* ============================================= */
+
+/* Espaçamento entre avatar e nome do jogador */
+.dashboard .player-container {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  text-align: center !important;
+  gap: 16px !important; /* Espaço entre avatar e nome */
+  margin-bottom: 20px !important;
+  padding: 8px !important;
+}
+
+/* Espaçamento específico do avatar */
+.dashboard .player-avatar {
+  margin-bottom: 12px !important;
+  margin-right: 0 !important;
+  margin-left: 0 !important;
+}
+
+/* Espaçamento do nome do jogador */
+.dashboard .player-name {
+  margin-top: 8px !important;
+  margin-bottom: 0 !important;
+  padding-top: 4px !important;
+}
+
+/* Container dos jogadores com mais espaço */
+.dashboard .players-container {
+  display: flex !important;
+  justify-content: center !important;
+  gap: 48px !important; /* Mais espaço entre os jogadores */
+  margin-bottom: 32px !important;
+  padding: 16px 0 !important;
+}
+
+/* Espaçamento do placar central */
+.dashboard .score-container {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin: 0 80px !important; /* Mais margem lateral */
+  padding: 24px 32px !important; /* Padding interno maior */
+  gap: 24px !important; /* Espaço entre os elementos do placar */
+}
+
+/* Espaçamento dos números do placar */
+.dashboard .score {
+  margin: 0 16px !important;
+  padding: 8px 12px !important;
+}
+
+/* Espaçamento do separador (x) */
+.dashboard .separator {
+  margin: 0 20px !important;
+  padding: 0 8px !important;
+}
+
+/* Container geral dos times com mais respiração */
+.dashboard .teams-container {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  margin-bottom: 40px !important;
+  padding: 20px 16px !important;
+  gap: 32px !important; /* Espaço entre os times */
+}
+
+/* Container individual de cada time */
+.dashboard .team-container {
+  flex: 1 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  padding: 16px !important;
+  gap: 12px !important; /* Espaço interno do time */
+}
+
+/* Ajustes para o cabeçalho do jogo */
+.dashboard .game-header {
+  margin-bottom: 32px !important;
+  padding-bottom: 16px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Espaçamento do nome da competição */
+.dashboard .competition-name {
+  margin-bottom: 8px !important;
+  padding: 4px 0 !important;
+}
+
+/* Espaçamento do badge de status */
+.dashboard .status-badge {
+  margin-top: 8px !important;
+  margin-left: auto !important;
+  padding: 10px 24px !important;
+}
+
+/* Espaçamento dos detalhes do jogo */
+.dashboard .game-details {
+  padding-top: 40px !important;
+  margin-top: 40px !important;
+  border-top: 2px solid rgba(124, 124, 138, 0.3) !important;
+  display: flex !important;
+  justify-content: space-around !important;
+  gap: 32px !important;
+}
+
+/* Espaçamento individual de cada detalhe */
+.dashboard .detail-item {
+  text-align: center !important;
+  padding: 12px 16px !important;
+  margin: 0 8px !important;
+  flex: 1 !important;
+}
+
+/* Espaçamento do label dos detalhes */
+.dashboard .detail-label {
+  margin-bottom: 12px !important;
+  padding-bottom: 4px !important;
+}
+
+/* Espaçamento do valor dos detalhes */
+.dashboard .detail-value {
+  margin-top: 8px !important;
+  padding-top: 4px !important;
+}
+
+/* Indicador de vencedor com mais espaço */
+.dashboard .winner-indicator {
+  margin-top: 16px !important;
+  padding: 12px 20px !important;
+}
+
+/* Responsividade para telas menores */
+@media (max-width: 1400px) {
+  .dashboard .players-container {
+    gap: 40px !important;
+  }
+  
+  .dashboard .score-container {
+    margin: 0 60px !important;
+    padding: 20px 24px !important;
+  }
+  
+  .dashboard .teams-container {
+    gap: 24px !important;
+    padding: 16px 12px !important;
+  }
+}
+
+@media (max-width: 1200px) {
+  .dashboard .players-container {
+    gap: 32px !important;
+  }
+  
+  .dashboard .score-container {
+    margin: 0 40px !important;
+    padding: 16px 20px !important;
+  }
+  
+  .dashboard .teams-container {
+    gap: 20px !important;
+    padding: 12px 8px !important;
+  }
+  
+  .dashboard .player-container {
+    gap: 12px !important;
+    margin-bottom: 16px !important;
+  }
+}
+
+/* Correções específicas para elementos que estavam colados */
+.dashboard .player-info {
+  display: flex !important;
+  align-items: center !important;
+  gap: 16px !important;
+  padding: 8px !important;
+  margin: 8px 0 !important;
+}
+
+.dashboard .pair-info {
+  display: flex !important;
+  align-items: center !important;
+  gap: 14px !important;
+  padding: 8px !important;
+  margin: 8px 0 !important;
+}
+
+/* Espaçamento entre avatares de duplas */
+.dashboard .pair-avatars {
+  display: flex !important;
+  gap: 8px !important;
+  margin-right: 12px !important;
+  padding: 4px !important;
+}
+
+/* Detalhes dos jogadores com mais espaço */
+.dashboard .player-details {
+  flex: 1 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  padding: 4px 8px !important;
+}
+
+.dashboard .pair-details {
+  flex: 1 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  padding: 4px 8px !important;
+}
+
+/* Estatísticas dos jogadores */
+.dashboard .player-stats,
+.dashboard .pair-stats {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  margin-top: 8px !important;
+  padding: 4px 0 !important;
+  flex-wrap: wrap !important;
+}
+
+/* Taxa de vitória com espaçamento */
+.dashboard .win-rate {
+  margin-left: 8px !important;
+  padding: 4px 8px !important;
+}
+
+/* Pontuação com espaçamento adequado */
+.dashboard .points {
+  margin-left: 16px !important;
+  padding-left: 12px !important;
+  border-left: 1px solid rgba(130, 87, 229, 0.3) !important;
+} 
