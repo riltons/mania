@@ -3,16 +3,15 @@ import { View, Text, FlatList, ActivityIndicator, TouchableOpacity } from 'react
 import { PlayerAvatar } from '@/core/components/data-display/PlayerAvatar';
 import styled from 'styled-components/native';
 import { useTheme } from '@/core/contexts/ThemeProvider';
-import { ThemeType } from '@/core/theme';
-import { InternalHeader } from '@/core/components/layout/InternalHeader';
-import { PageTransition } from '@/core/components/transitions/PageTransition';
+import { Header } from '@/core/components/layout/Header';
 import { Feather } from '@expo/vector-icons';
 import { rankingService, PlayerRanking } from '@/features/statistics/services/rankingService';
 import { useRouter } from 'expo-router';
+import { DefaultTheme } from 'styled-components';
 
 const Container = styled.View`
     flex: 1;
-    background-color: ${({ theme }: { theme: ThemeType }) => theme.colors.backgroundDark};
+    background-color: ${({ theme }: { theme: DefaultTheme }) => theme.colors.backgroundDark};
 `;
 
 const Content = styled.View`
@@ -21,10 +20,11 @@ const Content = styled.View`
 `;
 
 const PlayerCard = styled.TouchableOpacity`
-    background-color: ${({ theme }: { theme: ThemeType }) => theme.colors.backgroundMedium};
+    background-color: ${({ theme }: { theme: DefaultTheme }) => theme.colors.backgroundMedium};
     border-radius: 12px;
     padding: 16px;
     margin-bottom: 12px;
+    border: 1px solid ${({ theme }: { theme: DefaultTheme }) => theme.colors.tertiary}40;
 `;
 
 const CardHeader = styled.View`
@@ -34,7 +34,7 @@ const CardHeader = styled.View`
 `;
 
 const Position = styled.Text`
-    color: ${({ theme }: { theme: ThemeType }) => theme.colors.primary};
+    color: ${({ theme }: { theme: DefaultTheme }) => theme.colors.primary};
     font-size: 24px;
     font-weight: bold;
     min-width: 40px;
@@ -46,7 +46,7 @@ const PlayerInfo = styled.View`
 `;
 
 const PlayerName = styled.Text`
-    color: ${({ theme }: { theme: ThemeType }) => theme.colors.gray100};
+    color: ${({ theme }: { theme: DefaultTheme }) => theme.colors.textPrimary};
     font-size: 18px;
     font-weight: bold;
 `;
@@ -56,7 +56,7 @@ const StatsContainer = styled.View`
     justify-content: space-between;
     padding-top: 12px;
     border-top-width: 1px;
-    border-top-color: ${({ theme }: { theme: ThemeType }) => theme.colors.backgroundLight};
+    border-top-color: ${({ theme }: { theme: DefaultTheme }) => theme.colors.border};
 `;
 
 const StatItem = styled.View`
@@ -65,13 +65,13 @@ const StatItem = styled.View`
 `;
 
 const StatValue = styled.Text`
-    color: ${({ theme }: { theme: ThemeType }) => theme.colors.primary};
+    color: ${({ theme }: { theme: DefaultTheme }) => theme.colors.primary};
     font-size: 16px;
     font-weight: bold;
 `;
 
 const StatLabel = styled.Text`
-    color: ${({ theme }: { theme: ThemeType }) => theme.colors.gray300};
+    color: ${({ theme }: { theme: DefaultTheme }) => theme.colors.textSecondary};
     font-size: 12px;
     margin-top: 4px;
     text-align: center;
@@ -92,7 +92,7 @@ const ErrorContainer = styled.View`
 `;
 
 const ErrorText = styled.Text`
-    color: ${({ theme }: { theme: ThemeType }) => theme.colors.error};
+    color: ${({ theme }: { theme: DefaultTheme }) => theme.colors.error};
     font-size: 16px;
     text-align: center;
 `;
@@ -105,7 +105,7 @@ const EmptyContainer = styled.View`
 `;
 
 const EmptyText = styled.Text`
-    color: ${({ theme }: { theme: ThemeType }) => theme.colors.gray300};
+    color: ${({ theme }: { theme: DefaultTheme }) => theme.colors.textSecondary};
     font-size: 16px;
     text-align: center;
 `;
@@ -115,8 +115,7 @@ export default function TopJogadores() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
-  const theme = useTheme();
-  const colors = theme.colors;
+  const { colors } = useTheme();
 
   useEffect(() => {
     loadPlayers();
@@ -137,7 +136,7 @@ export default function TopJogadores() {
     if (loading) {
         return (
             <Container>
-                <InternalHeader title="Top Jogadores" />
+                <Header title="Top Jogadores" showBackButton />
                 <LoadingContainer>
                     <ActivityIndicator size="large" color={colors.primary} />
                 </LoadingContainer>
@@ -148,7 +147,7 @@ export default function TopJogadores() {
     if (error) {
         return (
             <Container>
-                <InternalHeader title="Top Jogadores" />
+                <Header title="Top Jogadores" showBackButton />
                 <ErrorContainer>
                     <ErrorText>{error}</ErrorText>
                 </ErrorContainer>
@@ -159,7 +158,7 @@ export default function TopJogadores() {
     if (players.length === 0) {
         return (
             <Container>
-                <InternalHeader title="Top Jogadores" />
+                <Header title="Top Jogadores" showBackButton />
                 <EmptyContainer>
                     <EmptyText>Nenhum jogador encontrado</EmptyText>
                 </EmptyContainer>
@@ -175,7 +174,7 @@ export default function TopJogadores() {
     };
     
     const renderPlayer = ({ item, index }: { item: PlayerRanking; index: number }) => (
-        <PlayerCard onPress={() => router.push(`/jogador/jogador/${item.id}/jogos`)}>
+        <PlayerCard onPress={() => router.push(`/(pages)/jogador/jogador/${item.id}/jogos`)}>
             <CardHeader>
                 <Position>{calculatePosition(index, players)}º</Position>
                 <PlayerAvatar 
@@ -219,23 +218,16 @@ export default function TopJogadores() {
     );
 
     return (
-        <PageTransition>
-            <Container>
-                <InternalHeader title="Top Jogadores" rightContent={
-                        <TouchableOpacity onPress={() => router.push('/')}>
-                            <Feather name="bar-chart-2" size={24} color={colors.gray100} />
-                        </TouchableOpacity>
-                    }/>
-                <Content>
-                    <FlatList
-                        data={players}
-                        renderItem={renderPlayer}
-                        keyExtractor={item => item.id}
-                        showsVerticalScrollIndicator={false}
-                    />
-                </Content>
-            </Container>
-        </PageTransition>
+        <Container>
+            <Header title="Top Jogadores" showBackButton />
+            <Content>
+                <FlatList
+                    data={players}
+                    renderItem={renderPlayer}
+                    keyExtractor={item => item.id}
+                    showsVerticalScrollIndicator={false}
+                />
+            </Content>
+        </Container>
     );
 }
-

@@ -137,6 +137,110 @@ const StatLabel = styled.Text`
     text-align: center;
 `;
 
+const ChartContainer = styled.View`
+    background-color: ${({ theme }: { theme: DefaultTheme }) => theme.colors.backgroundMedium};
+    border-radius: 16px;
+    padding: 20px;
+    margin: 0 20px 20px;
+    border: 1px solid ${({ theme }: { theme: DefaultTheme }) => theme.colors.tertiary}40;
+    align-items: center;
+`;
+
+const ChartTitle = styled.Text`
+    font-size: 16px;
+    font-weight: bold;
+    color: ${({ theme }: { theme: DefaultTheme }) => theme.colors.textPrimary};
+    margin-bottom: 16px;
+`;
+
+const SectionContainer = styled.View`
+    padding: 0 20px;
+    margin-bottom: 20px;
+`;
+
+const SectionHeader = styled.View`
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+`;
+
+const SectionTitle = styled.Text`
+    font-size: 20px;
+    font-weight: bold;
+    color: ${({ theme }: { theme: DefaultTheme }) => theme.colors.textPrimary};
+`;
+
+const SeeAllButton = styled.TouchableOpacity`
+    padding: 8px 16px;
+    background-color: ${({ theme }: { theme: DefaultTheme }) => theme.colors.primary};
+    border-radius: 8px;
+`;
+
+const SeeAllButtonText = styled.Text`
+    color: ${({ theme }: { theme: DefaultTheme }) => theme.colors.white};
+    font-size: 14px;
+    font-weight: bold;
+`;
+
+const PlayerCard = styled.TouchableOpacity`
+    flex-direction: row;
+    align-items: center;
+    background-color: ${({ theme }: { theme: DefaultTheme }) => theme.colors.backgroundMedium};
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+    border: 1px solid ${({ theme }: { theme: DefaultTheme }) => theme.colors.tertiary}40;
+`;
+
+const PlayerInfo = styled.View`
+    flex: 1;
+    margin-left: 12px;
+`;
+
+const PlayerName = styled.Text`
+    font-size: 16px;
+    font-weight: bold;
+    color: ${({ theme }: { theme: DefaultTheme }) => theme.colors.textPrimary};
+`;
+
+const PlayerStats = ({ children }: { children: React.ReactNode }) => {
+    const { colors } = useTheme();
+    return (
+        <View style={{ marginTop: 4 }}>
+            <Text style={{ color: colors.textSecondary }}>
+                {children}
+            </Text>
+        </View>
+    );
+};
+
+const ActivityCard = styled.TouchableOpacity`
+    flex-direction: row;
+    align-items: center;
+    background-color: ${({ theme }: { theme: DefaultTheme }) => theme.colors.backgroundMedium};
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+    border: 1px solid ${({ theme }: { theme: DefaultTheme }) => theme.colors.tertiary}40;
+`;
+
+const ActivityInfo = styled.View`
+    flex: 1;
+    margin-left: 12px;
+`;
+
+const ActivityText = styled.Text`
+    font-size: 14px;
+    color: ${({ theme }: { theme: DefaultTheme }) => theme.colors.textPrimary};
+`;
+
+const ActivityTime = styled.Text`
+    font-size: 12px;
+    color: ${({ theme }: { theme: DefaultTheme }) => theme.colors.textSecondary};
+    margin-top: 4px;
+`;
+
 const Dashboard: React.FC = () => {
     const { colors } = useTheme();
     const router = useRouter();
@@ -152,6 +256,21 @@ const Dashboard: React.FC = () => {
         totalCommunities: 0
     });
 
+    const [topPlayers, setTopPlayers] = useState<Player[]>([]);
+    const [topPairs, setTopPairs] = useState<Pair[]>([]);
+    const [recentActivities, setRecentActivities] = useState<Activity[]>([]);
+    const [monthlyGamesData, setMonthlyGamesData] = useState<{
+        labels: string[];
+        datasets: Array<{
+            data: number[];
+        }>;
+    }>({
+        labels: [],
+        datasets: [{
+            data: []
+        }]
+    });
+
     const loadStatistics = async () => {
         try {
             setRefreshing(true);
@@ -163,8 +282,83 @@ const Dashboard: React.FC = () => {
                 return;
             }
             
+            // Carregar estatísticas básicas
             const userStats = await statisticsService.getUserStats();
             setStats(userStats);
+            
+            // Carregar dados de jogos por mês para o gráfico
+            try {
+                const monthlyData = await statisticsService.getMonthlyGamesData();
+                console.log('[Dashboard] Dados de jogos por mês carregados:', monthlyData);
+                
+                if (monthlyData.labels.length > 0) {
+                    setMonthlyGamesData({
+                        labels: monthlyData.labels,
+                        datasets: [{
+                            data: monthlyData.data
+                        }]
+                    });
+                }
+            } catch (monthlyError) {
+                console.error('[Dashboard] Erro ao carregar dados de jogos por mês:', monthlyError);
+            }
+            
+            // Carregar atividades recentes
+            try {
+                const activities = await activityService.getRecentActivities();
+                setRecentActivities(activities);
+            } catch (activityError) {
+                console.error('[Dashboard] Erro ao carregar atividades recentes:', activityError);
+            }
+            
+            // Carregar ranking de jogadores
+            try {
+                const rankings = await rankingService.getTopPlayers();
+                console.log('[Dashboard] Top jogadores carregados:', rankings.length);
+                
+                const sortedRankings = [...rankings].sort((a, b) => {
+                    if (b.wins !== a.wins) return b.wins - a.wins;
+                    return b.winRate - a.winRate;
+                });
+                
+                const topPlayers = sortedRankings
+                    .slice(0, 4)
+                    .map((player, index) => ({
+                        ...player,
+                        position: index + 1
+                    }));
+                
+                setTopPlayers(topPlayers);
+            } catch (playerError) {
+                console.error('[Dashboard] Erro ao carregar top jogadores:', playerError);
+            }
+            
+            // Carregar ranking de duplas
+            try {
+                const rankings = await rankingService.getTopPairs();
+                console.log('[Dashboard] Top duplas carregadas:', rankings.length);
+                
+                const top4Pairs = rankings.slice(0, 4).map(pair => ({
+                    id: pair.id,
+                    player1: {
+                        id: pair.player1.id,
+                        name: pair.player1.name,
+                        avatar_url: pair.player1.avatar_url
+                    },
+                    player2: {
+                        id: pair.player2.id,
+                        name: pair.player2.name,
+                        avatar_url: pair.player2.avatar_url
+                    },
+                    wins: pair.wins,
+                    buchudas: pair.buchudas,
+                    buchudasDeRe: pair.buchudasDeRe,
+                    winRate: pair.winRate
+                }));
+                setTopPairs(top4Pairs);
+            } catch (pairError) {
+                console.error('[Dashboard] Erro ao carregar top duplas:', pairError);
+            }
             
         } catch (error) {
             console.error('[Dashboard] Erro ao carregar estatísticas:', error);
@@ -249,6 +443,219 @@ const Dashboard: React.FC = () => {
                             </StatCard>
                         </StatCardWrapper>
                     </StatisticsContainer>
+
+                    {/* Gráfico de Jogos por Mês */}
+                    <ChartContainer>
+                        <ChartTitle>Jogos por Mês</ChartTitle>
+                        <LineChart
+                            data={monthlyGamesData.labels.length > 0 ? monthlyGamesData : {
+                                labels: ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun"],
+                                datasets: [{ data: [0, 0, 0, 0, 0, 0] }]
+                            }}
+                            width={Math.max(Dimensions.get("window").width - 80, 0)}
+                            height={220}
+                            chartConfig={{
+                                backgroundColor: colors.backgroundMedium,
+                                backgroundGradientFrom: colors.backgroundMedium,
+                                backgroundGradientTo: colors.backgroundMedium,
+                                decimalPlaces: 0,
+                                color: (opacity = 1) => colors.primary,
+                                labelColor: (opacity = 1) => colors.textSecondary,
+                                style: {
+                                    borderRadius: 16
+                                },
+                                propsForDots: {
+                                    r: 6,
+                                    strokeWidth: 2,
+                                    stroke: colors.primary
+                                }
+                            }}
+                            bezier
+                            style={{
+                                marginVertical: 8,
+                                borderRadius: 16
+                            }}
+                        />
+                    </ChartContainer>
+
+                    {/* Top Jogadores */}
+                    <SectionContainer>
+                        <SectionHeader>
+                            <SectionTitle>Top Jogadores</SectionTitle>
+                            <SeeAllButton onPress={() => router.push('/(pages)/top-jogadores')}>
+                                <SeeAllButtonText>Ver todas</SeeAllButtonText>
+                            </SeeAllButton>
+                        </SectionHeader>
+
+                        {topPlayers.length === 0 ? (
+                            <View style={{
+                                backgroundColor: colors.backgroundMedium,
+                                padding: 20,
+                                borderRadius: 12,
+                                borderWidth: 1,
+                                borderColor: `${colors.tertiary}40`,
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                marginBottom: 12
+                            }}>
+                                <MaterialCommunityIcons 
+                                    name="information-outline" 
+                                    size={32} 
+                                    color={colors.textSecondary}
+                                    style={{ marginBottom: 8 }}
+                                />
+                                <Text style={{
+                                    color: colors.textSecondary,
+                                    textAlign: 'center',
+                                    fontSize: 14
+                                }}>
+                                    Nenhum jogo registrado ainda. Comece a jogar para ver as estatísticas dos jogadores!
+                                </Text>
+                            </View>
+                        ) : (
+                            topPlayers.map((player, index) => (
+                                <PlayerCard key={player.id} onPress={() => router.push(`/(pages)/jogador/jogador/${player.id}/jogos`)}>
+                                    <MaterialCommunityIcons 
+                                        name={index === 0 ? "crown" : "star"} 
+                                        size={24} 
+                                        color={index === 0 ? "#FFD700" : colors.textSecondary} 
+                                    />
+                                    <PlayerAvatar 
+                                        avatarUrl={player.avatar_url} 
+                                        name={player.name} 
+                                        size={40} 
+                                    />
+                                    <PlayerInfo>
+                                        <PlayerName>{player.name}</PlayerName>
+                                        <PlayerStats>
+                                            {player.wins} vitória{player.wins !== 1 ? 's' : ''} • {player.buchudas} buchuda{player.buchudas !== 1 ? 's' : ''} • {player.winRate.toFixed(2)}% aproveitamento
+                                        </PlayerStats>
+                                    </PlayerInfo>
+                                </PlayerCard>
+                            ))
+                        )}
+                    </SectionContainer>
+
+                    {/* Top Duplas */}
+                    <SectionContainer>
+                        <SectionHeader>
+                            <SectionTitle>Top Duplas</SectionTitle>
+                            <SeeAllButton onPress={() => router.push('/(pages)/top-duplas')}>
+                                <SeeAllButtonText>Ver todas</SeeAllButtonText>
+                            </SeeAllButton>
+                        </SectionHeader>
+
+                        {topPairs.length === 0 ? (
+                            <View style={{
+                                backgroundColor: colors.backgroundMedium,
+                                padding: 20,
+                                borderRadius: 12,
+                                borderWidth: 1,
+                                borderColor: `${colors.tertiary}40`,
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                marginBottom: 12
+                            }}>
+                                <MaterialCommunityIcons 
+                                    name="account-multiple-remove" 
+                                    size={32} 
+                                    color={colors.textSecondary}
+                                    style={{ marginBottom: 8 }}
+                                />
+                                <Text style={{
+                                    color: colors.textSecondary,
+                                    textAlign: 'center',
+                                    fontSize: 14
+                                }}>
+                                    Nenhuma dupla registrada ainda. Crie jogos em dupla para ver as estatísticas!
+                                </Text>
+                            </View>
+                        ) : (
+                            topPairs.map((pair, index) => (
+                                <PlayerCard key={pair.id}>
+                                    <MaterialCommunityIcons 
+                                        name={index === 0 ? "crown" : "account-multiple"} 
+                                        size={24} 
+                                        color={index === 0 ? "#FFD700" : colors.textSecondary} 
+                                    />
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 12 }}>
+                                        <PlayerAvatar 
+                                            avatarUrl={pair.player1.avatar_url} 
+                                            name={pair.player1.name} 
+                                            size={32} 
+                                        />
+                                        <PlayerAvatar 
+                                            avatarUrl={pair.player2.avatar_url} 
+                                            name={pair.player2.name} 
+                                            size={32}
+                                            style={{ marginLeft: -8 }}
+                                        />
+                                    </View>
+                                    <PlayerInfo>
+                                        <PlayerName>{pair.player1.name} & {pair.player2.name}</PlayerName>
+                                        <PlayerStats>
+                                            {pair.wins} vitória{pair.wins !== 1 ? 's' : ''} • {pair.buchudas} buchuda{pair.buchudas !== 1 ? 's' : ''} • {pair.winRate.toFixed(2)}% aproveitamento
+                                        </PlayerStats>
+                                    </PlayerInfo>
+                                </PlayerCard>
+                            ))
+                        )}
+                    </SectionContainer>
+
+                    {/* Atividades Recentes */}
+                    <SectionContainer>
+                        <SectionHeader>
+                            <SectionTitle>Atividades Recentes</SectionTitle>
+                        </SectionHeader>
+
+                        {recentActivities.length === 0 ? (
+                            <View style={{
+                                backgroundColor: colors.backgroundMedium,
+                                padding: 20,
+                                borderRadius: 12,
+                                borderWidth: 1,
+                                borderColor: `${colors.tertiary}40`,
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                marginBottom: 12
+                            }}>
+                                <MaterialCommunityIcons 
+                                    name="clock-outline" 
+                                    size={32} 
+                                    color={colors.textSecondary}
+                                    style={{ marginBottom: 8 }}
+                                />
+                                <Text style={{
+                                    color: colors.textSecondary,
+                                    textAlign: 'center',
+                                    fontSize: 14
+                                }}>
+                                    Nenhuma atividade recente encontrada.
+                                </Text>
+                            </View>
+                        ) : (
+                            recentActivities.slice(0, 5).map((activity) => (
+                                <ActivityCard key={activity.id}>
+                                    <MaterialCommunityIcons 
+                                        name={
+                                            activity.type === 'game' ? 'cards-playing-outline' :
+                                            activity.type === 'competition' ? 'trophy-outline' :
+                                            activity.type === 'player' ? 'account-outline' :
+                                            'home-group'
+                                        }
+                                        size={24} 
+                                        color={colors.primary} 
+                                    />
+                                    <ActivityInfo>
+                                        <ActivityText>{activity.description}</ActivityText>
+                                        <ActivityTime>
+                                            {format(new Date(activity.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                                        </ActivityTime>
+                                    </ActivityInfo>
+                                </ActivityCard>
+                            ))
+                        )}
+                    </SectionContainer>
                 </Content>
             </ScrollContent>
         </Container>

@@ -600,8 +600,8 @@ export const rankingService = {
                 
                 // Apenas jogos 2x2 são considerados para ranking de duplas
                 if (validTeam1.length === 2 && validTeam2.length === 2) {
-                    const team1Score = Number(game.team1_score) || 0;
-                    const team2Score = Number(game.team2_score) || 0;
+                    const team1Score = Number(safeGet(game, 'team1_score') || safeGet(game, 'points_team1')) || 0;
+                    const team2Score = Number(safeGet(game, 'team2_score') || safeGet(game, 'points_team2')) || 0;
                     const isBuchuda = game.status === 'buchuda';
                     const isBuchudaDeRe = game.status === 'buchuda_de_re';
                     
