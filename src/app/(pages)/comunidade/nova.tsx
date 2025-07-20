@@ -3,7 +3,7 @@ import { Alert, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-na
 import { useRouter } from 'expo-router';
 import styled from 'styled-components/native';
 import { communityService } from '@/features/communities/services/communityService';
-import { InternalHeader } from '@/components/layout/InternalHeader';
+import { InternalHeader } from '@/core/components/layout/InternalHeader';
 import { Feather } from '@expo/vector-icons';
 import { TextInput } from 'react-native-paper';
 import { useTheme } from '@/core/contexts/ThemeProvider';

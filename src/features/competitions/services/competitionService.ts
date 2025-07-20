@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { supabase } from '@/core/lib/supabase';
-import { activityService } from './activityService';
+import { activityService } from '@/features/activities/services/activityService';
 
 export interface Competition {
     id: string;
@@ -9,7 +9,7 @@ export interface Competition {
     community_id: string;
     start_date: string;
     created_at: string;
-    status: 'pending' | 'in_progress' | 'finished';
+    status: 'pending' | 'in_progress' | 'finished' | 'cancelled';
 }
 
 export interface CreateCompetitionDTO {
@@ -100,15 +100,16 @@ export const competitionService = {
                 }
             }
 
-            // Cria a competição
+            // Cria a competição e adiciona o usuário como membro automaticamente
             const { data: newCompetition, error } = await supabase.rpc(
-                'create_competition',
+                'create_competition_with_user',
                 {
                     p_name: formattedData.name,
                     p_description: formattedData.description,
                     p_community_id: formattedData.community_id,
-                    p_created_by: user.user.id
-                    // p_start_date removido pois a função no banco não aceita este parâmetro
+                    p_start_date: formattedData.start_date,
+                    p_end_date: null,
+                    p_user_id: user.user.id
                 }
             );
 
@@ -120,18 +121,10 @@ export const competitionService = {
                 const maxRetries = 3;
                 const baseDelay = 1000;
 
-                // Importação dinâmica para evitar dependência circular
-                const { competitionPlayerService } = await import('@/services/competitionPlayerService');
+                // O usuário já foi adicionado automaticamente pela função create_competition_with_user
+                console.log('[competitionService] Usuário adicionado automaticamente como membro da competição');
                 
-                try {
-                    // Adiciona o usuário atual como membro da competição
-                    // Isso garante que o perfil de jogador existe antes de adicionar como membro
-                    await competitionPlayerService.addCurrentUserToCompetition(newCompetition.id);
-                    console.log('[competitionService] Usuário adicionado como membro da competição');
-                } catch (memberError) {
-                    console.error('[competitionService] Erro ao adicionar usuário como membro:', memberError);
-                    // Não interrompe o fluxo, apenas loga o erro
-                }
+                // Não precisamos mais chamar addCurrentUserAsMember, pois a função create_competition_with_user já faz isso
 
                 const createActivityWithRetry = async (attempt: number) => {
                     try {
@@ -306,6 +299,25 @@ export const competitionService = {
             return data;
         } catch (error) {
             console.error('Erro ao adicionar membro à competição:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Adiciona o usuário atual como membro da competição, garantindo que o perfil de jogador exista
+     */
+    async addCurrentUserAsMember(competitionId: string) {
+        try {
+            // Importação dinâmica para evitar dependência circular
+            const { competitionPlayerService } = await import('./competitionPlayerService');
+            
+            // Adiciona o usuário atual como membro da competição
+            // Isso garante que o perfil de jogador existe antes de adicionar como membro
+            const result = await competitionPlayerService.addCurrentUserToCompetition(competitionId);
+            console.log('[competitionService] Usuário adicionado como membro da competição');
+            return result;
+        } catch (error) {
+            console.error('[competitionService] Erro ao adicionar usuário como membro:', error);
             throw error;
         }
     },
@@ -847,99 +859,201 @@ export const competitionService = {
 
     async listMyCompetitions() {
         try {
-            console.log('Verificando usuário autenticado...');
-            const { data: user } = await supabase.auth.getUser();
-            if (!user?.user?.id) {
+            console.log('[competitionService] listMyCompetitions: Verificando usuário autenticado...');
+            const { data: userData, error: userError } = await supabase.auth.getUser();
+            if (userError || !userData?.user?.id) {
+                console.error('[competitionService] listMyCompetitions: Usuário não autenticado ou erro ao buscar usuário.', userError);
                 throw new Error('Usuário não autenticado');
             }
+            const userId = userData.user.id;
+            console.log(`[competitionService] listMyCompetitions: Usuário ID: ${userId}`);
 
-            // Buscar comunidades criadas pelo usuário
-            console.log('Buscando comunidades criadas pelo usuário...');
-            const { data: createdCommunities, error: createdError } = await supabase
+            // 1. Buscar comunidades CRIADAS PELO USUÁRIO
+            console.log('[competitionService] listMyCompetitions: Buscando comunidades criadas pelo usuário...');
+            const { data: createdByUserCommunitiesData, error: createdCommError } = await supabase
                 .from('communities')
-                .select('id, name, created_by')
-                .eq('created_by', user.user.id);
+                .select('id, name, created_by') // Seleciona os campos necessários
+                .eq('created_by', userId);
 
-            if (createdError) {
-                console.error('Erro ao buscar comunidades criadas:', createdError);
-                throw createdError;
+            if (createdCommError) {
+                console.error('[competitionService] listMyCompetitions: Erro ao buscar comunidades criadas:', createdCommError);
+                throw createdCommError;
             }
+            // Mapeia para obter detalhes e IDs
+            const createdByUserCommunityDetails = createdByUserCommunitiesData || [];
+            const createdByUserCommunityIds = createdByUserCommunityDetails.map(c => c.id);
+            console.log(`[competitionService] listMyCompetitions: IDs de comunidades criadas pelo usuário: ${createdByUserCommunityIds.join(', ')}`);
 
-            // Buscar comunidades onde o usuário é organizador
-            console.log('Buscando comunidades onde usuário é organizador...');
-            const { data: organizedCommunities, error: organizedError } = await supabase
+            // 2. Buscar comunidades ONDE O USUÁRIO É ORGANIZADOR
+            console.log('[competitionService] listMyCompetitions: Buscando comunidades onde o usuário é organizador...');
+            const { data: organizedForUserCommunitiesRaw, error: organizedCommError } = await supabase
                 .from('community_organizers')
-                .select('community:community_id(id, name, created_by)')
-                .eq('user_id', user.user.id);
+                .select('communities (id, name, created_by)') // Pega dados da comunidade via FK, 'communities' é o nome da tabela relacionada
+                .eq('user_id', userId);
 
-            if (organizedError) {
-                console.error('Erro ao buscar comunidades organizadas:', organizedError);
-                throw organizedError;
+            if (organizedCommError) {
+                console.error('[competitionService] listMyCompetitions: Erro ao buscar comunidades organizadas:', organizedCommError);
+                throw organizedCommError;
             }
+            // Extrair os detalhes das comunidades organizadas. A query retorna um array de objetos { communities: { ... } }
+            const organizedByUserCommunityDetails = organizedForUserCommunitiesRaw?.map(oc => oc.communities).filter(Boolean) as Community[] || [];
+            const organizedByUserCommunityIds = organizedByUserCommunityDetails.map(c => c.id);
+            console.log(`[competitionService] listMyCompetitions: IDs de comunidades organizadas pelo usuário: ${organizedByUserCommunityIds.join(', ')}`);
 
-            // Combinar as comunidades
-            const userCommunities = [
-                ...(createdCommunities || []),
-                ...(organizedCommunities?.map(oc => oc.community) || [])
-            ].filter((c, i, arr) => arr.findIndex(x => x.id === c.id) === i); // Remove duplicatas
+            // 3. IDs de todas as comunidades relevantes para buscar competições
+            const allRelevantCommunityIds = Array.from(new Set([...createdByUserCommunityIds, ...organizedByUserCommunityIds]));
 
-            if (!userCommunities.length) {
-                console.log('Nenhuma comunidade encontrada');
+            if (!allRelevantCommunityIds.length) {
+                console.log('[competitionService] listMyCompetitions: Nenhuma comunidade relevante encontrada.');
                 return { created: [], organized: [] };
             }
+            console.log(`[competitionService] listMyCompetitions: IDs de todas as comunidades relevantes: ${allRelevantCommunityIds.join(', ')}`);
 
-            const communityIds = userCommunities.map(c => c.id);
-            console.log('Comunidades encontradas:', communityIds);
-
-            // Buscar todas as competições dessas comunidades
-            const { data: competitions, error: competitionsError } = await supabase
+            // 4. Buscar todas as competições dessas comunidades, incluindo dados da comunidade associada
+            console.log('[competitionService] listMyCompetitions: Buscando competições das comunidades relevantes...');
+            const { data: allFoundCompetitionsData, error: competitionsError } = await supabase
                 .from('competitions')
-                .select('*, community_id')
-                .in('community_id', communityIds)
+                .select('*, communities (id, name, created_by)') // 'communities' é a tabela relacionada para join implícito
+                .in('community_id', allRelevantCommunityIds)
                 .order('created_at', { ascending: false });
 
             if (competitionsError) {
-                console.error('Erro ao buscar competições:', competitionsError);
+                console.error('[competitionService] listMyCompetitions: Erro ao buscar competições:', competitionsError);
                 throw competitionsError;
             }
 
-            // Separar competições criadas e organizadas
-            const created = competitions
-                ?.filter(comp => comp.created_by === user.user.id)
-                .map(comp => ({
-                    ...comp,
-                    community: userCommunities.find(c => c.id === comp.community_id),
-                    type: 'created' as const
-                })) || [];
+            const allFoundCompetitions = allFoundCompetitionsData || [];
+            if (allFoundCompetitions.length === 0) {
+                console.log('[competitionService] listMyCompetitions: Nenhuma competição encontrada para as comunidades relevantes.');
+                return { created: [], organized: [] };
+            }
+            console.log(`[competitionService] listMyCompetitions: Total de ${allFoundCompetitions.length} competições encontradas.`);
 
-            const organized = competitions
-                ?.filter(comp => {
-                    const community = userCommunities.find(c => c.id === comp.community_id);
-                    return comp.created_by !== user.user.id && // Não é o criador
-                           community && // Comunidade existe
-                           community.created_by !== user.user.id; // Não é o criador da comunidade
+            // 5. Filtrar para "Minhas Competições" (todas as competições das comunidades que o usuário criou)
+            const createdCompetitions = allFoundCompetitions
+                .filter(comp => {
+                    const communityWasCreatedByUser = comp.communities && comp.communities.created_by === userId;
+                    return communityWasCreatedByUser;
                 })
-                .map(comp => ({
-                    ...comp,
-                    community: userCommunities.find(c => c.id === comp.community_id),
-                    type: 'organized' as const
-                })) || [];
+                .map(comp => ({ 
+                    ...comp, 
+                    community: comp.communities, 
+                    type: 'created' as const 
+                }));
 
-            console.log('Total de competições criadas:', created.length);
-            console.log('Total de competições organizadas:', organized.length);
+            // 6. Filtrar para "Competições que organizo" (competições em comunidades onde o usuário é organizador, mas NÃO criou a comunidade)
+            console.log(`[competitionService] listMyCompetitions: Iniciando filtro para competições organizadas.`);
+            
+            // Primeiro, obter as competições das comunidades organizadas
+            const { data: organizedCompetitionsData, error: organizedCompsError } = await supabase
+                .from('competitions')
+                .select('*, communities (id, name, created_by)')
+                .in('community_id', organizedByUserCommunityIds)
+                .not('community_id', 'in', `(${createdByUserCommunityIds.join(',')})`)
+                .order('created_at', { ascending: false });
+
+            if (organizedCompsError) {
+                console.error('[competitionService] listMyCompetitions: Erro ao buscar competições organizadas:', organizedCompsError);
+                throw organizedCompsError;
+            }
+
+            const organizedCompetitions = (organizedCompetitionsData || [])
+                .map(comp => ({ ...comp, community: comp.communities, type: 'organized' as const }));
+            
+            console.log(`[competitionService] listMyCompetitions: Competições em "Minhas Competições": ${createdCompetitions.length}`);
+            console.log(`[competitionService] listMyCompetitions: Competições em "Competições que organizo": ${organizedCompetitions.length}`);
 
             return {
-                created,
-                organized
+                created: createdCompetitions,
+                organized: organizedCompetitions
             };
+
         } catch (error) {
-            console.error('Erro em listMyCompetitions:', error);
+            console.error('[competitionService] listMyCompetitions: Erro geral:', error);
             if (error instanceof Error) {
-                console.error('Detalhes do erro:', error.message);
-                console.error('Stack trace:', error.stack);
+                console.error('Detalhes do erro:', error.message, error.stack);
             }
+            throw error;
+        }
+    },
+
+    async delete(competitionId: string) {
+        try {
+            const { error } = await supabase
+                .from('competitions')
+                .delete()
+                .eq('id', competitionId);
+
+            if (error) {
+                console.error('Erro ao deletar competição:', error);
+                throw error;
+            }
+
+            return { success: true };
+        } catch (error) {
+            console.error('Erro ao deletar competição:', error);
+            throw error;
+        }
+    },
+
+    async inactivate(competitionId: string) {
+        try {
+            const { error } = await supabase
+                .from('competitions')
+                .update({ status: 'cancelled' })
+                .eq('id', competitionId);
+
+            if (error) {
+                console.error('Erro ao inativar competição:', error);
+                throw error;
+            }
+
+            return { success: true };
+        } catch (error) {
+            console.error('Erro ao inativar competição:', error);
+            throw error;
+        }
+    },
+
+    async hasGames(competitionId: string): Promise<boolean> {
+        try {
+            const { data, error } = await supabase
+                .from('games')
+                .select('id')
+                .eq('competition_id', competitionId)
+                .limit(1);
+
+            if (error) {
+                console.error('Erro ao verificar jogos da competição:', error);
+                throw error;
+            }
+
+            return (data && data.length > 0);
+        } catch (error) {
+            console.error('Erro ao verificar jogos da competição:', error);
+            throw error;
+        }
+    },
+
+    async update(competitionId: string, data: { name: string; description: string }) {
+        try {
+            const { error } = await supabase
+                .from('competitions')
+                .update({
+                    name: data.name,
+                    description: data.description
+                })
+                .eq('id', competitionId);
+
+            if (error) {
+                console.error('Erro ao atualizar competição:', error);
+                throw error;
+            }
+
+            return { success: true };
+        } catch (error) {
+            console.error('Erro ao atualizar competição:', error);
             throw error;
         }
     }
 };
-

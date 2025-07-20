@@ -75,16 +75,20 @@ class AuthService {
                 };
             }
 
-            // Criar perfil na tabela profile
+            // Criar perfil na tabela user_profiles
             if (data?.user) {
                 try {
                     const { error: profileError } = await supabase
-                        .from('profiles')
+                        .from('user_profiles')
                         .insert([
                             {
-                                id: data.user.id,
-                                name: name || email.split('@')[0],
-                                email: email.trim().toLowerCase(),
+                                id: crypto.randomUUID(), // Gerar um UUID para o ID
+                                user_id: data.user.id,
+                                full_name: name || email.split('@')[0],
+                                nickname: '',
+                                phone_number: '',
+                                avatar_url: '',
+                                created_at: new Date().toISOString(),
                                 updated_at: new Date().toISOString()
                             }
                         ]);

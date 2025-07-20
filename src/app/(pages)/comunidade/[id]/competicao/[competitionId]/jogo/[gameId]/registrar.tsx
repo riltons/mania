@@ -11,10 +11,10 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import styled from 'styled-components/native';
 import { Feather } from '@expo/vector-icons';
-import { gameService, VictoryType } from '@/services/gameService';
-import { competitionService } from '@/services/competitionService';
-import { InternalHeader } from '@/components/InternalHeader';
-import CustomModal from '@/components/CustomModal';
+import { gameService, VictoryType } from '@/features/games/services/gameService';
+import { competitionService } from '@/features/competitions/services/competitionService';
+import { InternalHeader } from '@/core/components/layout/InternalHeader';
+import CustomModal from '@/core/components/feedback/CustomModal';
 import { useTheme } from '@/core/contexts/ThemeProvider';
 
 interface VictoryOption {

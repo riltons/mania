@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Alert, ActivityIndicator, StatusBar } from 'react-native';
 import { useRouter } from 'expo-router';
 import styled from 'styled-components/native';
-import { useAuth } from '../hooks/useAuth';
+import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useTheme } from '@/core/contexts/ThemeProvider';
 
 export default function Login() {

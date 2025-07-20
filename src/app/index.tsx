@@ -13,7 +13,7 @@ export default function LandingPage() {
         style={styles.header}
       >
         <Image
-          source={require('../../assets/images/dominomania-logo.png')}
+          source={require('../assets/dominomania-logo.png')}
           style={styles.logo}
         />
         <Text style={styles.title}>Dominomania</Text>

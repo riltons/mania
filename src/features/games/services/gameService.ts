@@ -1,26 +1,36 @@
 import { supabase } from '@/core/lib/supabase';
-import { playerService } from '../../../services/playerService'; // Importar diretamente
-import { activityService } from '@/services/activityService'; // Import estático
-import { Database } from '@/core/types/supabase';
+import { activityService } from '@/features/activities/services/activityService';
+import { playerService } from '@/features/players/services/playerService';
 
-// Tipos específicos para clareza (ajustar conforme necessário)
-type GameInsert = Database['public']['Tables']['games']['Insert'];
-type GameUpdate = Database['public']['Tables']['games']['Update'];
-type CompetitionMemberInsert = Database['public']['Tables']['competition_members']['Insert'];
-type Round = Database['public']['Tables']['games']['Row']['rounds'];
-
-export type VictoryType =
+export type VictoryType = 
     | 'simple' // 1 ponto
-    | 'buchuda' // 2 pontos
-    | 'buchuda_de_re'; // 4 pontos
+    | 'carroca' // 2 pontos
+    | 'la_e_lo' // 3 pontos
+    | 'cruzada' // 4 pontos
+    | 'contagem' // 1 ponto
+    | 'empate'; // 0 ponto + 1 na próxima
 
 export interface GameRound {
-    round_number: number;
+    type: VictoryType;
+    winner_team: 1 | 2 | null;
+    has_bonus: boolean;
+}
+
+export interface Game {
+    id: string;
+    competition_id: string;
+    team1: string[];
+    team2: string[];
     team1_score: number;
     team2_score: number;
-    winning_team: 1 | 2 | null; // null for tie
-    victory_type: VictoryType | null; // null se o round não terminou ou foi empate
-    timestamp: string;
+    status: 'pending' | 'in_progress' | 'finished';
+    created_at: string;
+    rounds: GameRound[];
+    last_round_was_tie: boolean;
+    team1_was_losing_5_0: boolean;
+    team2_was_losing_5_0: boolean;
+    is_buchuda: boolean;
+    is_buchuda_de_re: boolean;
 }
 
 export interface CreateGameDTO {
@@ -36,20 +46,13 @@ export const gameService = {
             const session = await supabase.auth.getSession();
             console.log('Sessão atual:', session);
 
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user?.id) throw new Error('Usuário não autenticado');
+            const { data: user } = await supabase.auth.getUser();
+            if (!user?.user?.id) throw new Error('Usuário não autenticado');
 
             // Obter ou criar o player para o usuário atual PRIMEIRO
             let player;
             try {
                 player = await playerService.getOrCreatePlayerForCurrentUser();
-                console.log(`[gameService.create] Authenticated User ID: ${user.id}`);
-                if(player) {
-                    console.log(`[gameService.create] Player fetched/created ID: ${player.id}`);
-                } else {
-                    console.error('[gameService.create] Failed to fetch or create player!');
-                    throw new Error('Falha ao obter ou criar jogador.');
-                }
             } catch (playerError) {
                 console.error('Erro ao obter/criar player para o usuário:', playerError);
                 throw new Error('Não foi possível obter seu perfil de jogador para criar o jogo');
@@ -59,133 +62,135 @@ export const gameService = {
             const { count, error: countError } = await supabase
                 .from('games')
                 .select('id', { count: 'exact', head: true })
-                .eq('competition_id', data.competition_id); 
+                .eq('competition_id', data.competition_id);
             if (countError) throw countError;
             if ((count || 0) >= 50) throw new Error('Limite máximo de 50 jogos por competição atingido');
 
             // Verificar se o PLAYER é membro da competição usando player.id
-            console.log(`[gameService.create] Checking membership for Player ID: ${player.id} in Competition ID: ${data.competition_id}`); 
             const { data: memberCheck, error: memberError } = await supabase
                 .from('competition_members')
                 .select('id')
-                .eq('competition_id', data.competition_id) 
-                .eq('player_id', player.id) 
+                .eq('competition_id', data.competition_id)
+                .eq('player_id', player.id) // Usar player.id para a verificação
                 .maybeSingle();
                 
             if (memberError) throw memberError;
             
             // Se o player não for membro da competição, adicioná-lo
             if (!memberCheck) {
-                console.log(`[gameService.create] Player ${player.id} NOT found in members. Attempting insert.`); 
+                console.log('Player não é membro da competição. Adicionando...');
                 
                 // Adicionar o player como membro da competição
-                const memberData: CompetitionMemberInsert = {
-                    competition_id: data.competition_id,
-                    player_id: player.id 
-                };
                 const { error: addError } = await supabase
                     .from('competition_members')
-                    .insert(memberData);
+                    .insert([{
+                        competition_id: data.competition_id,
+                        player_id: player.id // Usar o ID do player
+                    }]);
                         
                 if (addError) {
                     console.error('Erro ao adicionar player como membro da competição:', addError);
                     throw new Error('Não foi possível adicionar você como membro da competição');
                 }
-            } else {
-                console.log(`[gameService.create] Player ${player.id} IS already a member.`); 
             }
 
             // Criar o jogo
-            const gameData: GameInsert = {
-                competition_id: data.competition_id,
-                team1: data.team1, 
-                team2: data.team2,
-                team1_score: 0,
-                team2_score: 0,
-                status: 'pending', // Usando 'pending' como na versão original que funcionava
-                rounds: [] as any[], 
-                last_round_was_tie: false,
-                team1_was_losing_5_0: false,
-                team2_was_losing_5_0: false,
-                is_buchuda: false,
-                is_buchuda_de_re: false
-                // Campo created_by removido pois não existe na tabela games
-            };
-            const { data: newGame, error: createGameError } = await supabase
+            const { data: newGame, error } = await supabase
                 .from('games')
-                .insert(gameData)
+                .insert([{
+                    competition_id: data.competition_id,
+                    team1: data.team1,
+                    team2: data.team2,
+                    team1_score: 0,
+                    team2_score: 0,
+                    status: 'pending',
+                    rounds: [],
+                    last_round_was_tie: false,
+                    team1_was_losing_5_0: false,
+                    team2_was_losing_5_0: false,
+                    is_buchuda: false,
+                    is_buchuda_de_re: false
+                }])
                 .select()
                 .single();
 
-            if (createGameError) {
-                console.error('Erro ao criar jogo:', createGameError);
-                throw new Error('Erro ao criar jogo no banco de dados');
-            }
-            if (!newGame) {
-                throw new Error('Falha ao criar jogo: Nenhum dado retornado.');
+            if (error) {
+                console.error('Erro detalhado:', error);
+                throw error;
             }
 
-            console.log('Jogo criado com sucesso:', newGame);
-
-            // Criar atividade após criar o jogo (usando import estático)
-            try {
-                const { data: competition, error: compError } = await supabase
+            // Registrar a atividade de criação do jogo com sistema de retry
+            if (newGame) {
+                // Buscar informações da competição
+                const { data: competition } = await supabase
                     .from('competitions')
-                    .select('name, community_id')
+                    .select('*')
                     .eq('id', newGame.competition_id)
                     .single();
 
-                if (compError) throw compError;
-                if (!competition) throw new Error('Competição não encontrada para atividade');
+                console.log('Dados da competição:', competition);
 
-                const { data: community, error: commError } = await supabase
-                    .from('communities')
-                    .select('name')
-                    .eq('id', competition.community_id)
-                    .single();
+                // Buscar informações da comunidade
+                let communityName = 'Desconhecida';
+                if (competition?.community_id) {
+                    const { data: community } = await supabase
+                        .from('communities')
+                        .select('name')
+                        .eq('id', competition.community_id)
+                        .single();
                     
-                if (commError) throw commError;
-                if (!community) throw new Error('Comunidade não encontrada para atividade');
+                    if (community) {
+                        communityName = community.name;
+                    }
+                }
 
-                const communityName = community.name || 'Desconhecida';
-                const competitionName = competition.name || 'Desconhecida';
+                console.log('Nome da comunidade:', communityName);
 
-                const team1Players = await playerService.getPlayersByIds(newGame.team1 || []);
-                const team2Players = await playerService.getPlayersByIds(newGame.team2 || []);
+                // Buscar informações dos jogadores do time 1
+                const { data: team1Players } = await supabase
+                    .from('players')
+                    .select('name')
+                    .in('id', newGame.team1);
 
-                const team1Names = team1Players.map(p => p?.name || 'Desconhecido').join(' e ');
-                const team2Names = team2Players.map(p => p?.name || 'Desconhecido').join(' e ');
+                // Buscar informações dos jogadores do time 2
+                const { data: team2Players } = await supabase
+                    .from('players')
+                    .select('name')
+                    .in('id', newGame.team2);
 
-                // Sistema de retry para criação de atividade
+                // Formatar os nomes dos times
+                const team1Names = team1Players?.map(p => p.name).join(' e ') || 'Time 1';
+                const team2Names = team2Players?.map(p => p.name).join(' e ') || 'Time 2';
+
                 const maxRetries = 3;
                 const baseDelay = 1000; // 1 segundo
 
                 const createActivityWithRetry = async (attempt: number) => {
                     try {
-                        console.log(`Tentativa ${attempt} de criar atividade para jogo...`);
+                        console.log(`Tentativa ${attempt} de criar atividade...`);
                         await activityService.createActivity({
                             type: 'game',
-                            description: `Novo jogo criado na Comunidade ${communityName}, Competição ${competitionName} entre as duplas ${team1Names} vs ${team2Names}`,
+                            description: `Novo jogo criado na Comunidade ${communityName}, Competição ${competition?.name || 'Desconhecida'} entre as duplas ${team1Names} vs ${team2Names}`,
                             metadata: {
                                 game_id: newGame.id,
                                 competition_id: newGame.competition_id,
-                                competition_name: competitionName,
-                                community_id: competition.community_id,
+                                competition_name: competition?.name,
+                                community_id: competition?.community_id,
                                 community_name: communityName,
                                 team1: {
-                                    ids: newGame.team1 || [],
+                                    ids: newGame.team1,
                                     names: team1Players?.map(p => p.name) || []
                                 },
                                 team2: {
-                                    ids: newGame.team2 || [],
+                                    ids: newGame.team2,
                                     names: team2Players?.map(p => p.name) || []
                                 }
                             }
                         });
-                        console.log('Atividade para jogo criada com sucesso!');
+                        console.log('Atividade criada com sucesso!');
                         return true;
                     } catch (activityError) {
-                        console.error(`Erro na tentativa ${attempt} de criar atividade para jogo:`, activityError);
+                        console.error(`Erro na tentativa ${attempt}:`, activityError);
                         
                         if (attempt < maxRetries) {
                             const delay = baseDelay * Math.pow(2, attempt - 1); // Exponential backoff
@@ -194,36 +199,69 @@ export const gameService = {
                             return createActivityWithRetry(attempt + 1);
                         }
                         
-                        console.error('Todas as tentativas de criar atividade para jogo falharam');
-                        // Em produção, não queremos que falhas no registro de atividades interrompam o fluxo principal
-                        if (process.env.NODE_ENV === 'production') {
-                            console.warn('Ignorando erro de atividade em produção para não interromper o fluxo principal');
-                            return false;
-                        }
-                        throw activityError;
+                        console.error('Todas as tentativas de criar atividade falharam');
+                        return false;
                     }
                 };
 
-                // Inicia o processo de retry em background para não bloquear a criação do jogo
+                // Inicia o processo de retry em background
                 createActivityWithRetry(1).catch(error => {
-                    console.error('Erro no processo de retry para criação de atividade de jogo:', error);
+                    console.error('Erro no processo de retry:', error);
                 });
+            }
 
-            } catch (activityError) {
-                console.error('Erro ao criar atividade para criação de jogo:', activityError);
-                // Não lançar erro aqui, a criação do jogo foi bem-sucedida
+            // Inserir jogadores na tabela game_players
+            try {
+                // Obter nomes dos jogadores
+                const { data: team1Players } = await supabase
+                    .from('players')
+                    .select('id, name')
+                    .in('id', data.team1);
+
+                const { data: team2Players } = await supabase
+                    .from('players')
+                    .select('id, name')
+                    .in('id', data.team2);
+
+                // Mapear jogadores para o formato esperado
+                const gamePlayers = [
+                    ...(team1Players?.map(player => ({
+                        game_id: newGame.id,
+                        player_id: player.id,
+                        player_name: player.name,
+                        team: 1
+                    })) || []),
+                    ...(team2Players?.map(player => ({
+                        game_id: newGame.id,
+                        player_id: player.id,
+                        player_name: player.name,
+                        team: 2
+                    })) || [])
+                ];
+
+                // Inserir jogadores na tabela game_players
+                if (gamePlayers.length > 0) {
+                    const { error: insertError } = await supabase
+                        .from('game_players')
+                        .insert(gamePlayers);
+
+                    if (insertError) {
+                        console.error('Erro ao inserir jogadores do jogo:', insertError);
+                        // Não lançamos o erro para não falhar a criação do jogo
+                    }
+                }
+            } catch (error) {
+                console.error('Erro ao processar jogadores do jogo:', error);
+                // Não lançamos o erro para não falhar a criação do jogo
             }
 
             return newGame;
         } catch (error) {
-            console.error('Erro detalhado em gameService.create:', error);
-            if (error instanceof Error) {
-                throw new Error(`Falha ao criar jogo: ${error.message}`);
-            } else {
-                throw new Error('Falha ao criar jogo: Erro desconhecido');
-            }
+            console.error('Erro ao criar jogo:', error);
+            throw error;
         }
     },
+
     async startGame(id: string) {
         try {
             const { data, error } = await supabase
@@ -340,12 +378,9 @@ export const gameService = {
             }
 
             const newRound: GameRound = {
-                round_number: game.rounds.length + 1,
-                team1_score: team1Score,
-                team2_score: team2Score,
-                winning_team: winnerTeam,
-                victory_type: type,
-                timestamp: new Date().toISOString()
+                type,
+                winner_team: winnerTeam,
+                has_bonus: hasBonus
             };
 
             const updateData = {
@@ -443,11 +478,13 @@ export const gameService = {
                                 community_name: communityName,
                                 team1: {
                                     ids: game.team1,
-                                    names: team1Players?.map(p => p.name) || []
+                                    names: team1Players?.map(p => p.name) || [],
+                                    score: team1Score
                                 },
                                 team2: {
                                     ids: game.team2,
-                                    names: team2Players?.map(p => p.name) || []
+                                    names: team2Players?.map(p => p.name) || [],
+                                    score: team2Score
                                 },
                                 is_buchuda: isBuchuda,
                                 is_buchuda_de_re: isBuchudaDeRe,
@@ -484,154 +521,18 @@ export const gameService = {
         }
     },
 
-    async checkUserPermissions(competitionId: string): Promise<boolean> {
-        try {
-            const { data: userData } = await supabase.auth.getUser();
-            const userId = userData?.user?.id;
-            if (!userId) return false;
-            
-            console.log(`[gameService] Verificando permissões para usuário: ${userId} na competição: ${competitionId}`);
-            
-            // Verificar se o usuário é membro da competição
-            // Primeiro buscar os jogadores criados pelo usuário
-            const { data: playerData } = await supabase
-                .from('players')
-                .select('id')
-                .eq('created_by', userId);
-                
-            if (playerData && playerData.length > 0) {
-                const playerIds = playerData.map(p => p.id);
-                
-                const { data: memberData } = await supabase
-                    .from('competition_members')
-                    .select('id')
-                    .eq('competition_id', competitionId)
-                    .in('player_id', playerIds);
-                
-                if (memberData && memberData.length > 0) {
-                    console.log('[gameService] Usuário é membro da competição');
-                    return true;
-                }
-            }
-            
-            // Verificar se o usuário é criador da comunidade
-            const { data: communityData } = await supabase
-                .from('competitions')
-                .select('community_id')
-                .eq('id', competitionId)
-                .single();
-                
-            if (communityData) {
-                const { data: creatorData } = await supabase
-                    .from('communities')
-                    .select('created_by')
-                    .eq('id', communityData.community_id)
-                    .eq('created_by', userId);
-                    
-                if (creatorData && creatorData.length > 0) {
-                    console.log('[gameService] Usuário é criador da comunidade');
-                    return true;
-                }
-                
-                // Verificar se o usuário é organizador da comunidade
-                const { data: organizerData } = await supabase
-                    .from('community_organizers')
-                    .select('id')
-                    .eq('community_id', communityData.community_id)
-                    .eq('user_id', userId);
-                    
-                if (organizerData && organizerData.length > 0) {
-                    console.log('[gameService] Usuário é organizador da comunidade');
-                    return true;
-                }
-            }
-            
-            console.log('[gameService] Usuário NÃO tem permissão para ver jogos desta competição');
-            return false;
-        } catch (error) {
-            console.error('[gameService] Erro ao verificar permissões:', error);
-            return false;
-        }
-    },
-
-    async listByCompetitionDirectSQL(competitionId: string) {
-        try {
-            console.log(`[gameService] Buscando jogos diretamente via SQL para competição: ${competitionId}`);
-            
-            // Consulta SQL direta que ignora RLS
-            const { data, error } = await supabase.rpc('get_games_by_competition', { competition_id_param: competitionId });
-            
-            if (error) {
-                console.error(`[gameService] Erro ao buscar jogos via SQL: ${error.message}`, error);
-                throw error;
-            }
-            
-            console.log(`[gameService] Jogos encontrados via SQL: ${data?.length || 0}`);
-            if (data && data.length > 0) {
-                console.log('[gameService] Primeiro jogo via SQL:', data[0]);
-            } else {
-                console.log('[gameService] Nenhum jogo encontrado via SQL para esta competição');
-            }
-            
-            return data;
-        } catch (error) {
-            console.error('[gameService] Erro ao listar jogos via SQL:', error);
-            throw error;
-        }
-    },
-
     async listByCompetition(competitionId: string) {
         try {
-            console.log(`[gameService] Buscando jogos para competição: ${competitionId}`);
-            
-            // Verificar usuário autenticado
-            const { data: userData, error: userError } = await supabase.auth.getUser();
-            if (userError) {
-                console.error('[gameService] Erro ao obter usuário:', userError);
-                throw userError;
-            }
-            console.log('[gameService] Usuário autenticado:', userData?.user?.id);
-            
-            // Verificar permissões do usuário
-            const hasPermission = await this.checkUserPermissions(competitionId);
-            console.log(`[gameService] Usuário tem permissão: ${hasPermission}`);
-            
-            // Tentar buscar via SQL direta se não tiver permissão via RLS
-            if (!hasPermission) {
-                console.log('[gameService] Tentando buscar jogos via SQL direta (ignorando RLS)...');
-                try {
-                    const gamesViaSQL = await this.listByCompetitionDirectSQL(competitionId);
-                    if (gamesViaSQL && gamesViaSQL.length > 0) {
-                        console.log(`[gameService] Encontrados ${gamesViaSQL.length} jogos via SQL direta`);
-                        return gamesViaSQL;
-                    }
-                } catch (sqlError) {
-                    console.error('[gameService] Erro ao buscar via SQL, continuando com RLS:', sqlError);
-                }
-            }
-            
-            // Buscar jogos via RLS normal
             const { data, error } = await supabase
                 .from('games')
                 .select('*')
                 .eq('competition_id', competitionId)
                 .order('created_at', { ascending: false });
 
-            if (error) {
-                console.error(`[gameService] Erro ao buscar jogos: ${error.message}`, error);
-                throw error;
-            }
-            
-            console.log(`[gameService] Jogos encontrados: ${data?.length || 0}`);
-            if (data && data.length > 0) {
-                console.log('[gameService] Primeiro jogo:', data[0]);
-            } else {
-                console.log('[gameService] Nenhum jogo encontrado para esta competição');
-            }
-            
+            if (error) throw error;
             return data;
         } catch (error) {
-            console.error('[gameService] Erro ao listar jogos:', error);
+            console.error('Erro ao listar jogos:', error);
             throw error;
         }
     },
@@ -672,7 +573,7 @@ export const gameService = {
             const { data, error } = await supabase
                 .from('games')
                 .select('*')
-                .or(`team1.cs.{${playerIds.join(',')}},team2.cs.{${playerIds.join(',')}}`)  
+                .or(`team1.cs.{${playerIds.join(',')}},team2.cs.{${playerIds.join(',')}}`)  // Filtra jogos onde o jogador está em qualquer time
                 .order('created_at', { ascending: false })
                 .limit(10);
 
@@ -760,14 +661,14 @@ export const gameService = {
             let lastRoundWasTie = false;
             let team1WasLosing5_0 = false;
             let team2WasLosing5_0 = false;
-            
+
             // Recalcular o placar baseado nas rodadas restantes
             for (let i = 0; i < updatedRounds.length; i++) {
                 const round = updatedRounds[i];
                 let points = 0;
                 
                 // Calcular pontos baseado no tipo de vitória
-                switch (round.victory_type) {
+                switch (round.type) {
                     case 'simple':
                     case 'contagem':
                         points = 1;
@@ -787,14 +688,14 @@ export const gameService = {
                 }
 
                 // Adicionar bônus se a rodada anterior foi empate
-                if (lastRoundWasTie && round.victory_type !== 'empate') {
+                if (lastRoundWasTie && round.type !== 'empate') {
                     points += 1;
                 }
 
                 // Atualizar o placar
-                if (round.winning_team === 1) {
+                if (round.winner_team === 1) {
                     team1Score += points;
-                } else if (round.winning_team === 2) {
+                } else if (round.winner_team === 2) {
                     team2Score += points;
                 }
 
@@ -807,7 +708,7 @@ export const gameService = {
                 }
 
                 // Atualizar o estado de empate para a próxima rodada
-                lastRoundWasTie = round.victory_type === 'empate';
+                lastRoundWasTie = round.type === 'empate';
             }
 
             // Verificar se é uma buchuda (vencer sem que o adversário pontue)
@@ -858,7 +759,7 @@ export const gameService = {
             const { data, error } = await supabase
                 .from('games')
                 .select('*, competitions(id, name)')
-                .or(`team1.cs.{${playerId}},team2.cs.{${playerId}}`)  
+                .or(`team1.cs.{${playerId}},team2.cs.{${playerId}}`)
                 .order('created_at', { ascending: false });
 
             if (error) {

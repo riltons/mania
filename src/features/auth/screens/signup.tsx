@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Alert, ActivityIndicator } from 'react-native';
 import { Link, router } from 'expo-router';
 import styled, { DefaultTheme } from 'styled-components/native';
-import { colors } from '@/styles/colors';
+import { colors } from '@/core/styles/colors';
 
 // Tipagem para as propriedades do tema
 interface ThemeProps {

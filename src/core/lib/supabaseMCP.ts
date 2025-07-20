@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
-import { Database } from '@/types';
+import { Database } from '@/core/types/database.types';
 
 // Credenciais do Supabase obtidas do arquivo de anotações
 // Pega do extra do Expo ou das variáveis de ambiente

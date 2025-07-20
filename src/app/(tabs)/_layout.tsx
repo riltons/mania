@@ -5,7 +5,7 @@ import { useEffect } from 'react';
 import * as NavigationBar from 'expo-navigation-bar';
 import { useTheme } from '@/core/contexts/ThemeProvider';
 import { Feather } from '@expo/vector-icons';
-import { BottomNavigation } from '@/components/layout/BottomNavigation';
+import { BottomNavigation } from '@/core/components/layout/BottomNavigation';
 import styled from 'styled-components/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 

@@ -3,8 +3,8 @@ import { Alert, ActivityIndicator, TouchableOpacity, Image, Platform } from 'rea
 import * as ImagePicker from 'expo-image-picker';
 import styled from 'styled-components/native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { InternalHeader } from '@/components/InternalHeader';
-import { playerService } from '@/services/playerService';
+import { InternalHeader } from '@/core/components/layout/InternalHeader';
+import { playerService } from '@/features/players/services/playerService';
 import { Feather } from '@expo/vector-icons';
 import { TextInput } from 'react-native-paper';
 import { useTheme } from 'styled-components/native';

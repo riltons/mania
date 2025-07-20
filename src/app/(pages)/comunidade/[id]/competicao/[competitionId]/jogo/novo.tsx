@@ -9,9 +9,9 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import styled from 'styled-components/native';
 import { Feather } from '@expo/vector-icons';
-import { competitionService } from '@/services/competitionService';
-import { gameService } from '@/services/gameService';
-import { InternalHeader } from '@/components/InternalHeader';
+import { competitionService } from '@/features/competitions/services/competitionService';
+import { gameService } from '@/features/games/services/gameService';
+import { InternalHeader } from '@/core/components/layout/InternalHeader';
 import { useTheme } from '@/core/contexts/ThemeProvider';
 
 interface Player {

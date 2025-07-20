@@ -1,5 +1,5 @@
 import { Stack, useRouter, usePathname, Redirect } from 'expo-router';
-import { AuthProvider, useAuth } from '@/core/contexts/AuthProvider';
+import { AuthProvider, useAuth } from '@/features/auth/contexts/AuthProvider';
 import { ThemeProvider, useTheme } from '@/core/contexts/ThemeProvider';
 import { StatusBar, Platform, ActivityIndicator } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -136,15 +136,34 @@ interface ThemeProps {
 
 // Componente para gerenciar o conteúdo da autenticação
 const AuthContentWrapper = () => {
-    const { isLoading, showLanding } = useAuth();
+    const { session, isLoading, isAuthenticated } = useAuth();
     const pathname = usePathname();
+    const router = useRouter();
     const isLandingPage = pathname === '/';
+    const isAuthScreen = pathname?.startsWith('/login') || pathname?.startsWith('/register') || pathname?.startsWith('/signup');
     
-    // Redireciona para a landing page se necessário
-    if (showLanding && !isLandingPage) {
-        return <Redirect href="/" />;
-    }
-
+    // Log para debug
+    console.log('AuthContentWrapper - Estado atual:', { 
+        isAuthenticated, 
+        pathname, 
+        isAuthScreen,
+        userId: session?.user?.id || 'não autenticado'
+    });
+    
+    useEffect(() => {
+        // Se estiver autenticado e em uma tela de autenticação, redireciona para o dashboard
+        if (isAuthenticated && isAuthScreen) {
+            console.log('Usuário autenticado em tela de auth, redirecionando para dashboard');
+            router.replace('/(tabs)');
+        }
+        
+        // Se não estiver autenticado e não estiver em uma tela de autenticação ou landing page
+        if (!isAuthenticated && !isAuthScreen && !isLandingPage) {
+            console.log('Usuário não autenticado, redirecionando para landing page');
+            router.replace('/');
+        }
+    }, [isAuthenticated, pathname, router]);
+    
     // Mostra tela de carregamento se estiver carregando
     if (isLoading) {
         return (
@@ -157,13 +176,13 @@ const AuthContentWrapper = () => {
     return <AppLayout />;
 };
 
-const AppContainer = styled.View<ThemeProps>`
+const AppContainer = styled.View`
     flex: 1;
     background-color: #8257E5;
 `;
 
 // Componente de carregamento com tema roxo
-const LoadingContainer = styled.View<ThemeProps>`
+const LoadingContainer = styled.View`
     flex: 1;
     background-color: #8257E5;
     justify-content: center;

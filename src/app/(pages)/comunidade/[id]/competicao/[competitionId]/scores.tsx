@@ -4,8 +4,8 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import styled from 'styled-components/native';
 import { useTheme } from 'styled-components/native';
-import { CompetitionResult, competitionService } from '@/services/competitionService';
-import { InternalHeader } from '@/components/InternalHeader';
+import { CompetitionResult, competitionService } from '@/features/competitions/services/competitionService';
+import { InternalHeader } from '@/core/components/layout/InternalHeader';
 
 export default function CompetitionScores() {
     const router = useRouter();

@@ -3,12 +3,12 @@ import { Alert, ActivityIndicator, TouchableOpacity, Image, Platform, View, Text
 import * as ImagePicker from 'expo-image-picker';
 import styled from 'styled-components/native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Header } from '@/components/layout/Header';
+import { Header } from '@/core/components/layout/Header';
 import { playerService } from '@/features/players/services/playerService';
 import { Feather } from '@expo/vector-icons';
 import { TextInput } from 'react-native-paper';
-import { colors } from '@/styles/colors';
-import { PageTransition } from '@/components/Transitions';
+import { colors } from '@/core/styles/colors';
+import { PageTransition } from '@/core/components/transitions/PageTransition';
 
 // Definição do tipo de jogador
 type Player = {

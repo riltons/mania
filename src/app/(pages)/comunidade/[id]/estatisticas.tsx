@@ -3,42 +3,10 @@ import { ActivityIndicator, ScrollView } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import styled from 'styled-components/native';
 import { useTheme } from '@/core/contexts/ThemeProvider';
-import { DefaultTheme } from 'styled-components/native';
-
-// Tipos para os componentes estilizados
-interface ThemeProps {
-  theme: DefaultTheme;
-}
-
-interface ContainerProps {
-  theme: DefaultTheme;
-}
-
-interface CardProps {
-  theme: DefaultTheme;
-  first?: boolean;
-}
-
-interface StatValueProps {
-  theme: DefaultTheme;
-  highlight?: boolean;
-}
-
-interface StatLabelProps {
-  theme: DefaultTheme;
-}
-
-interface StatCardProps {
-  theme: DefaultTheme;
-}
-
-interface LoadingContainerProps {
-  theme: DefaultTheme;
-}
 import { Feather } from '@expo/vector-icons';
-import { communityStatsService, CommunityStats } from '@/services/communityStatsService';
+import { communityStatsService, CommunityStats } from '@/features/communities/services/communityStatsService';
 import { communityService } from '@/features/communities/services/communityService';
-import { InternalHeader } from '@/components/InternalHeader';
+import { InternalHeader } from '@/core/components/layout/InternalHeader';
 
 export default function CommunityStatsPage() {
     const router = useRouter();
@@ -163,52 +131,52 @@ export default function CommunityStatsPage() {
     );
 }
 
-const Container = styled.View<ContainerProps>`
+const Container = styled.View`
     flex: 1;
     background-color: ${props => props.theme.colors.backgroundDark};
     padding: 0;
 `;
 
-const LoadingContainer = styled.View<LoadingContainerProps>`
+const LoadingContainer = styled.View`
     flex: 1;
     justify-content: center;
     align-items: center;
 `;
 
-const Content = styled.View<ThemeProps>`
+const Content = styled.View`
     flex: 1;
     padding: 8px;
 `;
 
-const Section = styled.View<ThemeProps>`
+const Section = styled.View`
     margin-bottom: 24px;
 `;
 
-const SectionTitle = styled.Text<ThemeProps>`
+const SectionTitle = styled.Text`
     font-size: 20px;
     font-weight: bold;
-    color: ${(props: ThemeProps) => props.theme.colors.textPrimary};
+    color: ${props => props.theme.colors.gray100};
     margin-bottom: 16px;
 `;
 
-const StatCard = styled.View<StatCardProps>`
-    background-color: ${(props: ThemeProps) => props.theme.colors.backgroundLight};
+const StatCard = styled.View`
+    background-color: ${props => props.theme.colors.backgroundLight};
     border-radius: 8px;
     padding: 16px;
     margin-bottom: 16px;
 `;
 
-const PlayerName = styled.Text<ThemeProps>`
+const PlayerName = styled.Text`
     font-size: 18px;
     font-weight: bold;
-    color: ${(props: ThemeProps) => props.theme.colors.textPrimary};
+    color: ${props => props.theme.colors.gray100};
     margin-bottom: 12px;
 `;
 
-const PairNames = styled.Text<ThemeProps>`
+const PairNames = styled.Text`
     font-size: 18px;
     font-weight: bold;
-    color: ${(props: ThemeProps) => props.theme.colors.textPrimary};
+    color: ${props => props.theme.colors.gray100};
     margin-bottom: 12px;
 `;
 
@@ -222,13 +190,13 @@ const StatItem = styled.View`
     align-items: center;
 `;
 
-const StatLabel = styled.Text<ThemeProps>`
+const StatLabel = styled.Text`
     font-size: 14px;
     color: ${props => props.theme.colors.textSecondary};
     margin-bottom: 4px;
 `;
 
-const StatValue = styled.Text<ThemeProps>`
+const StatValue = styled.Text`
     font-size: 16px;
     font-weight: bold;
     color: ${props => props.theme.colors.primary};

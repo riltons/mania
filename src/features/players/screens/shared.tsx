@@ -5,7 +5,7 @@ import styled from 'styled-components/native';
 import { useTheme } from '@/core/contexts/ThemeProvider';
 import { supabase } from '@/core/lib/supabase';
 import { Player, playersService } from '@/features/players/services/playersService';
-import { PlayerItem } from '@/components/data-display/PlayerItem';
+import { PlayerItem } from '@/core/components/data-display/PlayerItem';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function SharedPlayersScreen() {

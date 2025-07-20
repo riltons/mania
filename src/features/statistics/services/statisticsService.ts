@@ -1,5 +1,5 @@
 import { supabase } from '@/core/lib/supabase';
-import { competitionService } from './competitionService';
+import { competitionService } from '@/features/competitions/services/competitionService';
 import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 

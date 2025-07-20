@@ -5,14 +5,14 @@ import { DefaultTheme } from 'styled-components';
 import { Player } from '@/features/players/types/Player';
 import { playersService } from '@/features/players/services/playersService';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { TextInput } from '@/components/ui/TextInput';
-import { Button } from '@/components/ui/Button';
-import { PlayerAvatar } from '@/components/data-display/PlayerAvatar';
+import { TextInput } from '@/core/components/ui/TextInput';
+import { Button } from '@/core/components/ui/Button';
+import { PlayerAvatar } from '@/core/components/data-display/PlayerAvatar';
 import { FontAwesome5 } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import { useTheme } from '@/core/contexts/ThemeProvider';
-import { InternalHeader } from '@/components/layout/InternalHeader';
+import { InternalHeader } from '@/core/components/layout/InternalHeader';
 
 /**
  * Normaliza um número de telefone brasileiro para o formato padrão

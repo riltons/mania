@@ -4,7 +4,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import styled from 'styled-components/native';
 import { useTheme } from '@/core/contexts/ThemeProvider';
 import { Feather as Icon } from '@expo/vector-icons';
-import { competitionService } from '@/services/competitionService';
+import { competitionService } from '@/features/competitions/services/competitionService';
 import { DatePickerInput as DatePickerInputRN } from 'react-native-paper-dates';
 import { PaperProvider, TextInput as TextInputRN } from 'react-native-paper';
 import { View, Text } from 'react-native';

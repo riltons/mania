@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Alert, ActivityIndicator, StatusBar } from 'react-native';
 import { useRouter } from 'expo-router';
 import styled from 'styled-components/native';
-import { useAuth } from '../hooks/useAuth';
+import { useAuth } from '@/features/auth/contexts/AuthProvider';
 import { useTheme } from '@/core/contexts/ThemeProvider';
 import { DefaultTheme } from 'styled-components';
 
@@ -43,7 +43,8 @@ export default function Login() {
                 return;
             }
 
-            router.replace('/(tabs)/dashboard');
+            console.log('Login bem-sucedido, redirecionando para dashboard');
+            router.replace('/(tabs)');
         } catch (error: any) {
             console.error('Erro no login:', error);
             Alert.alert('Erro', 'E-mail ou senha incorretos');

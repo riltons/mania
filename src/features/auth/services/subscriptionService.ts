@@ -1,4 +1,4 @@
-import { supabaseMCP } from '@/core/lib/supabaseMCP';
+import { supabase } from '@/core/lib/supabase';
 
 export type Plan = {
   id: string;
@@ -30,7 +30,7 @@ export type SubscriptionWithPlan = SubscriptionRow & {
 
 export const subscriptionService = {
   getPlans: async (): Promise<Plan[]> => {
-    const { data, error } = await supabaseMCP.from('plans').select('*');
+    const { data, error } = await supabase.from('plans').select('*');
     if (error) throw error;
     return data ?? [];
   },
@@ -38,7 +38,7 @@ export const subscriptionService = {
   getUserSubscription: async (
     userId: string
   ): Promise<SubscriptionWithPlan | null> => {
-    const { data, error } = await supabaseMCP
+    const { data, error } = await supabase
       .from('subscriptions')
       .select('*, plans(*)')
       .eq('user_id', userId)
@@ -52,7 +52,7 @@ export const subscriptionService = {
   },
   // adiciona métodos para iniciar trial de 14 dias e cancelar assinatura
   startUserTrial: async (userId: string, planSlug: string): Promise<SubscriptionWithPlan> => {
-    const { data: plan, error: planError } = await supabaseMCP
+    const { data: plan, error: planError } = await supabase
       .from('plans')
       .select('*')
       .eq('slug', planSlug)
@@ -60,7 +60,7 @@ export const subscriptionService = {
     if (planError || !plan) throw planError ?? new Error('Plano não encontrado');
     const endsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
     const startsAt = new Date().toISOString();
-    const { data, error } = await supabaseMCP
+    const { data, error } = await supabase
       .from('subscriptions')
       .upsert({ user_id: userId, plan_id: plan.id, status: 'trialing', starts_at: startsAt, ends_at: endsAt }, { onConflict: ['user_id', 'plan_id'] })
       .select('*, plans(*)')
@@ -69,7 +69,7 @@ export const subscriptionService = {
     return data as SubscriptionWithPlan;
   },
   cancelSubscription: async (subscriptionId: string): Promise<SubscriptionRow> => {
-    const { data, error } = await supabaseMCP
+    const { data, error } = await supabase
       .from('subscriptions')
       .update({ status: 'canceled', ends_at: new Date().toISOString() })
       .eq('id', subscriptionId)
@@ -80,14 +80,14 @@ export const subscriptionService = {
   },
   assignFreePlan: async (userId: string): Promise<SubscriptionRow> => {
     // Atribui o plano gratuito ao usuário
-    const { data: plan, error: planError } = await supabaseMCP
+    const { data: plan, error: planError } = await supabase
       .from('plans')
       .select('id')
       .eq('slug', 'free')
       .single();
     if (planError || !plan) throw planError ?? new Error('Plano gratuito não encontrado');
     const now = new Date().toISOString();
-    const { data, error } = await supabaseMCP
+    const { data, error } = await supabase
       .from('subscriptions')
       .upsert(
         { user_id: userId, plan_id: plan.id, status: 'active', starts_at: now, ends_at: null },
@@ -99,7 +99,7 @@ export const subscriptionService = {
   },
   createSubscription: async (userId: string, planId: string): Promise<SubscriptionWithPlan> => {
     const now = new Date().toISOString();
-    const { data, error } = await supabaseMCP
+    const { data, error } = await supabase
       .from('subscriptions')
       .upsert({ user_id: userId, plan_id: planId, status: 'active', starts_at: now, ends_at: null }, { onConflict: ['user_id', 'plan_id'] })
       .select('*, plans(*)')
@@ -108,4 +108,3 @@ export const subscriptionService = {
     return data as SubscriptionWithPlan;
   },
 };
-

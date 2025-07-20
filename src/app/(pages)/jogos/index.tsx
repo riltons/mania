@@ -5,7 +5,7 @@ import styled from 'styled-components/native';
 import { GameWithDetails, gamesService } from '@/features/games/services/gamesService';
 import { Feather } from '@expo/vector-icons';
 import { formatDate } from '@/core/utils/date';
-import { InternalHeader } from '@/components/layout/InternalHeader';
+import { InternalHeader } from '@/core/components/layout/InternalHeader';
 import { useTheme } from 'styled-components/native';
 
 export default function GamesPage() {

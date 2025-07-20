@@ -1,8 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { colors } from '@/styles/colors';
+import { colors } from '@/core/styles/colors';
 import { DefaultTheme, ThemeProvider as StyledThemeProvider } from 'styled-components/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { themes, ThemeType, ColorType } from '@/styles/themes';
+import { themes, ThemeType, ColorType } from '@/core/styles/themes';
 import { useColorScheme } from 'react-native';
 
 interface ThemeContextData {
@@ -82,9 +82,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
 export function useTheme() {
   const context = useContext(ThemeContext);
-  if (!context || !context.colors || !context.colors.primary) {
-    console.error('[useTheme] Contexto de tema inválido ou fora do ThemeProvider!', context);
-    throw new Error('useTheme deve ser usado dentro de ThemeProvider e colors.primary deve existir!');
+  if (!context) {
+    throw new Error('useTheme must be used within a ThemeProvider');
   }
   return context;
 }

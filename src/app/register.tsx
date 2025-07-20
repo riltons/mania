@@ -2,11 +2,11 @@ import React, { useState } from 'react';
 import { Alert, ActivityIndicator, StatusBar } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import styled from 'styled-components/native';
-import { useAuth } from '../hooks/useAuth';
-import { userService } from '../services/userService';
+import { useAuth } from '@/features/auth/contexts/AuthProvider';
+import { userService } from '@/features/auth/services/userService';
 import { useTheme } from '@/core/contexts/ThemeProvider';
 import { supabase } from '@/core/lib/supabase';
-import { subscriptionService } from '../services/subscriptionService';
+import { subscriptionService } from '@/features/auth/services/subscriptionService';
 import { DefaultTheme } from 'styled-components';
 
 // Interfaces para tipagem dos componentes estilizados
@@ -83,6 +83,7 @@ export default function Register() {
                 }
             }
             // Após login automático, exibe onboarding em vez do dashboard
+            console.log('Registro bem-sucedido, redirecionando para onboarding');
             router.replace('/(pages)/onboarding');
 
         } catch (error: any) {
@@ -237,4 +238,3 @@ const LoginButtonText = styled.Text`
     color: ${({ theme }: ThemeProps) => theme.colors.primary};
     text-align: center;
 `;
-

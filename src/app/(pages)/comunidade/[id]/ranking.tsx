@@ -2,9 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import styled from 'styled-components/native';
-import { useTheme } from '@/contexts/ThemeProvider';
-import { rankingService, PlayerRanking, PairRanking } from '@/services/rankingService';
-import { InternalHeader } from '@/components/InternalHeader';
+import { useTheme } from '@/core/contexts/ThemeProvider';
+import { rankingService, PlayerRanking, PairRanking } from '@/features/statistics/services/rankingService';
+import { InternalHeader } from '@/core/components/layout/InternalHeader';
 
 const Container = styled.View`
   flex: 1;

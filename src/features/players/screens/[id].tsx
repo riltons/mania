@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Alert, View, ActivityIndicator, Platform } from 'react-native';
 import styled from 'styled-components/native';
-import { Player, playerService } from '@/services/playerService';
-import { Header } from '@/components/Header';
+import { Player, playerService } from '@/features/players/services/playerService';
+import { Header } from '@/core/components/layout/Header';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { TextInput } from '@/components/TextInput';
-import { Button } from '@/components/Button';
-import { PlayerAvatar } from '@/components/PlayerAvatar';
+import { TextInput } from '@/core/components/ui/TextInput';
+import { Button } from '@/core/components/ui/Button';
+import { PlayerAvatar } from '@/core/components/data-display/PlayerAvatar';
 import { FontAwesome5 } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '@/core/contexts/ThemeProvider';

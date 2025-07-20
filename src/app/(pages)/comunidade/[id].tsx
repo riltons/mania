@@ -3,15 +3,15 @@ import { ActivityIndicator, Alert, FlatList, ScrollView, Text, View, TouchableOp
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from 'styled-components/native';
-import CustomModal from '../../../components/CustomModal';
+import CustomModal from '@/core/components/feedback/CustomModal';
 import styled from 'styled-components/native';
-import { useAuth } from '@/core/contexts/AuthProvider';
+import { useAuth } from '@/features/auth/hooks/useAuth';
 import { communityService } from '@/features/communities/services/communityService';
-import { communityMembersService } from '@/services/communityMembersService';
-import { communityOrganizersService } from '@/services/communityOrganizersService';
+import { communityMembersService } from '@/features/communities/services/communityMembersService';
+import { communityOrganizersService } from '@/features/communities/services/communityOrganizersService';
 import { playersService } from '@/features/players/services/playersService';
-import { competitionService } from '@/services/competitionService';
-import { InternalHeader } from '@/components/InternalHeader';
+import { competitionService } from '@/features/competitions/services/competitionService';
+import { InternalHeader } from '@/core/components/layout/InternalHeader';
 import { supabase } from '@/core/lib/supabase';
 
 type CommunityOrganizer = {

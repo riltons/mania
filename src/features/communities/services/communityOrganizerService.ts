@@ -1,5 +1,5 @@
 import { supabase } from '@/core/lib/supabase';
-import { UserProfile } from '../types/user';
+import { UserProfile } from '@/features/auth/types/user';
 
 export interface CommunityOrganizer {
     id: string;

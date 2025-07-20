@@ -3,12 +3,12 @@ import { Alert, ActivityIndicator, TouchableOpacity, Image, Text, View } from 'r
 import * as ImagePicker from 'expo-image-picker';
 import styled from 'styled-components/native';
 import { useRouter } from 'expo-router';
-import { InternalHeader } from '@/components/layout/InternalHeader';
+import { InternalHeader } from '@/core/components/layout/InternalHeader';
 import { playerService } from '@/features/players/services/playerService';
 import { Feather } from '@expo/vector-icons';
 import { TextInput } from 'react-native-paper';
 import { useTheme } from 'styled-components/native';
-import { PhoneInput } from '@/components/PhoneInput';
+import { PhoneInput } from '@/core/components/ui/PhoneInput';
 
 type ThemeProps = {
     theme: {

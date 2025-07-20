@@ -1,443 +1,825 @@
-import { supabase } from '@/core/lib/supabase';
-import { findAndLinkPlayerByPhone } from './findAndLinkPlayerService';
-import { activityService } from '@/services/activityService';
-import { normalizePhoneNumber, playerRpcService } from './playerRpcService';
-
-// Definições de tipos
-interface UserPlayerRelation {
-    is_primary: boolean;
-    user_id: string;
-    player_id: string;
-}
+import { supabase, supabaseUrl, supabaseAnonKey } from '@/core/lib/supabase';
+import { activityService } from './activityService';
+import { Platform } from 'react-native';
+import * as FileSystem from 'expo-file-system';
+import { decode } from 'base64-arraybuffer';
 
 export interface Player {
     id: string;
     name: string;
     phone: string;
     created_at: string;
-    created_by: string;
     nickname?: string;
+    created_by: string;
     avatar_url?: string;
     isLinkedUser?: boolean;
     isMine?: boolean;
     isPrimaryUser?: boolean;
-    isCreatedByOtherUser?: boolean;
-    sharedPlayer?: boolean;
-    isPrimary?: boolean;
     stats?: PlayerStats;
-    message?: string;
-    user_player_relations?: UserPlayerRelation[];
+    user_player_relations?: Array<{
+        is_primary: boolean;
+        user_id: string;
+    }>;
 }
 
-interface PlayerStats {
-    total_matches: number;
+export interface PlayerStats {
+    total_games: number;
     wins: number;
     losses: number;
-    win_rate: number;
+    buchudas: number;
 }
 
-export interface CreatePlayerDTO {
+interface CreatePlayerDTO {
     name: string;
     phone: string;
     nickname?: string;
     avatar_url?: string;
 }
 
-export class PlayerService {
-    private myPlayers: Player[] = [];
-    private communityPlayers: Player[] = [];
-    
-    constructor() {}
+class PlayerService {
+    private players: Player[] = [];
 
-    private async getCurrentUserId(): Promise<string | null> {
-        const { data: authData } = await supabase.auth.getSession();
-        return authData?.session?.user?.id || null;
-    }
-
-    /**
-     * Normaliza um número de telefone para o formato brasileiro padrão
-     * - Remove caracteres não numéricos
-     * - Se começar com 55 (código do Brasil), remove esse prefixo
-     * - Garante que o número tenha exatamente 11 dígitos (DDD + 9 + 8 dígitos)
-     * - Valida se o terceiro dígito é '9' conforme padrão brasileiro atual
-     * 
-     * @param phone O número de telefone a ser normalizado
-     * @returns O número de telefone normalizado, no formato brasileiro (11 dígitos)
-     * @throws Error Se o número não puder ser normalizado para o formato brasileiro válido
-     */
-    private normalizePhoneNumber(phone: string): string {
-        if (!phone) {
-            throw new Error('Telefone não fornecido');
-        }
-        
-        // Remove caracteres não numéricos
-        let normalizedPhone = phone.replace(/\D/g, '');
-        console.log(`[PlayerService] Telefone após remover caracteres especiais: ${phone} -> ${normalizedPhone}`);
-        
-        // Se começar com 55 (código do Brasil), remove esse prefixo
-        if (normalizedPhone.startsWith('55') && normalizedPhone.length > 11) {
-            normalizedPhone = normalizedPhone.substring(2);
-            console.log(`[PlayerService] Telefone após remover prefixo 55: ${normalizedPhone}`);
-        }
-        
-        // Se ainda tiver mais de 11 dígitos, mantém os últimos 11
-        if (normalizedPhone.length > 11) {
-            const original = normalizedPhone;
-            normalizedPhone = normalizedPhone.slice(-11);
-            console.log(`[PlayerService] Telefone muito longo (${original.length} dígitos), truncado para: ${normalizedPhone}`);
-        }
-        
-        // Validação rigorosa do formato brasileiro
-        if (normalizedPhone.length !== 11) {
-            throw new Error(`Telefone inválido: deve ter exatamente 11 dígitos, mas tem ${normalizedPhone.length}`);
-        }
-        
-        // Validar se o terceiro dígito é 9 (padrão brasileiro atual para celulares)
-        if (normalizedPhone.charAt(2) !== '9') {
-            throw new Error('Telefone inválido: o terceiro dígito deve ser 9');
-        }
-        
-        // Validar se o DDD é válido (entre 11 e 99)
-        const ddd = parseInt(normalizedPhone.substring(0, 2));
-        if (ddd < 11 || ddd > 99) {
-            throw new Error(`Telefone inválido: DDD ${ddd} não é válido no Brasil`);
-        }
-        
-        console.log(`[PlayerService] Normalização concluída: ${phone} -> ${normalizedPhone}`);
-        return normalizedPhone;
-    }
-
-    /**
-     * Busca um jogador pelo número de telefone
-     * @param phone Número do telefone a ser buscado
-     * @returns Jogador encontrado ou lança erro se não encontrado
-     */
-    async findByPhone(phone: string | null): Promise<Player | null> {
-        if (!phone) return null;
-
+    async getByPhone(phone: string) {
         try {
-            const userId = await this.getCurrentUserId();
-            const normalizedPhone = this.normalizePhoneNumber(phone);
-            console.log('[PlayerService] Telefone normalizado:', phone, '->', normalizedPhone);
-            
-            // Usar o playerRpcService que é mais robusto e tem múltiplas estratégias de busca
-            const player = await playerRpcService.findPlayerByPhone(phone);
-            
-            if (!player) {
-                console.log('Nenhum jogador encontrado com o telefone:', normalizedPhone);
-                return null;
-            }
-
-            return {
-                ...player,
-                isMine: player.created_by === userId,
-                isPrimaryUser: player.user_player_relations?.some(
-                    (rel: UserPlayerRelation) => rel.user_id === userId && rel.is_primary
-                ) || false
-            } as Player;
-        } catch (error: unknown) {
-            console.error('Erro ao buscar jogador por telefone:', error);
-            throw new Error(`Erro ao buscar jogador: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
-        }
-    }
-
-    /**
-     * Cria um novo jogador ou retorna um jogador existente
-     * @param data Dados do jogador a ser criado
-     * @param maxRetries Número máximo de tentativas em caso de concorrência
-     * @returns O jogador criado ou existente
-     */
-    async create(data: CreatePlayerDTO, maxRetries: number = 2): Promise<Player> {
-        const log = (message: string, logData?: any) => {
-            const timestamp = new Date().toISOString();
-            const formattedData = logData ? ` | ${JSON.stringify(logData)}` : '';
-            console.log(`[${timestamp}] [CreatePlayer] ${message}${formattedData}`);
-        };
-
-        try {
-            log('Iniciando processo de criação de jogador', {
-                name: data.name,
-                phone: data.phone,
-                maxRetries
-            });
-
-            // Verificar autenticação
-            const currentUserId = await this.getCurrentUserId();
-            if (!currentUserId) {
-                const authError = new Error('Usuário não autenticado');
-                log('Erro de autenticação', { error: authError.message });
-                throw authError;
-            }
-
-            // Normaliza o telefone para busca e armazenamento
-            let normalizedPhone: string;
-            try {
-                normalizedPhone = this.normalizePhoneNumber(data.phone);
-                log('Telefone normalizado com sucesso', { 
-                    original: data.phone, 
-                    normalized: normalizedPhone 
-                });
-            } catch (error) {
-                const validationError = error as Error;
-                log('Erro de validação do telefone', { 
-                    phone: data.phone, 
-                    error: validationError.message 
-                });
-                throw validationError;
-            }
-            
-            // Validação adicional do telefone
-            if (normalizedPhone.length !== 11) {
-                const validationError = new Error('Número de telefone deve ter exatamente 11 dígitos');
-                log('Erro de validação', { 
-                    phone: data.phone, 
-                    normalizedPhone,
-                    error: validationError.message 
-                });
-                throw validationError;
-            }
-            
-            // Verifica se o terceiro dígito é 9 (padrão brasileiro atual para celulares)
-            if (normalizedPhone.charAt(2) !== '9') {
-                const validationError = new Error('Número de telefone inválido: o terceiro dígito deve ser 9');
-                log('Erro de validação', { 
-                    phone: data.phone, 
-                    normalizedPhone,
-                    error: validationError.message 
-                });
-                throw validationError;
-            }
-            
-            // Verifica se o DDD é válido (entre 11 e 99)
-            const ddd = parseInt(normalizedPhone.substring(0, 2));
-            if (ddd < 11 || ddd > 99) {
-                const validationError = new Error(`Número de telefone inválido: DDD ${ddd} não é válido no Brasil`);
-                log('Erro de validação', { 
-                    phone: data.phone, 
-                    normalizedPhone,
-                    ddd,
-                    error: validationError.message 
-                });
-                throw validationError;
-            }
-            
-            // Valida se tem exatamente 11 dígitos
-            if (normalizedPhone.length !== 11) {
-                const validationError = new Error('O número de telefone deve ter exatamente 11 dígitos (DDD + número)');
-                log('Erro de validação de tamanho', { 
-                    phone: data.phone, 
-                    normalizedPhone,
-                    tamanho: normalizedPhone.length,
-                    error: validationError.message 
-                });
-                throw validationError;
-            }
-            
-            // Valida se está no formato brasileiro correto (DDD + 9 + 8 dígitos)
-            // O terceiro dígito deve ser 9, conforme padrão de celulares brasileiros
-            if (normalizedPhone.length === 11 && normalizedPhone.charAt(2) !== '9') {
-                const validationError = new Error('Formato inválido para telefone celular brasileiro. Deve seguir o padrão DDD + 9 + 8 dígitos.');
-                log('Erro de validação de formato brasileiro', { 
-                    phone: data.phone, 
-                    normalizedPhone,
-                    terceiroDigito: normalizedPhone.charAt(2),
-                    error: validationError.message 
-                });
-                throw validationError;
-            }
-
-            // Tenta encontrar um jogador existente e vinculá-lo ao usuário atual
-            log('Buscando jogador existente para o telefone', { normalizedPhone });
-            
-            // Primeiro, tenta encontrar e vincular o jogador com a nova função
-            const linkedPlayer = await findAndLinkPlayerByPhone(normalizedPhone, currentUserId, 'CreatePlayer');
-            
-            if (linkedPlayer) {
-                log('Jogador existente encontrado e vinculado', { 
-                    id: linkedPlayer.id, 
-                    name: linkedPlayer.name, 
-                    phone: linkedPlayer.phone,
-                    isShared: linkedPlayer.is_shared
-                });
-                
-                // Converter o LinkedPlayer para o formato Player esperado
-                const player: Player = {
-                    id: linkedPlayer.id,
-                    name: linkedPlayer.name,
-                    phone: linkedPlayer.phone,
-                    nickname: linkedPlayer.nickname || '',
-                    avatar_url: linkedPlayer.avatar_url || '',
-                    created_at: linkedPlayer.created_at,
-                    created_by: linkedPlayer.created_by,
-                    isCreatedByOtherUser: linkedPlayer.is_shared,
-                    sharedPlayer: linkedPlayer.is_shared,
-                    isPrimary: linkedPlayer.is_primary
-                };
-                
-                log('Retornando jogador vinculado', { 
-                    playerId: player.id 
-                });
-                return player;
-            }
-            
-            // Se não encontrou com a nova função, tenta com o método antigo
-            const existingPlayer = await this.findByPhone(normalizedPhone);
-            
-            if (existingPlayer) {
-                log('Jogador existente encontrado com método antigo', { 
-                    id: existingPlayer.id, 
-                    name: existingPlayer.name, 
-                    phone: existingPlayer.phone 
-                });
-                
-                log('Retornando jogador existente', { 
-                    playerId: existingPlayer.id 
-                });
-                return existingPlayer;
-            }
-            
-            log('Nenhum jogador existente encontrado com este telefone');
-
-            // Se não encontrou jogador existente, tenta criar um novo
-            log('Criando novo jogador', {
-                name: data.name,
-                phone: normalizedPhone
-            });
-
-            const { data: newPlayer, error } = await supabase
+            const { data, error } = await supabase
                 .from('players')
-                .insert({
-                    name: data.name,
-                    phone: normalizedPhone,
-                    nickname: data.nickname || '',
-                    avatar_url: data.avatar_url || '',
-                    created_by: currentUserId
-                })
                 .select('*')
+                .eq('phone', phone)
                 .single();
 
-            if (error) {
-                log('Erro ao criar jogador', { error: error.message });
-                throw error;
+            if (error && error.code !== 'PGRST116') {
+                console.error('Erro ao buscar jogador por telefone:', error);
+                throw new Error('Erro ao buscar jogador por telefone');
             }
 
-            if (!newPlayer) {
-                const unexpectedError = new Error('Erro inesperado ao criar jogador');
-                log('Erro inesperado', { error: unexpectedError.message });
-                throw unexpectedError;
-            }
-
-            log('Jogador criado com sucesso', { 
-                id: newPlayer.id, 
-                name: newPlayer.name, 
-                phone: newPlayer.phone 
-            });
-
-            // Adicionar relação entre usuário e jogador
-            try {
-                log('Adicionando relação entre usuário e jogador', {
-                    userId: currentUserId,
-                    playerId: newPlayer.id,
-                    isPrimary: true
-                });
-
-                const { error: relationError } = await supabase
-                    .from('user_player_relations')
-                    .insert({
-                        user_id: currentUserId,
-                        player_id: newPlayer.id,
-                        is_primary: true
-                    });
-
-                if (relationError) {
-                    log('Erro ao adicionar relação', { error: relationError.message });
-                    // Não interrompe o fluxo se falhar ao adicionar relação
-                }
-            } catch (relationErr) {
-                log('Exceção ao adicionar relação', { error: relationErr instanceof Error ? relationErr.message : 'Erro desconhecido' });
-                // Não interrompe o fluxo se falhar ao adicionar relação
-            }
-
-            // Registrar atividade de criação de jogador
-            try {
-                log('Registrando atividade de criação de jogador');
-                await activityService.createActivity({
-                    type: 'player',
-                    description: `Novo jogador "${data.name}" foi criado`,
-                    metadata: {
-                        player_id: newPlayer.id,
-                        name: newPlayer.name
-                    }
-                });
-            } catch (activityErr) {
-                log('Erro ao registrar atividade', { error: activityErr instanceof Error ? activityErr.message : 'Erro desconhecido' });
-                // Não interrompe o fluxo se falhar ao registrar atividade
-            }
-
-            return {
-                ...newPlayer,
-                isMine: true,
-                isPrimaryUser: true
-            } as Player;
+            return data;
         } catch (error) {
-            log('Erro final ao criar jogador', { error: error instanceof Error ? error.message : 'Erro desconhecido' });
+            console.error('Erro ao buscar jogador por telefone:', error);
             throw error;
         }
     }
 
-    /**
-     * Lista os jogadores do usuário e da comunidade
-     */
-    async list(): Promise<{ myPlayers: Player[]; communityPlayers: Player[]; }> {
+    async create(data: CreatePlayerDTO) {
         try {
-            const userId = await this.getCurrentUserId();
-            if (!userId) {
-                throw new Error('Usuário não autenticado');
+            // Verifica se já existe jogador com este telefone
+            const existingPlayer = await this.getByPhone(data.phone);
+            if (existingPlayer) {
+                // Vincula jogador existente ao usuário atual
+                const { data: userData, error: userError } = await supabase.auth.getUser();
+                if (userError) throw userError;
+
+                const { error: relationError } = await supabase
+                    .from('user_player_relations')
+                    .insert([{ 
+                        user_id: userData.user.id, 
+                        player_id: existingPlayer.id,
+                        is_primary: false
+                    }]);
+                
+                if (relationError && relationError.code !== '23505') {
+                    console.error('Erro ao vincular jogador existente:', relationError);
+                    throw new Error('Erro ao vincular jogador');
+                }
+                
+                // Atualiza a lista de jogadores em memória
+                await this.list();
+                return existingPlayer;
             }
 
+            const { data: userData, error: userError } = await supabase.auth.getUser();
+            if (userError) throw userError;
+
+            // Cria o novo jogador
+            const { data: newPlayer, error } = await supabase
+                .from('players')
+                .insert([{
+                    ...data,
+                    created_by: userData.user.id
+                }])
+                .select()
+                .single();
+
+            if (error) {
+                if (error.code === '23505') {
+                    throw new Error('Já existe um jogador cadastrado com este telefone');
+                }
+                console.error('Erro ao criar jogador:', error);
+                throw new Error('Erro ao criar jogador');
+            }
+
+            // Cria a relação usuário-jogador como primária
+            const { error: relationError } = await supabase
+                .from('user_player_relations')
+                .insert([{ 
+                    user_id: userData.user.id, 
+                    player_id: newPlayer.id,
+                    is_primary: true 
+                }]);
+
+            if (relationError) {
+                console.error('Erro ao criar relação usuário-jogador:', relationError);
+                throw new Error('Erro ao criar relação com o jogador');
+            }
+
+            // Atualiza a lista de jogadores em memória
+            await this.list();
+            return newPlayer;
+        } catch (error) {
+            console.error('Erro ao criar jogador:', error);
+            throw error;
+        }
+    }
+
+    async getPlayerStats(playerId: string): Promise<PlayerStats> {
+        try {
+            const { count: totalGames, error: gamesError } = await supabase
+                .from('game_players')
+                .select('*', { count: 'exact' })
+                .eq('player_id', playerId);
+
+            if (gamesError) throw gamesError;
+
+            const { count: wins, error: winsError } = await supabase
+                .from('game_players')
+                .select('*', { count: 'exact', head: true })
+                .eq('player_id', playerId)
+                .eq('is_winner', true);
+
+            const { count: buchudas, error: buchudasError } = await supabase
+                .from('game_players')
+                .select('*', { count: 'exact', head: true })
+                .eq('player_id', playerId)
+                .eq('is_buchuda', true);
+
+            if (winsError || buchudasError) {
+                throw winsError || buchudasError;
+            }
+
+            return {
+                total_games: totalGames || 0,
+                wins: wins || 0,
+                losses: (totalGames || 0) - (wins || 0),
+                buchudas: buchudas || 0
+            };
+        } catch (error) {
+            console.error('Erro ao buscar estatísticas do jogador:', error);
+            return {
+                total_games: 0,
+                wins: 0,
+                losses: 0,
+                buchudas: 0
+            };
+        }
+    }
+
+    // Função auxiliar para converter base64 em ArrayBuffer
+    private base64ToArrayBuffer(base64: string): ArrayBuffer {
+        const binaryString = atob(base64);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+        }
+        return bytes.buffer;
+    }
+
+    async list(fetchStats = false) {
+        try {
+            const { data: userData, error: userError } = await supabase.auth.getUser();
+            
+            console.log('Buscando jogadores...');
+            console.log('Dados do usuário:', userData);
+            console.log('Erro ao obter usuário:', userError);
+            
+            if (userError || !userData.user) {
+                console.error('Erro de autenticação:', userError || 'Usuário não autenticado');
+                throw userError || new Error('Usuário não autenticado');
+            }
+
+            console.log('Usuário autenticado:', userData.user.id);
+            console.log('E-mail do usuário:', userData.user.email);
+
+            // Buscar jogadores criados pelo usuário
             const { data: myPlayers, error: myPlayersError } = await supabase
                 .from('players')
-                .select('*, user_player_relations(*)')
-                .eq('created_by', userId);
+                .select(`
+                    *,
+                    user_player_relations!left(
+                        is_primary,
+                        user_id
+                    )
+                `)
+                .eq('created_by', userData.user.id)
+                .order('name');
+
+            console.log('Jogadores criados pelo usuário:', myPlayers);
 
             if (myPlayersError) {
-                console.error('Erro ao buscar jogadores do usuário:', myPlayersError);
-                throw new Error('Erro ao buscar jogadores do usuário');
+                console.error('Erro ao buscar jogadores criados:', myPlayersError);
+                throw new Error('Erro ao listar jogadores');
             }
 
+            // Buscar jogadores das comunidades onde sou organizador
             const { data: communityPlayers, error: communityPlayersError } = await supabase
                 .from('players')
-                .select('*, user_player_relations(*)')
-                .neq('created_by', userId);
+                .select(`
+                    *,
+                    user_player_relations!left(
+                        user_id,
+                        is_primary
+                    ),
+                    community_members!inner(
+                        community_id,
+                        communities!inner(
+                            id,
+                            community_organizers!inner(
+                                user_id
+                            )
+                        )
+                    )
+                `)
+                .eq('community_members.communities.community_organizers.user_id', userData.user.id)
+                .neq('created_by', userData.user.id)
+                .order('name');
+
+            console.log('Jogadores da comunidade:', communityPlayers);
 
             if (communityPlayersError) {
                 console.error('Erro ao buscar jogadores da comunidade:', communityPlayersError);
-                throw new Error('Erro ao buscar jogadores da comunidade');
+                throw new Error('Erro ao listar jogadores');
+            }
+            
+            // Buscar jogadores compartilhados (criados por outros usuários, mas vinculados ao usuário atual)
+            const { data: sharedPlayers, error: sharedPlayersError } = await supabase
+                .from('user_player_relations')
+                .select(`
+                    player:player_id(
+                        *,
+                        user_player_relations!left(
+                            is_primary,
+                            user_id
+                        )
+                    )
+                `)
+                .eq('user_id', userData.user.id);
+
+            console.log('=== DEBUG JOGADORES COMPARTILHADOS ===');
+            console.log('User ID atual:', userData.user.id);
+            console.log('Relações encontradas:', sharedPlayers?.length || 0);
+            console.log('Dados das relações:', sharedPlayers);
+            console.log('Erro na busca:', sharedPlayersError);
+
+            // Busca alternativa: pegar as relações e depois buscar os jogadores individualmente
+            const { data: alternativeRelations, error: altError } = await supabase
+              .from('user_player_relations')
+              .select('player_id, is_primary')
+              .eq('user_id', userData.user.id);
+
+            console.log('=== BUSCA ALTERNATIVA DE RELAÇÕES ===');
+            console.log('Relações encontradas:', alternativeRelations?.length || 0);
+            console.log('Dados das relações:', alternativeRelations?.map(r => ({ 
+              is_primary: r.is_primary, 
+              player_id: r.player_id 
+            })));
+
+            if (alternativeRelations) {
+              const additionalPlayers = [];
+              const processedPlayerIds = new Set();
+              for (const relation of alternativeRelations) {
+                // Só busca jogadores compartilhados (is_primary = false) que não foram encontrados na busca original
+                if (!relation.is_primary && !processedPlayerIds.has(relation.player_id)) {
+                  console.log(`Buscando jogador individual: ${relation.player_id}`);
+                  
+                  const { data: individualPlayer, error: individualError } = await supabase
+                    .from('players')
+                    .select(`
+                      *,
+                      user_player_relations!inner(
+                        user_id,
+                        is_primary
+                      )
+                    `)
+                    .eq('id', relation.player_id)
+                    .eq('is_active', true)
+                    .maybeSingle(); // Usa maybeSingle para não dar erro se não encontrar
+
+                  if (individualError) {
+                    console.log(`Erro ao buscar jogador ${relation.player_id}:`, individualError);
+                    // Se der erro PGRST116, significa que o jogador não existe mais
+                    if (individualError.code === 'PGRST116') {
+                      console.log(`⚠️ RELAÇÃO ÓRFÃ DETECTADA: Jogador ${relation.player_id} não existe mais, mas relação ainda persiste`);
+                    }
+                    continue;
+                  }
+
+                  if (individualPlayer && !processedPlayerIds.has(individualPlayer.id)) {
+                    console.log(`Adicionando jogador compartilhado adicional: ${individualPlayer.name}`);
+                    
+                    // Verifica se é um jogador compartilhado de verdade (criado por outro usuário)
+                    const isSharedPlayer = individualPlayer.created_by !== userData.user.id;
+                    
+                    const playerWithFlags = {
+                      ...individualPlayer,
+                      isMine: !isSharedPlayer,
+                      isLinkedUser: true,
+                      isPrimaryUser: relation.is_primary
+                    };
+
+                    if (isSharedPlayer) {
+                      additionalPlayers.push(playerWithFlags);
+                    }
+                    
+                    processedPlayerIds.add(individualPlayer.id);
+                  }
+                }
+              }
+
+              console.log('Jogadores adicionais encontrados:', additionalPlayers.length);
+              communityPlayers.push(...additionalPlayers);
             }
 
-            const processedMyPlayers = (myPlayers || []).map((player: Player) => ({
-                ...player,
-                isMine: true,
-                isPrimaryUser: player.user_player_relations?.some(
-                    (rel: UserPlayerRelation) => rel.user_id === userId && rel.is_primary
-                ) || false
-            }));
+            // Processar jogadores
+            const players: Player[] = [];
 
-            const processedCommunityPlayers = (communityPlayers || []).map((player: Player) => ({
-                ...player,
-                isMine: false,
-                isPrimaryUser: player.user_player_relations?.some(
-                    (rel: UserPlayerRelation) => rel.user_id === userId && rel.is_primary
-                ) || false
-            }));
+            // Adicionar jogadores criados pelo usuário
+            if (myPlayers) {
+                myPlayers.forEach((player: any) => {
+                    const relations = Array.isArray(player.user_player_relations) ? player.user_player_relations : [];
+                    const isPrimary = relations.some((rel: any) => rel?.is_primary);
+                    
+                    players.push({
+                        ...player,
+                        isMine: true,
+                        isLinkedUser: true,
+                        isPrimaryUser: isPrimary,
+                        user_player_relations: relations
+                    });
+                });
+            }
+
+            // Adicionar jogadores da comunidade
+            if (communityPlayers) {
+                communityPlayers.forEach((player: any) => {
+                    const relations = Array.isArray(player.user_player_relations) ? player.user_player_relations : [];
+                    const isPrimary = relations.some((rel: { is_primary: boolean }) => rel?.is_primary);
+                    
+                    players.push({
+                        ...player,
+                        isMine: false,
+                        isLinkedUser: true,
+                        isPrimaryUser: isPrimary,
+                        user_player_relations: relations
+                    });
+                });
+            }
+            
+            // Adicionar jogadores compartilhados (criados por outros usuários mas vinculados ao usuário atual)
+            if (sharedPlayers) {
+                console.log('=== PROCESSANDO JOGADORES COMPARTILHADOS ===');
+                console.log('Quantidade de relações a processar:', sharedPlayers.length);
+                
+                const processedIds = new Set(players.map(p => p.id)); // Para evitar duplicatas
+                
+                sharedPlayers.forEach((relation: any, index: number) => {
+                    console.log(`Processando relação ${index + 1}:`, relation);
+                    
+                    if (!relation.player) {
+                        console.log('  - Pulando: relation.player é null/undefined');
+                        return;
+                    }
+                    
+                    if (processedIds.has(relation.player.id)) {
+                        console.log(`  - Pulando: jogador ${relation.player.id} já foi processado`);
+                        return;
+                    }
+                    
+                    console.log(`  - Adicionando jogador compartilhado: ${relation.player.name} (ID: ${relation.player.id})`);
+                    
+                    const relations = Array.isArray(relation.player.user_player_relations) ? relation.player.user_player_relations : [];
+                    const isPrimary = relations.some((rel: any) => 
+                        rel?.is_primary && rel?.user_id === userData.user.id
+                    );
+                    
+                    players.push({
+                        ...relation.player,
+                        isMine: false,
+                        isLinkedUser: true,
+                        isPrimaryUser: isPrimary,
+                        user_player_relations: relations
+                    });
+                    
+                    processedIds.add(relation.player.id);
+                });
+                
+                console.log('=== FIM DO PROCESSAMENTO ===');
+            } else {
+                console.log('Nenhum jogador compartilhado encontrado (sharedPlayers é null/undefined)');
+            }
+
+            // Separar jogadores
+            const myPlayersList = players.filter(player => player.isMine);
+            const communityPlayersList = players.filter(player => !player.isMine);
+
+            // Se necessário, buscar estatísticas para cada jogador
+            if (fetchStats) {
+                const [myPlayersWithStats, communityPlayersWithStats] = await Promise.all([
+                    Promise.all(myPlayersList.map(async player => ({
+                        ...player,
+                        stats: await this.getPlayerStats(player.id)
+                    }))),
+                    Promise.all(communityPlayersList.map(async player => ({
+                        ...player,
+                        stats: await this.getPlayerStats(player.id)
+                    })))
+                ]);
+
+                return {
+                    myPlayers: myPlayersWithStats,
+                    communityPlayers: communityPlayersWithStats
+                };
+            }
 
             return {
-                myPlayers: processedMyPlayers,
-                communityPlayers: processedCommunityPlayers
+                myPlayers: myPlayersList,
+                communityPlayers: communityPlayersList
             };
-        } catch (error: unknown) {
+        } catch (error) {
             console.error('Erro ao listar jogadores:', error);
-            throw new Error('Erro ao listar jogadores');
+            throw error;
+        }
+    }
+
+    async getById(id: string) {
+        try {
+            const { data, error } = await supabase
+                .from('players')
+                .select('*')
+                .eq('id', id)
+                .single();
+
+            if (error) {
+                console.error('Erro ao buscar jogador:', error);
+                throw new Error('Erro ao buscar jogador');
+            }
+
+            return data;
+        } catch (error) {
+            console.error('Erro ao buscar jogador:', error);
+            throw error;
+        }
+    }
+
+    async update(id: string, data: Partial<Player>) {
+        try {
+            const { data: updatedPlayer, error } = await supabase
+                .from('players')
+                .update(data)
+                .eq('id', id)
+                .select()
+                .single();
+
+            if (error) {
+                console.error('Erro ao atualizar jogador:', error);
+                throw new Error('Erro ao atualizar jogador');
+            }
+
+            // Atualiza a lista de jogadores em memória
+            await this.list();
+            return updatedPlayer;
+        } catch (error) {
+            console.error('Erro ao atualizar jogador:', error);
+            throw error;
+        }
+    }
+
+    async uploadAvatar(playerId: string, uri: string): Promise<string> {
+        try {
+            console.log('Iniciando upload do avatar para o jogador:', playerId);
+            
+            // Verifica se a URI é uma imagem base64 (web) ou um caminho de arquivo (mobile)
+            const isWeb = Platform.OS === 'web';
+            let base64Data = '';
+            
+            if (isWeb) {
+                // Para web, a imagem já deve vir em base64
+                console.log('Processando imagem da web');
+                base64Data = uri.split(',')[1];
+            } else {
+                // Para mobile, lê o arquivo e converte para base64
+                console.log('Processando imagem do mobile, URI:', uri);
+                const fileInfo = await FileSystem.getInfoAsync(uri);
+                console.log('Informações do arquivo:', fileInfo);
+                
+                if (!fileInfo.exists) {
+                    throw new Error('Arquivo de imagem não encontrado');
+                }
+                
+                const base64 = await FileSystem.readAsStringAsync(uri, {
+                    encoding: FileSystem.EncodingType.Base64,
+                });
+                base64Data = base64;
+                console.log('Imagem convertida para base64 com sucesso');
+            }
+            
+            if (!base64Data) {
+                throw new Error('Não foi possível processar a imagem');
+            }
+            
+            // Define o caminho no storage do Supabase
+            const fileExt = 'jpg';
+            const fileName = `${playerId}-${Date.now()}.${fileExt}`;
+            const contentType = 'image/jpeg';
+            
+            console.log('Convertendo base64 para ArrayBuffer...');
+            // Converte base64 para ArrayBuffer
+            const arrayBuffer = this.base64ToArrayBuffer(base64Data);
+            
+            console.log('Tentando fazer upload para o bucket player-avatars com o arquivo:', fileName);
+            console.log('URL do Supabase:', supabaseUrl);
+            
+            // Verifica se o bucket existe
+            try {
+                const { data: buckets, error: bucketsError } = await supabase
+                    .storage
+                    .listBuckets();
+                    
+                if (bucketsError) {
+                    console.error('Erro ao listar buckets:', bucketsError);
+                } else {
+                    console.log('Buckets disponíveis:', buckets.map(b => b.name));
+                    
+                    // Verifica se o bucket player-avatars existe
+                    const playerAvatarsBucket = buckets.find(b => b.name === 'player-avatars');
+                    if (!playerAvatarsBucket) {
+                        console.error('Bucket player-avatars não encontrado! Tentando criar...');
+                    }
+                }
+            } catch (bucketError) {
+                console.error('Erro ao verificar buckets:', bucketError);
+            }
+            
+            // Faz o upload para o storage do Supabase
+            console.log('Iniciando upload do arquivo...');
+            
+            // Tenta fazer o upload com um caminho diferente
+            let uploadResult;
+            
+            try {
+                // Primeira tentativa: usando o nome do arquivo diretamente
+                uploadResult = await supabase.storage
+                    .from('player-avatars')
+                    .upload(fileName, arrayBuffer, {
+                        contentType,
+                        upsert: true,
+                        cacheControl: '3600'
+                    });
+                    
+                console.log('Resultado da primeira tentativa:', uploadResult);
+                
+                // Se falhou, tenta com um caminho diferente
+                if (uploadResult.error && uploadResult.error.toString().includes('Bucket not found')) {
+                    console.log('Tentando upload com bucket alternativo...');
+                    
+                    // Tenta com o bucket padrão 'avatars' se existir
+                    uploadResult = await supabase.storage
+                        .from('avatars')
+                        .upload(`players/${fileName}`, arrayBuffer, {
+                            contentType,
+                            upsert: true,
+                            cacheControl: '3600'
+                        });
+                        
+                    console.log('Resultado da segunda tentativa:', uploadResult);
+                }
+            } catch (e) {
+                console.error('Erro inesperado durante o upload:', e);
+                uploadResult = { error: e, data: null };
+            }
+            
+            const { data: uploadData, error: uploadError } = uploadResult;
+            
+            console.log('Resultado do upload:', uploadData);
+            
+            if (uploadError) {
+                console.error('Erro ao fazer upload para o storage:', uploadError);
+                throw new Error('Falha ao enviar a imagem');
+            }
+            
+            // Obtém a URL pública da imagem
+            console.log('Obtendo URL pública da imagem...');
+            let publicUrl = '';
+            
+            if (uploadError && uploadError.toString().includes('Bucket not found')) {
+                // Se o upload foi para o bucket alternativo
+                const { data } = supabase.storage
+                    .from('avatars')
+                    .getPublicUrl(`players/${fileName}`);
+                publicUrl = data.publicUrl;
+            } else {
+                // Se o upload foi para o bucket original
+                const { data } = supabase.storage
+                    .from('player-avatars')
+                    .getPublicUrl(fileName);
+                publicUrl = data.publicUrl;
+            }
+            
+            console.log('URL pública obtida:', publicUrl);
+            
+            if (!publicUrl) {
+                throw new Error('Não foi possível obter a URL pública da imagem');
+            }
+            
+            // Atualiza o jogador com a nova URL do avatar
+            console.log('Atualizando jogador com a nova URL do avatar...');
+            const { error: updateError } = await supabase
+                .from('players')
+                .update({ avatar_url: publicUrl })
+                .eq('id', playerId);
+            
+            if (updateError) {
+                console.error('Erro ao atualizar o jogador com o novo avatar:', updateError);
+                throw new Error('Falha ao atualizar o perfil do jogador');
+            }
+            
+            console.log('Avatar atualizado com sucesso:', publicUrl);
+            return publicUrl;
+            
+        } catch (error) {
+            console.error('Erro ao fazer upload do avatar:', error);
+            throw error;
+        }
+    }
+
+    async delete(id: string) {
+        try {
+            const { error } = await supabase
+                .from('players')
+                .delete()
+                .eq('id', id);
+
+            if (error) {
+                console.error('Erro ao excluir jogador:', error);
+                throw new Error('Erro ao excluir jogador');
+            }
+
+            // Atualiza a lista de jogadores em memória
+            await this.list();
+            return true;
+        } catch (error) {
+            console.error('Erro ao excluir jogador:', error);
+            throw error;
+        }
+    }
+
+    async listCompetitionMembers(competitionId: string) {
+        try {
+            const { data, error } = await supabase
+                .from('competition_players')
+                .select('player:players(*, user_player_relations!inner(user_id, is_primary))')
+                .eq('competition_id', competitionId);
+
+            if (error) {
+                console.error('Erro ao listar membros da competição:', error);
+                throw new Error('Erro ao listar membros da competição');
+            }
+
+            return data?.map(item => ({
+                ...item.player,
+                isLinkedUser: item.player.user_player_relations?.some((rel: { is_primary: boolean }) => rel.is_primary)
+            })) || [];
+        } catch (error) {
+            console.error('Erro ao listar membros da competição:', error);
+            throw error;
+        }
+    }
+
+    async getOrCreatePlayerForCurrentUser(): Promise<Player> {
+        try {
+            const { data: userData, error: userError } = await supabase.auth.getUser();
+            if (userError) throw userError;
+
+            // Tenta encontrar um jogador vinculado ao usuário atual
+            const { data: relations, error: relationsError } = await supabase
+                .from('user_player_relations')
+                .select('player:players(*)')
+                .eq('user_id', userData.user.id)
+                .single();
+
+            if (relationsError && relationsError.code !== 'PGRST116') {
+                console.error('Erro ao buscar relação de jogador:', relationsError);
+                throw new Error('Erro ao buscar jogador vinculado');
+            }
+
+            // Se encontrou um jogador vinculado, retorna
+            if (relations?.player) {
+                const playerData = relations.player as Player;
+                return {
+                    ...playerData,
+                    isLinkedUser: true,
+                    isMine: true,
+                    isPrimaryUser: true
+                };
+            }
+
+            // Se não encontrou, tenta buscar o perfil do usuário
+            const { data: profile, error: profileError } = await supabase
+                .from('user_profiles')
+                .select('*')
+                .eq('user_id', userData.user.id)
+                .single();
+
+            if (profileError) {
+                console.error('Erro ao buscar perfil do usuário:', profileError);
+                
+                // Tentar criar um perfil para o usuário
+                try {
+                    const { error: insertError } = await supabase
+                        .from('user_profiles')
+                        .insert({
+                            id: crypto.randomUUID(),
+                            user_id: userData.user.id,
+                            full_name: userData.user.email?.split('@')[0] || 'Novo Usuário',
+                            phone_number: '',
+                            nickname: '',
+                            created_at: new Date().toISOString(),
+                            updated_at: new Date().toISOString()
+                        });
+                    
+                    if (insertError) {
+                        console.error('Erro ao criar perfil de usuário:', insertError);
+                        throw new Error('Erro ao criar perfil de usuário');
+                    }
+                    
+                    // Buscar o perfil recém-criado
+                    const { data: newProfile, error: fetchError } = await supabase
+                        .from('user_profiles')
+                        .select('*')
+                        .eq('user_id', userData.user.id)
+                        .single();
+                    
+                    if (fetchError || !newProfile) {
+                        console.error('Erro ao buscar perfil recém-criado:', fetchError);
+                        throw new Error('Erro ao buscar perfil recém-criado');
+                    }
+                    
+                    // Usar o perfil recém-criado
+                    return this.create({
+                        name: newProfile.full_name || userData.user.email?.split('@')[0] || 'Novo Jogador',
+                        phone: newProfile.phone_number || '',
+                        nickname: newProfile.nickname || userData.user.email?.split('@')[0]
+                    });
+                } catch (error) {
+                    console.error('Erro ao tentar criar perfil alternativo:', error);
+                    throw new Error('Não foi possível criar seu perfil de usuário');
+                }
+            }
+
+            // Cria um novo jogador com base no perfil do usuário
+            const newPlayer = await this.create({
+                name: profile.full_name || userData.user.email?.split('@')[0] || 'Novo Jogador',
+                phone: profile.phone_number || '',
+                nickname: profile.nickname || userData.user.email?.split('@')[0]
+            });
+            
+            // Verifica se a relação entre usuário e jogador foi criada
+            const { data: relation, error: checkRelationError } = await supabase
+                .from('user_player_relations')
+                .select('*')
+                .eq('user_id', userData.user.id)
+                .eq('player_id', newPlayer.id)
+                .single();
+                
+            // Se não existe relação, cria uma
+            if (checkRelationError || !relation) {
+                try {
+                    const { error: relationError } = await supabase
+                        .from('user_player_relations')
+                        .insert({
+                            id: crypto.randomUUID(),
+                            user_id: userData.user.id,
+                            player_id: newPlayer.id,
+                            created_at: new Date().toISOString(),
+                            is_primary: true
+                        });
+                        
+                    if (relationError) {
+                        console.error('Erro ao criar relação usuário-jogador:', relationError);
+                    } else {
+                        console.log('Relação usuário-jogador criada com sucesso');
+                    }
+                } catch (relationError) {
+                    console.error('Exceção ao criar relação usuário-jogador:', relationError);
+                }
+            }
+
+            // Marca como jogador vinculado
+            return {
+                ...newPlayer,
+                isLinkedUser: true,
+                isPrimaryUser: true
+            };
+        } catch (error) {
+            console.error('Erro ao obter/criar jogador para o usuário atual:', error);
+            throw error;
         }
     }
 }

@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { Alert, ActivityIndicator } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import styled from 'styled-components/native';
-import { colors } from '@/styles/colors';
-import { competitionService } from '@/services/competitionService';
-import { InternalHeader } from '@/components/InternalHeader';
+import { colors } from '@/core/styles/colors';
+import { competitionService } from '@/features/competitions/services/competitionService';
+import { InternalHeader } from '@/core/components/layout/InternalHeader';
 import { Feather } from '@expo/vector-icons';
 
 export default function NovaCompeticao() {

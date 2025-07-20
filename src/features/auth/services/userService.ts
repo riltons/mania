@@ -1,5 +1,5 @@
-import { supabase } from '../lib/supabase';
-import { UserProfile, UserRole } from '../types/user';
+import { supabase } from '@/core/lib/supabase';
+import { UserProfile, UserRole } from '@/features/auth/types/user';
 
 export const userService = {
     async createProfile(
@@ -37,10 +37,13 @@ export const userService = {
             const { data, error } = await supabase
                 .from('user_profiles')
                 .insert({
+                    id: crypto.randomUUID(), // Gerar um UUID para o ID
                     user_id: userId,
                     full_name: fullName,
                     phone_number: phoneNumber,
-                    nickname
+                    nickname,
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
                 })
                 .select()
                 .single();

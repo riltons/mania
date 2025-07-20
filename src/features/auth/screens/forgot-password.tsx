@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { Alert, ActivityIndicator, StatusBar } from 'react-native';
 import { useRouter } from 'expo-router';
 import styled from 'styled-components/native';
-import { useAuth } from '../hooks/useAuth';
-import { useTheme } from '../contexts/ThemeProvider';
+import { useAuth } from '@/features/auth/hooks/useAuth';
+import { useTheme } from '@/core/contexts/ThemeProvider';
 
 export default function ForgotPassword() {
     const router = useRouter();

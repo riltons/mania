@@ -2,14 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList, ActivityIndicator, TouchableOpacity, SectionList } from 'react-native';
 import styled from 'styled-components/native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { InternalHeader } from '@/components/InternalHeader';
+import { InternalHeader } from '@/core/components/layout/InternalHeader';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
-import { gameService, Game } from '@/services/gameService';
-import { playerService } from '@/services/playerService';
+import { gameService, Game } from '@/features/games/services/gameService';
+import { playerService } from '@/features/players/services/playerService';
 import { useTheme } from 'styled-components/native';
 import { format } from 'date-fns';
 import { pt } from 'date-fns/locale';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/core/lib/supabase';
 
 type Game = {
     id: string;

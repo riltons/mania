@@ -3,11 +3,11 @@ import { Redirect, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { View, Text, ActivityIndicator, TouchableOpacity, Linking } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
-import { playerService, Player as PlayerType } from '@/services/playerService';
-import { Header } from '@/components/Header';
-import { colors } from '@/styles/colors';
+import { playerService, Player as PlayerType } from '@/features/players/services/playerService';
+import { Header } from '@/core/components/layout/Header';
+import { colors } from '@/core/styles/colors';
 import styled from 'styled-components/native';
-import { PageTransition } from '@/components/Transitions';
+import { PageTransition } from '@/core/components/transitions/PageTransition';
 import { Feather } from '@expo/vector-icons';
 
 const Container = styled.View`

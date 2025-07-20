@@ -5,7 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Community, communityService } from '@/features/communities/services/communityService';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
-import { Header } from '@/components/layout/Header';
+import { Header } from '@/core/components/layout/Header';
 import { useTheme } from '@/core/contexts/ThemeProvider';
 
 interface ThemeProps {
@@ -164,7 +164,7 @@ export default function Comunidades() {
         <CommunityCard
             key={community.id}
             onPress={() => router.push(`/comunidade/${community.id}`)}
-            style={{ opacity: community.disabled ? 0.5 : 1 }} // itens desabilitados com opacidade reduzida
+            style={{ opacity: community.disabled ? 0.5 : 1 }}
         >
             <CommunityHeader>
                 <CommunityInfo>
@@ -215,8 +215,6 @@ export default function Comunidades() {
     }
 
     const hasNoCommunities = createdCommunities.length === 0 && organizedCommunities.length === 0;
-    // Verifica se existem comunidades desabilitadas
-    const hasDisabled = createdCommunities.some(c => c.disabled) || organizedCommunities.some(c => c.disabled);
 
     return (
         <Container>

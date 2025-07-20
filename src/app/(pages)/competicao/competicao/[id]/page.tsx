@@ -1,12 +1,20 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { View, Text, ActivityIndicator, StatusBar, Platform, ScrollView, Alert, TouchableOpacity } from "react-native";
 import { useEffect, useState } from "react";
-import { Competition, Game } from "@/types/database.types";
-import { competitionService } from "@/services/competitionService";
-import { gameService } from "@/services/gameService";
-import { InternalHeader } from "@/components/InternalHeader";
+
+// Importações dos tipos centralizadas
+import { Competition, Game } from "@/core/types/database.types";
+
+// Importações de serviços seguindo a estrutura de features
+import { competitionService } from "@/features/competitions/services";
+import { gameService } from "@/features/games/services";
+
+// Importações de componentes compartilhados do core
+import { InternalHeader } from "@/core/components/navigation";
+import { PageTransition } from "@/core/components/transitions";
+
+// Importações de libs e utilitários
 import styled from "styled-components/native";
-import { PageTransition } from "@/components/Transitions";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useTheme } from "styled-components/native";

@@ -4,7 +4,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import styled, { DefaultTheme } from 'styled-components/native';
 import { useAuth } from '@/core/hooks/useAuth';
 import { useTheme } from '@/core/contexts/ThemeProvider';
-import { subscriptionService } from '@/services/subscriptionService';
+import { subscriptionService } from '@/features/auth/services/subscriptionService';
 
 // Tipagem para as propriedades do tema
 interface ThemeProps {

@@ -11,10 +11,10 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import styled from 'styled-components/native';
 import { Feather } from '@expo/vector-icons';
-import { gameService, Game } from '@/services/gameService';
-import { competitionService } from '@/services/competitionService';
+import { gameService, Game } from '@/features/games/services/gameService';
+import { competitionService } from '@/features/competitions/services/competitionService';
 import { useFocusEffect } from '@react-navigation/native';
-import { InternalHeader } from '@/components/InternalHeader';
+import { InternalHeader } from '@/core/components/layout/InternalHeader';
 import { useTheme } from '@/core/contexts/ThemeProvider';
 
 interface Player {

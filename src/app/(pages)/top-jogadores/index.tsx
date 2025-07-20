@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList, ActivityIndicator, TouchableOpacity } from 'react-native';
-import { PlayerAvatar } from '@/components/data-display/PlayerAvatar';
+import { PlayerAvatar } from '@/core/components/data-display/PlayerAvatar';
 import styled from 'styled-components/native';
 import { useTheme } from '@/core/contexts/ThemeProvider';
-import { ThemeType } from '@/theme';
-import { InternalHeader } from '@/components/layout/InternalHeader';
-import { PageTransition } from '@/components/Transitions';
+import { ThemeType } from '@/core/theme';
+import { InternalHeader } from '@/core/components/layout/InternalHeader';
+import { PageTransition } from '@/core/components/transitions/PageTransition';
 import { Feather } from '@expo/vector-icons';
 import { rankingService, PlayerRanking } from '@/features/statistics/services/rankingService';
 import { useRouter } from 'expo-router';

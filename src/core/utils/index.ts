@@ -1,10 +1,12 @@
-// Importando apenas o que precisamos de cada arquivo
-import { formatDate as formatDateFromDate } from './date';
-import { formatDate as formatDateFromFormatter } from './dateFormatter';
-
-// Re-exportando com nomes diferentes para evitar conflitos
-export { formatDateFromDate, formatDateFromFormatter };
-
-// Exportando o restante normalmente
 export * from './environment';
 export * from './errorBoundary';
+
+// Exportando date.ts com nome específico para evitar conflitos
+import { formatDate as formatDateWithTime } from './date';
+export { formatDateWithTime };
+
+// Exportando formatDate.ts
+export { formatDateBR } from './formatDate';
+
+// Exportando dateFormatter.ts
+export * from './dateFormatter';

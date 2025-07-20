@@ -5,13 +5,13 @@ import { useFocusEffect } from '@react-navigation/native';
 import styled from 'styled-components/native';
 import { useTheme } from '@/core/contexts/ThemeProvider';
 import { Feather } from '@expo/vector-icons';
-import { competitionService } from '@/services/competitionService';
-import { communityMembersService } from '@/services/communityMembersService';
-import { gameService, Game } from '@/services/gameService';
-import { playerService } from '@/services/playerService';
-import { InternalHeader } from '@/components/InternalHeader';
-import CustomModal from '@/components/CustomModal';
-import { PlayerAvatar } from '@/components/PlayerAvatar';
+import { competitionService } from '@/features/competitions/services/competitionService';
+import { communityMembersService } from '@/features/communities/services/communityMembersService';
+import { gameService, Game } from '@/features/games/services/gameService';
+import { playerService } from '@/features/players/services/playerService';
+import { InternalHeader } from '@/core/components/layout/InternalHeader';
+import CustomModal from '@/core/components/feedback/CustomModal';
+import { PlayerAvatar } from '@/core/components/data-display/PlayerAvatar';
 
 interface Competition {
     id: string;

@@ -2,13 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList, ActivityIndicator } from 'react-native';
 import styled from 'styled-components/native';
 import { useTheme } from '@/core/contexts/ThemeProvider';
-import { InternalHeader } from '@/components/layout/InternalHeader';
-import { PageTransition } from '@/components/Transitions';
+import { InternalHeader } from '@/core/components/layout/InternalHeader';
+import { PageTransition } from '@/core/components/transitions/PageTransition';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { rankingService, PairRanking } from '@/features/statistics/services/rankingService';
 import { useRouter } from 'expo-router';
-import { LoggedLayout } from '@/components/layout/LoggedLayout';
-import { PlayerAvatar } from '@/components/data-display/PlayerAvatar';
+import { LoggedLayout } from '@/core/components/layout/LoggedLayout';
+import { PlayerAvatar } from '@/core/components/data-display/PlayerAvatar';
 
 const Container = styled.View`
     flex: 1;
