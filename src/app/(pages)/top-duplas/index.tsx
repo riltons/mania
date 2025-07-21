@@ -4,6 +4,8 @@ import styled from 'styled-components/native';
 import { useTheme } from '@/core/contexts/ThemeProvider';
 import { Header } from '@/core/components/layout/Header';
 import { rankingService, PairRanking } from '@/features/statistics/services/rankingService';
+import rankingServiceFixed from '@/features/statistics/services/rankingServiceFixed';
+import { mockRankingService } from '@/features/statistics/services/simpleRankingTest';
 import { useRouter } from 'expo-router';
 import { PlayerAvatar } from '@/core/components/data-display/PlayerAvatar';
 import { DefaultTheme } from 'styled-components';
@@ -128,13 +130,36 @@ export default function TopDuplas() {
         
         const loadPairs = async () => {
             try {
-                const data = await rankingService.getTopPairs();
+                console.log('[TopDuplas] Iniciando carregamento de duplas...');
+                
+                // Sistema de fallback: original → fixed → mock
+                let data: PairRanking[];
+                
+                try {
+                    console.log('[TopDuplas] Tentando usar rankingService original...');
+                    data = await rankingService.getTopPairs();
+                    console.log('[TopDuplas] rankingService original funcionou!');
+                } catch (originalError) {
+                    console.log('[TopDuplas] rankingService original falhou, tentando fixed...');
+                    console.error('[TopDuplas] Erro original:', originalError);
+                    
+                    try {
+                        data = await rankingServiceFixed.getTopPairs();
+                        console.log('[TopDuplas] rankingServiceFixed funcionou!');
+                    } catch (fixedError) {
+                        console.log('[TopDuplas] rankingServiceFixed falhou, usando mock...');
+                        console.error('[TopDuplas] Erro fixed:', fixedError);
+                        data = await mockRankingService.getTopPairs();
+                    }
+                }
+                
+                console.log('[TopDuplas] Duplas carregadas:', data.length);
                 if (isMounted) {
                     setPairs(data || []);
                     setError(null);
                 }
             } catch (err) {
-                console.error('Erro ao carregar duplas:', err);
+                console.error('[TopDuplas] Erro ao carregar duplas:', err);
                 if (isMounted) {
                     setError('Erro ao carregar o ranking de duplas. Tente novamente mais tarde.');
                 }
