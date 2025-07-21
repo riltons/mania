@@ -1,93 +1,131 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, ScrollView, TouchableOpacity, Alert } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import styled from 'styled-components/native';
-import { Feather } from '@expo/vector-icons';
-import { InternalHeader } from '@/core/components/layout/InternalHeader';
-import { competitionService } from '@/features/competitions/services';
-import { formatDateBR } from '@/core/utils';
-import { FloatingButton } from '@/core/components/ui';
-import { useTheme } from 'styled-components/native';
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { View, Text, ActivityIndicator, StatusBar, Platform, ScrollView, Alert, TouchableOpacity } from "react-native";
+import { useEffect, useState } from "react";
+import { competitionService } from "@/features/competitions/services";
+import { InternalHeader } from "@/core/components/layout/InternalHeader";
+import styled from "styled-components/native";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { useTheme } from "styled-components/native";
+import { Feather } from "@expo/vector-icons";
+import { supabase } from "@/core/lib/supabase";
 
-// Interface para tipagem das props com tema
-interface ThemeProps {
-  theme: {
-    colors: {
-      backgroundDark: string;
-      backgroundMedium: string;
-      textPrimary: string;
-      textSecondary: string;
-      primary: string;
-      success: string;
-      error: string;
-      warning: string;
-    }
-  }
-}
-
-// Componentes estilizados
 const Container = styled.View`
   flex: 1;
-  background-color: ${(props: ThemeProps) => props.theme.colors.backgroundDark};
+  background-color: ${({ theme }) => theme.colors.backgroundDark};
 `;
 
 const Content = styled.ScrollView`
   flex: 1;
-  padding: 16px;
+  padding: 20px;
 `;
 
-const Card = styled.View`
-  background-color: ${(props: ThemeProps) => props.theme.colors.backgroundMedium};
-  border-radius: 8px;
+const CompetitionCard = styled.View`
+  background-color: ${({ theme }) => theme.colors.backgroundMedium};
+  border-radius: 12px;
   padding: 16px;
   margin-bottom: 16px;
 `;
 
-const Title = styled.Text`
+const CompetitionName = styled.Text`
+  color: ${({ theme }) => theme.colors.textPrimary};
   font-size: 24px;
   font-weight: bold;
-  color: ${(props: ThemeProps) => props.theme.colors.textPrimary};
-  margin-bottom: 8px;
-`;
-
-const Description = styled.Text`
-  font-size: 16px;
-  color: ${(props: ThemeProps) => props.theme.colors.textSecondary};
   margin-bottom: 16px;
 `;
 
-const InfoRow = styled.View`
-  flex-direction: row;
-  align-items: center;
-  margin-bottom: 8px;
+const InfoItem = styled.View`
+  margin-bottom: 12px;
 `;
 
 const InfoLabel = styled.Text`
+  color: ${({ theme }) => theme.colors.textSecondary};
   font-size: 14px;
-  font-weight: bold;
-  color: ${(props: ThemeProps) => props.theme.colors.textPrimary};
-  margin-right: 8px;
-  width: 100px;
+  margin-bottom: 4px;
 `;
 
 const InfoValue = styled.Text`
-  font-size: 14px;
-  color: ${(props: ThemeProps) => props.theme.colors.textSecondary};
-  flex: 1;
+  color: ${({ theme }) => theme.colors.textPrimary};
+  font-size: 16px;
 `;
 
-const SectionTitle = styled.Text`
-  font-size: 18px;
+const GamesSectionTitle = styled.Text`
+  color: ${({ theme }) => theme.colors.textPrimary};
+  font-size: 20px;
   font-weight: bold;
-  color: ${(props: ThemeProps) => props.theme.colors.textPrimary};
   margin-top: 24px;
   margin-bottom: 16px;
+`;
+
+const GamesCount = styled.Text`
+  color: ${({ theme }) => theme.colors.textSecondary};
+  font-size: 14px;
+  margin-bottom: 12px;
+`;
+
+const GamesList = styled.View`
+  margin-top: 8px;
+`;
+
+const GameCard = styled.View`
+  background-color: ${({ theme }) => theme.colors.backgroundMedium};
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+`;
+
+const GameHeader = styled.View`
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+`;
+
+const GameStatus = styled.Text`
+  color: ${({ theme }) => theme.colors.textSecondary};
+  font-size: 14px;
+`;
+
+const DeleteButton = styled.TouchableOpacity`
+  background-color: ${({ theme }) => theme.colors.error};
+  padding: 4px;
+  border-radius: 4px;
+`;
+
+const TeamsContainer = styled.View`
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+`;
+
+interface TeamScoreProps {
+  winner: boolean;
+}
+
+const TeamScore = styled.Text<TeamScoreProps>`
+  font-size: 24px;
+  font-weight: bold;
+  color: ${props => props.winner ? props.theme.colors.primary : props.theme.colors.textSecondary};
+`;
+
+const TeamPlayers = styled.Text`
+  color: ${({ theme }) => theme.colors.textPrimary};
+  font-size: 14px;
+  text-align: center;
+  margin-top: 4px;
+`;
+
+const VsText = styled.Text`
+  color: ${({ theme }) => theme.colors.textSecondary};
+  font-size: 16px;
+  font-weight: bold;
+  margin: 0 8px;
 `;
 
 const ActionButton = styled.TouchableOpacity`
   flex-direction: row;
   align-items: center;
-  background-color: ${(props: ThemeProps) => props.theme.colors.backgroundMedium};
+  background-color: ${({ theme }) => theme.colors.backgroundMedium};
   padding: 16px;
   border-radius: 8px;
   margin-bottom: 12px;
@@ -95,117 +133,64 @@ const ActionButton = styled.TouchableOpacity`
 
 const ActionButtonText = styled.Text`
   font-size: 16px;
-  color: ${(props: ThemeProps) => props.theme.colors.textPrimary};
+  color: ${({ theme }) => theme.colors.textPrimary};
   margin-left: 12px;
 `;
 
-const StatusBadge = styled.View<{ status: string }>`
-  background-color: ${(props) => {
-    switch (props.status) {
-      case 'pending': return props.theme.colors.warning;
-      case 'in_progress': return props.theme.colors.primary;
-      case 'finished': return props.theme.colors.success;
-      default: return props.theme.colors.textSecondary;
-    }
-  }};
-  padding: 4px 8px;
-  border-radius: 4px;
-  align-self: flex-start;
-  margin-bottom: 16px;
-`;
-
-const StatusText = styled.Text`
-  color: white;
-  font-size: 12px;
-  font-weight: bold;
-`;
-
-const StatsContainer = styled.View`
-  flex-direction: row;
-  justify-content: space-around;
-  margin-top: 16px;
-  margin-bottom: 16px;
-`;
-
-const StatItem = styled.View`
-  align-items: center;
-`;
-
-const StatValue = styled.Text`
-  font-size: 24px;
-  font-weight: bold;
-  color: ${(props: ThemeProps) => props.theme.colors.primary};
-`;
-
-const StatLabel = styled.Text`
-  font-size: 14px;
-  color: ${(props: ThemeProps) => props.theme.colors.textSecondary};
-`;
-
-const EmptyStateContainer = styled.View`
-  align-items: center;
-  justify-content: center;
-  padding: 40px 0;
-`;
-
-const EmptyStateText = styled.Text`
-  font-size: 16px;
-  color: ${(props: ThemeProps) => props.theme.colors.textSecondary};
-  text-align: center;
-  margin-top: 16px;
-`;
-
-export default function CompetitionDetailsScreen() {
+export default function CompetitionDetails() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
   const [competition, setCompetition] = useState<any>(null);
-  const [stats, setStats] = useState<any>(null);
+  const [games, setGames] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const { colors } = useTheme();
-
+  const [error, setError] = useState<string | null>(null);
+  const [canDeleteGames, setCanDeleteGames] = useState(false);
+  const [stats, setStats] = useState<any>(null);
+  const theme = useTheme();
+  
   useEffect(() => {
-    loadCompetition();
-  }, [id]);
+    const fetchData = async () => {
+      try {
+        if (!id) {
+          setError('ID da competição não fornecido');
+          return;
+        }
 
-  const loadCompetition = async () => {
-    if (!id) return;
-    
-    try {
-      setLoading(true);
-      console.log('Carregando competição:', id);
-      
-      // Carregar detalhes da competição
-      const competitionData = await competitionService.getById(id as string);
-      console.log('Competição carregada:', competitionData);
-      
-      if (!competitionData) {
-        Alert.alert('Erro', 'Competição não encontrada');
-        router.back();
-        return;
+        console.log('Carregando competição:', id);
+        const competitionData = await competitionService.getById(id as string);
+        
+        if (!competitionData) {
+          setError('Competição não encontrada');
+          return;
+        }
+
+        setCompetition(competitionData);
+        
+        // Carregar estatísticas da competição
+        const statsData = await competitionService.getCompetitionStats(id as string);
+        setStats(statsData);
+
+        // Verificar se o usuário é criador da comunidade
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user && competitionData.community_id) {
+          const { data: community } = await supabase
+            .from('communities')
+            .select('created_by')
+            .eq('id', competitionData.community_id)
+            .single();
+          
+          setCanDeleteGames(community?.created_by === user.id);
+        }
+      } catch (err) {
+        console.error('Erro ao carregar dados:', err);
+        setError(err instanceof Error ? err.message : 'Falha ao carregar dados');
+      } finally {
+        setLoading(false);
       }
-      
-      setCompetition(competitionData);
-      
-      // Carregar estatísticas da competição
-      const statsData = await competitionService.getCompetitionStats(id as string);
-      setStats(statsData);
-      
-    } catch (error) {
-      console.error('Erro ao carregar competição:', error);
-      Alert.alert('Erro', 'Não foi possível carregar os detalhes da competição');
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
 
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'pending': return 'Pendente';
-      case 'in_progress': return 'Em Andamento';
-      case 'finished': return 'Finalizada';
-      default: return status;
-    }
-  };
+    fetchData();
+  }, [id]);
 
   const handleAddPlayer = () => {
     if (!competition) return;
@@ -232,97 +217,111 @@ export default function CompetitionDetailsScreen() {
     router.push(`/competicoes/${competition.id}/ranking`);
   };
 
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'pending': return 'Pendente';
+      case 'in_progress': return 'Em Andamento';
+      case 'finished': return 'Finalizada';
+      default: return status;
+    }
+  };
+
   if (loading) {
     return (
       <Container>
-        <InternalHeader title="Detalhes da Competição" />
+        <InternalHeader title="Carregando..." />
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <ActivityIndicator size="large" color={colors.primary} />
+          <ActivityIndicator size="large" color={theme.colors.primary} />
         </View>
       </Container>
     );
   }
 
-  if (!competition) {
+  if (error) {
     return (
       <Container>
-        <InternalHeader title="Detalhes da Competição" />
-        <EmptyStateContainer>
-          <Feather name="alert-circle" size={64} color={colors.error} />
-          <EmptyStateText>Competição não encontrada</EmptyStateText>
-        </EmptyStateContainer>
+        <InternalHeader title="Erro" />
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+          <Text style={{ color: theme.colors.error, marginBottom: 10 }}>{error}</Text>
+          <TouchableOpacity onPress={() => router.back()} style={{ padding: 10, backgroundColor: theme.colors.primary, borderRadius: 5 }}>
+            <Text style={{ color: theme.colors.white }}>Voltar</Text>
+          </TouchableOpacity>
+        </View>
       </Container>
     );
   }
 
   return (
     <Container>
-      <InternalHeader title="Detalhes da Competição" />
+      <InternalHeader title={competition?.name || 'Detalhes da Competição'} />
       <Content>
-        <Card>
-          <Title>{competition.name}</Title>
-          <StatusBadge status={competition.status}>
-            <StatusText>{getStatusText(competition.status)}</StatusText>
-          </StatusBadge>
-          <Description>{competition.description}</Description>
+        <CompetitionCard>
+          <CompetitionName>{competition.name}</CompetitionName>
           
-          <InfoRow>
-            <InfoLabel>Criado em:</InfoLabel>
-            <InfoValue>{formatDateBR(competition.created_at)}</InfoValue>
-          </InfoRow>
+          <InfoItem>
+            <InfoLabel>Status</InfoLabel>
+            <InfoValue>{getStatusText(competition.status)}</InfoValue>
+          </InfoItem>
+          
+          <InfoItem>
+            <InfoLabel>Descrição</InfoLabel>
+            <InfoValue>{competition.description || 'Sem descrição disponível'}</InfoValue>
+          </InfoItem>
+          
+          <InfoItem>
+            <InfoLabel>Data de Criação</InfoLabel>
+            <InfoValue>
+              {format(new Date(competition.created_at), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+            </InfoValue>
+          </InfoItem>
           
           {competition.start_date && (
-            <InfoRow>
-              <InfoLabel>Início:</InfoLabel>
-              <InfoValue>{formatDateBR(competition.start_date)}</InfoValue>
-            </InfoRow>
-          )}
-          
-          {competition.end_date && (
-            <InfoRow>
-              <InfoLabel>Término:</InfoLabel>
-              <InfoValue>{formatDateBR(competition.end_date)}</InfoValue>
-            </InfoRow>
+            <InfoItem>
+              <InfoLabel>Data de Início</InfoLabel>
+              <InfoValue>
+                {format(new Date(competition.start_date), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+              </InfoValue>
+            </InfoItem>
           )}
           
           {stats && (
-            <StatsContainer>
-              <StatItem>
-                <StatValue>{stats.totalPlayers || 0}</StatValue>
-                <StatLabel>Jogadores</StatLabel>
-              </StatItem>
-              <StatItem>
-                <StatValue>{stats.totalGames || 0}</StatValue>
-                <StatLabel>Jogos</StatLabel>
-              </StatItem>
-            </StatsContainer>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginTop: 16 }}>
+              <View style={{ alignItems: 'center' }}>
+                <Text style={{ fontSize: 24, fontWeight: 'bold', color: theme.colors.primary }}>{stats.totalPlayers || 0}</Text>
+                <Text style={{ fontSize: 14, color: theme.colors.textSecondary }}>Jogadores</Text>
+              </View>
+              <View style={{ alignItems: 'center' }}>
+                <Text style={{ fontSize: 24, fontWeight: 'bold', color: theme.colors.primary }}>{stats.totalGames || 0}</Text>
+                <Text style={{ fontSize: 14, color: theme.colors.textSecondary }}>Jogos</Text>
+              </View>
+            </View>
           )}
-        </Card>
+        </CompetitionCard>
 
-        <SectionTitle>Ações</SectionTitle>
+        <GamesSectionTitle>Ações</GamesSectionTitle>
         
         <ActionButton onPress={handleAddPlayer}>
-          <Feather name="user-plus" size={24} color={colors.primary} />
+          <Feather name="user-plus" size={24} color={theme.colors.primary} />
           <ActionButtonText>Adicionar Jogador</ActionButtonText>
         </ActionButton>
         
         <ActionButton onPress={handleCreateGame}>
-          <Feather name="plus-circle" size={24} color={colors.primary} />
+          <Feather name="plus-circle" size={24} color={theme.colors.primary} />
           <ActionButtonText>Novo Jogo</ActionButtonText>
         </ActionButton>
         
         <ActionButton onPress={handleViewGames}>
-          <Feather name="list" size={24} color={colors.primary} />
+          <Feather name="list" size={24} color={theme.colors.primary} />
           <ActionButtonText>Ver Jogos</ActionButtonText>
         </ActionButton>
         
         <ActionButton onPress={handleViewPlayers}>
-          <Feather name="users" size={24} color={colors.primary} />
+          <Feather name="users" size={24} color={theme.colors.primary} />
           <ActionButtonText>Ver Jogadores</ActionButtonText>
         </ActionButton>
         
         <ActionButton onPress={handleViewRanking}>
-          <Feather name="award" size={24} color={colors.primary} />
+          <Feather name="award" size={24} color={theme.colors.primary} />
           <ActionButtonText>Ver Ranking</ActionButtonText>
         </ActionButton>
       </Content>
