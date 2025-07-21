@@ -6,6 +6,8 @@ import { useTheme } from '@/core/contexts/ThemeProvider';
 import { Header } from '@/core/components/layout/Header';
 import { Feather } from '@expo/vector-icons';
 import { rankingService, PlayerRanking } from '@/features/statistics/services/rankingService';
+import rankingServiceFixed from '@/features/statistics/services/rankingServiceFixed';
+import { mockRankingService } from '@/features/statistics/services/simpleRankingTest';
 import { useRouter } from 'expo-router';
 import { DefaultTheme } from 'styled-components';
 
@@ -123,10 +125,34 @@ export default function TopJogadores() {
 
   async function loadPlayers() {
     try {
-      const data = await rankingService.getTopPlayers();
+      console.log('[TopJogadores] Iniciando carregamento de jogadores...');
+      
+      // Sistema de fallback: original → fixed → mock
+      let data: PlayerRanking[];
+      
+      try {
+        console.log('[TopJogadores] Tentando usar rankingService original...');
+        data = await rankingService.getTopPlayers();
+        console.log('[TopJogadores] rankingService original funcionou!');
+      } catch (originalError) {
+        console.log('[TopJogadores] rankingService original falhou, tentando fixed...');
+        console.error('[TopJogadores] Erro original:', originalError);
+        
+        try {
+          data = await rankingServiceFixed.getTopPlayers();
+          console.log('[TopJogadores] rankingServiceFixed funcionou!');
+        } catch (fixedError) {
+          console.log('[TopJogadores] rankingServiceFixed falhou, usando mock...');
+          console.error('[TopJogadores] Erro fixed:', fixedError);
+          data = await mockRankingService.getTopPlayers();
+        }
+      }
+      
+      console.log('[TopJogadores] Jogadores carregados:', data.length);
       setPlayers(data);
+      setError(null);
     } catch (error) {
-      console.error('Erro ao carregar jogadores:', error);
+      console.error('[TopJogadores] Erro ao carregar jogadores:', error);
       setError('Erro ao carregar jogadores. Tente novamente mais tarde.');
     } finally {
       setLoading(false);
