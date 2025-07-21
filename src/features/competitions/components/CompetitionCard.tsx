@@ -26,6 +26,12 @@ interface CompetitionCardProps {
   onPress: (id: string) => void;
   onDelete: (id: string) => void;
   onEdit: (id: string) => void;
+  stats?: {
+    totalPlayers: number;
+    totalGames: number;
+    hasFinishedGames: boolean;
+    hasOnlyPendingOrInProgress: boolean;
+  };
 }
 
 // Componentes estilizados
@@ -62,6 +68,30 @@ const ActionButton = styled(TouchableOpacity)`
   margin-left: 12px;
 `;
 
+const StatsContainer = styled.View`
+  flex-direction: row;
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top-width: 1px;
+  border-top-color: ${(props: ThemeProps) => props.theme.colors.textSecondary}20;
+`;
+
+const StatItem = styled.View`
+  flex: 1;
+  align-items: center;
+`;
+
+const StatValue = styled.Text`
+  font-size: 16px;
+  font-weight: bold;
+  color: ${(props: ThemeProps) => props.theme.colors.primary};
+`;
+
+const StatLabel = styled.Text`
+  font-size: 12px;
+  color: ${(props: ThemeProps) => props.theme.colors.textSecondary};
+`;
+
 /**
  * CompetitionCard - Componente que exibe uma competição em formato de cartão
  * 
@@ -74,10 +104,11 @@ export const CompetitionCard: React.FC<CompetitionCardProps> = ({
   onPress,
   onDelete,
   onEdit,
+  stats
 }) => {
   // Função para confirmar a exclusão ou inativação
   const handleDeletePress = () => {
-    if (competition.has_finished_games) {
+    if (stats?.hasFinishedGames || competition.has_finished_games) {
       // Competição tem jogos finalizados, apenas podemos inativar
       Alert.alert(
         'Inativar competição',
@@ -113,22 +144,47 @@ export const CompetitionCard: React.FC<CompetitionCardProps> = ({
     onEdit(competition.id);
   };
 
+  // Função para lidar com o clique no card
+  const handleCardPress = () => {
+    console.log('Card pressionado, ID da competição:', competition.id);
+    onPress(competition.id);
+  };
+
   return (
-    <Card onPress={() => onPress(competition.id)}>
+    <Card onPress={handleCardPress}>
       <CardContent>
         <Title>{competition.name}</Title>
         <Description>{competition.description}</Description>
         <DateText>Criado em: {formatDateBR(competition.created_at)}</DateText>
         
+        {stats && (
+          <StatsContainer>
+            <StatItem>
+              <StatValue>{stats.totalPlayers}</StatValue>
+              <StatLabel>Jogadores</StatLabel>
+            </StatItem>
+            <StatItem>
+              <StatValue>{stats.totalGames}</StatValue>
+              <StatLabel>Jogos</StatLabel>
+            </StatItem>
+          </StatsContainer>
+        )}
+        
         <ActionButtons>
           {/* Botão de editar (lápis roxo) */}
-          <ActionButton onPress={handleEditPress}>
+          <ActionButton onPress={(e) => {
+            e.stopPropagation(); // Impede que o evento se propague para o Card
+            handleEditPress();
+          }}>
             <Feather name="edit" size={20} color="#8257E5" />
           </ActionButton>
           
           {/* Botão de excluir/inativar com ícone dinâmico */}
-          <ActionButton onPress={handleDeletePress}>
-            {competition.has_finished_games ? (
+          <ActionButton onPress={(e) => {
+            e.stopPropagation(); // Impede que o evento se propague para o Card
+            handleDeletePress();
+          }}>
+            {(stats?.hasFinishedGames || competition.has_finished_games) ? (
               // Ícone de arquivar (laranja) para competições com jogos finalizados
               <Feather name="archive" size={20} color="#FBA94C" />
             ) : (

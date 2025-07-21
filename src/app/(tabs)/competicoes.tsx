@@ -3,7 +3,7 @@ import { View, ScrollView, TouchableOpacity, Text, Alert, ActivityIndicator } fr
 import { useRouter } from 'expo-router';
 import styled from 'styled-components/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { InternalHeader } from '@/core/components/navigation';
+import { InternalHeader } from '@/core/components/layout/InternalHeader';
 import { ThemeProps } from '@/core/types/theme';
 import { Competition } from '@/core/types/database.types';
 import { competitionService } from '@/features/competitions/services';
@@ -153,8 +153,9 @@ export default function Competicoes() {
     }
   };
 
-  const handleCompetitionPress = (competition: Competition) => {
-    router.push(`/(pages)/competicoes/${competition.id}`);
+  const handleCompetitionPress = (competitionId: string) => {
+    console.log('Navegando para competição:', competitionId);
+    router.push(`/(pages)/competicoes/${competitionId}`);
   };
 
   const handleEditCompetition = (competition: Competition) => {
@@ -228,7 +229,7 @@ export default function Competicoes() {
 
   return (
     <Container>
-      <InternalHeader title="Competições" showBackButton={false} />
+      <InternalHeader title="Competições" />
       
       {loading ? (
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
@@ -244,7 +245,7 @@ export default function Competicoes() {
                   key={competition.id}
                   competition={competition}
                   stats={competitionStats[competition.id]}
-                  onPress={() => handleCompetitionPress(competition)}
+                  onPress={() => handleCompetitionPress(competition.id)}
                   onEdit={() => handleEditCompetition(competition)}
                   onDelete={() => handleDeleteCompetition(competition.id)}
                 />
@@ -260,7 +261,7 @@ export default function Competicoes() {
                   key={competition.id}
                   competition={competition}
                   stats={competitionStats[competition.id]}
-                  onPress={() => handleCompetitionPress(competition)}
+                  onPress={() => handleCompetitionPress(competition.id)}
                   onEdit={() => handleEditCompetition(competition)}
                   onDelete={() => handleDeleteCompetition(competition.id)}
                 />

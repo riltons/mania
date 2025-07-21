@@ -1006,6 +1006,27 @@ export const competitionService = {
         }
     },
 
+    async toggleActive(competitionId: string, isActive: boolean) {
+        try {
+            const { data, error } = await supabase
+                .from('competitions')
+                .update({ is_active: isActive })
+                .eq('id', competitionId)
+                .select()
+                .single();
+
+            if (error) {
+                console.error('Erro ao alterar status da competição:', error);
+                throw error;
+            }
+
+            return data;
+        } catch (error) {
+            console.error('Erro ao alterar status da competição:', error);
+            throw error;
+        }
+    },
+
     async inactivate(competitionId: string) {
         try {
             const { error } = await supabase

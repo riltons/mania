@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, ViewStyle } from 'react-native';
+import { View, StyleSheet, ViewStyle, TouchableOpacity } from 'react-native';
 import styled from 'styled-components/native';
 
 // Interface para tipagem das props do tema
@@ -16,13 +16,28 @@ interface ThemeProps {
 interface CardProps {
   children: React.ReactNode;
   style?: ViewStyle;
+  onPress?: () => void;
 }
 
 // Componente Card estilizado
 const CardContainer = styled(View)`
   background-color: ${(props: ThemeProps) => props.theme.colors.background};
   border-radius: 8px;
-  padding: 0;
+  padding: 16px;
+  margin-bottom: 16px;
+  shadow-color: #000;
+  shadow-offset: 0px 2px;
+  shadow-opacity: 0.1;
+  shadow-radius: 3px;
+  elevation: 2;
+  border: 1px solid ${(props: ThemeProps) => props.theme.colors.backgroundMedium};
+`;
+
+// Componente Card clicável estilizado
+const TouchableCardContainer = styled(TouchableOpacity)`
+  background-color: ${(props: ThemeProps) => props.theme.colors.background};
+  border-radius: 8px;
+  padding: 16px;
   margin-bottom: 16px;
   shadow-color: #000;
   shadow-offset: 0px 2px;
@@ -37,8 +52,18 @@ const CardContainer = styled(View)`
  * 
  * @param children Conteúdo interno do card
  * @param style Estilo adicional para o card (opcional)
+ * @param onPress Função chamada ao pressionar o card (opcional)
  */
-export const Card = ({ children, style }: CardProps) => {
+export const Card = ({ children, style, onPress }: CardProps) => {
+  // Se tiver onPress, renderiza como TouchableOpacity, senão como View
+  if (onPress) {
+    return (
+      <TouchableCardContainer style={style} onPress={onPress} activeOpacity={0.7}>
+        {children}
+      </TouchableCardContainer>
+    );
+  }
+  
   return (
     <CardContainer style={style}>
       {children}
