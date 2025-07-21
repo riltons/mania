@@ -45,7 +45,17 @@ export interface CompetitionResult {
     }[];
 }
 
+import { competitionStatsService } from './competitionStatsService';
+
 export const competitionService = {
+    /**
+     * Obtém estatísticas de uma competição
+     * @param competitionId ID da competição
+     * @returns Estatísticas da competição
+     */
+    async getCompetitionStats(competitionId: string) {
+        return competitionStatsService.getCompetitionStats(competitionId);
+    },
     async create(data: CreateCompetitionDTO | SimpleCreateCompetitionDTO) {
         // Converter formato simplificado para o formato completo
         const formattedData: CreateCompetitionDTO = {

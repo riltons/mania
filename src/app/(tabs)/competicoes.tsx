@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, ScrollView, TouchableOpacity, Text, Alert, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import styled from 'styled-components/native';
@@ -12,6 +12,8 @@ import { CompetitionCard } from '@/features/competitions/components';
 import { CreateCompetitionModal } from '@/features/competitions/components';
 import { EditCompetitionModal } from '@/features/competitions/components';
 import { FloatingButton } from '@/core/components/ui';
+import { useAuth } from '@/features/auth/contexts/AuthProvider';
+import { useFocusEffect } from '@react-navigation/native';
 
 const Container = styled(View)<ThemeProps>`
   flex: 1;
@@ -62,15 +64,40 @@ export default function Competicoes() {
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editingCompetition, setEditingCompetition] = useState<Competition | null>(null);
   const router = useRouter();
+  const { isAuthenticated, user } = useAuth();
 
+  // Carrega as competições quando a tela é montada
   useEffect(() => {
-    loadCompetitions();
-  }, []);
+    if (isAuthenticated) {
+      loadCompetitions();
+    }
+  }, [isAuthenticated]);
+  
+  // Recarrega as competições quando a tela recebe foco
+  useFocusEffect(
+    useCallback(() => {
+      if (isAuthenticated) {
+        console.log('Competicoes: Tela recebeu foco, recarregando competições...');
+        loadCompetitions();
+      }
+      return () => {};
+    }, [isAuthenticated])
+  );
 
   const loadCompetitions = async () => {
     try {
+      console.log('Competicoes: Iniciando carregamento de competições...');
       setLoading(true);
+      
+      // Verifica se o usuário está autenticado
+      if (!isAuthenticated || !user) {
+        console.log('Competicoes: Usuário não autenticado, não é possível carregar competições');
+        return;
+      }
+      
+      console.log('Competicoes: Buscando competições do usuário...');
       const comps = await competitionService.listMyCompetitions();
+      console.log(`Competicoes: Encontradas ${comps.created.length} competições criadas e ${comps.organized.length} organizadas`);
       
       // Busca estatísticas para cada competição
       const stats: {[key: string]: { 
@@ -81,13 +108,43 @@ export default function Competicoes() {
       }} = {};
       
       const allCompetitions = [...comps.created, ...comps.organized];
-      for (const comp of allCompetitions) {
-        const compStats = await competitionService.getCompetitionStats(comp.id);
-        stats[comp.id] = compStats;
+      
+      // Se não houver competições, não precisa buscar estatísticas
+      if (allCompetitions.length > 0) {
+        console.log(`Competicoes: Buscando estatísticas para ${allCompetitions.length} competições...`);
+        
+        for (const comp of allCompetitions) {
+          try {
+            // Implementação temporária de getCompetitionStats caso não exista no serviço
+            let compStats;
+            if (typeof competitionService.getCompetitionStats === 'function') {
+              compStats = await competitionService.getCompetitionStats(comp.id);
+            } else {
+              // Estatísticas padrão caso o método não exista
+              compStats = {
+                totalPlayers: 0,
+                totalGames: 0,
+                hasFinishedGames: false,
+                hasOnlyPendingOrInProgress: true
+              };
+            }
+            stats[comp.id] = compStats;
+          } catch (statsError) {
+            console.error(`Erro ao buscar estatísticas para competição ${comp.id}:`, statsError);
+            // Usa estatísticas padrão em caso de erro
+            stats[comp.id] = {
+              totalPlayers: 0,
+              totalGames: 0,
+              hasFinishedGames: false,
+              hasOnlyPendingOrInProgress: true
+            };
+          }
+        }
       }
       
       setCompetitions(comps);
       setCompetitionStats(stats);
+      console.log('Competicoes: Carregamento concluído com sucesso');
     } catch (error) {
       console.error('Erro ao carregar competições:', error);
       Alert.alert('Erro', 'Não foi possível carregar as competições. Por favor, tente novamente.');
