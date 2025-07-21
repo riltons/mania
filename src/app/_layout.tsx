@@ -142,6 +142,7 @@ const AuthContentWrapper = () => {
     const isLandingPage = pathname === '/';
     const isAuthScreen = pathname?.startsWith('/login') || pathname?.startsWith('/register') || pathname?.startsWith('/signup');
     const isTestPage = pathname === '/test-rankings';
+    const [redirected, setRedirected] = useState(false);
     
     // Log para debug
     console.log('AuthContentWrapper - Estado atual:', { 
@@ -152,18 +153,25 @@ const AuthContentWrapper = () => {
     });
     
     useEffect(() => {
+        // Evita múltiplos redirecionamentos
+        if (redirected || isLoading) return;
+        
         // Se estiver autenticado e em uma tela de autenticação, redireciona para o dashboard
         if (isAuthenticated && isAuthScreen) {
             console.log('Usuário autenticado em tela de auth, redirecionando para dashboard');
+            setRedirected(true);
             router.replace('/(tabs)');
+            return;
         }
         
         // Se não estiver autenticado e não estiver em uma tela de autenticação, landing page ou teste
         if (!isAuthenticated && !isAuthScreen && !isLandingPage && !isTestPage) {
             console.log('Usuário não autenticado, redirecionando para landing page');
+            setRedirected(true);
             router.replace('/');
+            return;
         }
-    }, [isAuthenticated, pathname, router]);
+    }, [isAuthenticated, pathname, isLoading]);
     
     // Mostra tela de carregamento se estiver carregando
     if (isLoading) {
