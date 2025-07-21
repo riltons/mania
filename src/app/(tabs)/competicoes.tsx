@@ -155,7 +155,7 @@ export default function Competicoes() {
 
   const handleCompetitionPress = (competitionId: string) => {
     console.log('Navegando para competição:', competitionId);
-    router.push(`/(pages)/competicoes/${competitionId}`);
+    router.push(`/competicoes/${competitionId}`);
   };
 
   const handleEditCompetition = (competition: Competition) => {
