@@ -7,6 +7,7 @@ export default function PagesLayout() {
       <Stack.Screen name="onboarding/index" />
       <Stack.Screen name="jogador/[id]/jogos" />
       <Stack.Screen name="competicao/[id]" />
+      <Stack.Screen name="competicoes/[id]" />
       <Stack.Screen name="comunidade/[id]" />
     </Stack>
   );
