@@ -141,6 +141,7 @@ const AuthContentWrapper = () => {
     const router = useRouter();
     const isLandingPage = pathname === '/';
     const isAuthScreen = pathname?.startsWith('/login') || pathname?.startsWith('/register') || pathname?.startsWith('/signup');
+    const isTestPage = pathname === '/test-rankings';
     
     // Log para debug
     console.log('AuthContentWrapper - Estado atual:', { 
@@ -157,8 +158,8 @@ const AuthContentWrapper = () => {
             router.replace('/(tabs)');
         }
         
-        // Se não estiver autenticado e não estiver em uma tela de autenticação ou landing page
-        if (!isAuthenticated && !isAuthScreen && !isLandingPage) {
+        // Se não estiver autenticado e não estiver em uma tela de autenticação, landing page ou teste
+        if (!isAuthenticated && !isAuthScreen && !isLandingPage && !isTestPage) {
             console.log('Usuário não autenticado, redirecionando para landing page');
             router.replace('/');
         }

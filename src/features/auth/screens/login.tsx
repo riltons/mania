@@ -33,7 +33,7 @@ export default function Login() {
                 return;
             }
 
-            router.replace('/(tabs)/dashboard');
+            router.replace('/(tabs)');
         } catch (error: any) {
             console.error('Erro no login:', error);
             Alert.alert('Erro', 'E-mail ou senha incorretos');

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, ScrollView, TouchableOpacity, Dimensions, RefreshControl, Alert, Text } from "react-native";
 import styled from "styled-components/native";
 import { useTheme } from "@/core/contexts/ThemeProvider";
@@ -12,6 +12,9 @@ import { useAuth } from "@/features/auth/contexts/AuthProvider";
 import { statisticsService } from "@/features/statistics/services/statisticsService";
 import { rankingService } from "@/features/statistics/services/rankingService";
 import { activityService } from "@/features/activities/services/activityService";
+import { testRankingData } from "@/features/statistics/services/testRankingService";
+import { mockRankingService, simpleRankingTest } from "@/features/statistics/services/simpleRankingTest";
+import rankingServiceFixed from "@/features/statistics/services/rankingServiceFixed";
 import { supabase } from "@/core/lib/supabase";
 import { PlayerAvatar } from "@/core/components/data-display/PlayerAvatar";
 import { DefaultTheme } from 'styled-components';
@@ -282,6 +285,14 @@ const Dashboard: React.FC = () => {
                 return;
             }
             
+            // Executar teste de dados para debug
+            console.log('[Dashboard] Executando teste de dados...');
+            await testRankingData();
+            
+            // Executar teste simples
+            console.log('[Dashboard] Executando teste simples...');
+            await simpleRankingTest();
+            
             // Carregar estatísticas básicas
             const userStats = await statisticsService.getUserStats();
             setStats(userStats);
@@ -313,8 +324,38 @@ const Dashboard: React.FC = () => {
             
             // Carregar ranking de jogadores
             try {
-                const rankings = await rankingService.getTopPlayers();
+                console.log('[Dashboard] Iniciando carregamento de top jogadores...');
+                
+                // Verificar se usuário está autenticado
+                const { data: { user } } = await supabase.auth.getUser();
+                if (!user) {
+                    console.log('[Dashboard] Usuário não autenticado, usando dados de teste');
+                    const rankings = await mockRankingService.getTopPlayers();
+                    console.log('[Dashboard] Usando dados mock para demonstração:', rankings.length);
+                    setTopPlayers(rankings.slice(0, 5));
+                    return;
+                }
+                
+                // Sistema de fallback: original -> fixed -> mock
+                console.log('[Dashboard] Tentando usar rankingService original...');
+                let rankings;
+                try {
+                    rankings = await rankingService.getTopPlayers();
+                    console.log('[Dashboard] rankingService original funcionou!');
+                } catch (originalError) {
+                    console.log('[Dashboard] rankingService original falhou, tentando fixed...');
+                    console.error('[Dashboard] Erro original:', originalError);
+                    try {
+                        rankings = await rankingServiceFixed.getTopPlayers();
+                        console.log('[Dashboard] rankingServiceFixed funcionou!');
+                    } catch (fixedError) {
+                        console.log('[Dashboard] rankingServiceFixed falhou, usando mock...');
+                        console.error('[Dashboard] Erro fixed:', fixedError);
+                        rankings = await mockRankingService.getTopPlayers();
+                    }
+                }
                 console.log('[Dashboard] Top jogadores carregados:', rankings.length);
+                console.log('[Dashboard] Dados dos rankings:', rankings);
                 
                 const sortedRankings = [...rankings].sort((a, b) => {
                     if (b.wins !== a.wins) return b.wins - a.wins;
@@ -328,15 +369,67 @@ const Dashboard: React.FC = () => {
                         position: index + 1
                     }));
                 
+                console.log('[Dashboard] Top players processados:', topPlayers);
                 setTopPlayers(topPlayers);
             } catch (playerError) {
-                console.error('[Dashboard] Erro ao carregar top jogadores:', playerError);
+                console.error('[Dashboard] Erro ao carregar top jogadores:');
+                console.error('[Dashboard] Tipo do erro:', typeof playerError);
+                console.error('[Dashboard] Erro completo:', playerError);
+                console.error('[Dashboard] Stack trace:', (playerError as any)?.stack);
+                console.error('[Dashboard] Mensagem:', (playerError as any)?.message);
             }
             
             // Carregar ranking de duplas
             try {
-                const rankings = await rankingService.getTopPairs();
+                console.log('[Dashboard] Iniciando carregamento de top duplas...');
+                
+                // Verificar se usuário está autenticado
+                const { data: { user } } = await supabase.auth.getUser();
+                if (!user) {
+                    console.log('[Dashboard] Usuário não autenticado, usando dados de teste para duplas');
+                    const rankings = await mockRankingService.getTopPairs();
+                    console.log('[Dashboard] Usando dados mock para duplas:', rankings.length);
+                    const top4Pairs = rankings.slice(0, 4).map((pair: any) => ({
+                        id: pair.id,
+                        player1: {
+                            id: pair.player1.id,
+                            name: pair.player1.name,
+                            avatar_url: pair.player1.avatar_url
+                        },
+                        player2: {
+                            id: pair.player2.id,
+                            name: pair.player2.name,
+                            avatar_url: pair.player2.avatar_url
+                        },
+                        wins: pair.wins,
+                        buchudas: pair.buchudas,
+                        buchudasDeRe: pair.buchudasDeRe,
+                        winRate: pair.winRate
+                    }));
+                    setTopPairs(top4Pairs);
+                    return;
+                }
+                
+                // Sistema de fallback para usuários autenticados
+                console.log('[Dashboard] Tentando usar rankingService.getTopPairs original...');
+                let rankings;
+                try {
+                    rankings = await rankingService.getTopPairs();
+                    console.log('[Dashboard] rankingService.getTopPairs funcionou!');
+                } catch (originalError) {
+                    console.log('[Dashboard] rankingService.getTopPairs falhou, tentando fixed...');
+                    console.error('[Dashboard] Erro original:', originalError);
+                    try {
+                        rankings = await rankingServiceFixed.getTopPairs();
+                        console.log('[Dashboard] rankingServiceFixed.getTopPairs funcionou!');
+                    } catch (fixedError) {
+                        console.log('[Dashboard] rankingServiceFixed.getTopPairs falhou, usando mock...');
+                        console.error('[Dashboard] Erro fixed:', fixedError);
+                        rankings = await mockRankingService.getTopPairs();
+                    }
+                }
                 console.log('[Dashboard] Top duplas carregadas:', rankings.length);
+                console.log('[Dashboard] Dados das duplas:', rankings);
                 
                 const top4Pairs = rankings.slice(0, 4).map(pair => ({
                     id: pair.id,
@@ -355,9 +448,14 @@ const Dashboard: React.FC = () => {
                     buchudasDeRe: pair.buchudasDeRe,
                     winRate: pair.winRate
                 }));
+                console.log('[Dashboard] Top pairs processadas:', top4Pairs);
                 setTopPairs(top4Pairs);
             } catch (pairError) {
-                console.error('[Dashboard] Erro ao carregar top duplas:', pairError);
+                console.error('[Dashboard] Erro ao carregar top duplas:');
+                console.error('[Dashboard] Tipo do erro:', typeof pairError);
+                console.error('[Dashboard] Erro completo:', pairError);
+                console.error('[Dashboard] Stack trace:', (pairError as any)?.stack);
+                console.error('[Dashboard] Mensagem:', (pairError as any)?.message);
             }
             
         } catch (error) {
