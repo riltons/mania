@@ -1,0 +1,66 @@
+{
+  "cli": {
+    "version": ">= 15.0.10",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "env": {
+        "APP_VARIANT": "development"
+      },
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "channel": "preview",
+      "env": {
+        "APP_VARIANT": "preview"
+      },
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleRelease"
+      },
+      "ios": {
+        "simulator": true
+      }
+    },
+    "production": {
+      "autoIncrement": true,
+      "channel": "production",
+      "env": {
+        "APP_VARIANT": "production",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://euqnfrvptiriujrdebpr.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV1cW5mcnZwdGlyaXVqcmRlYnByIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDUwNDk4MjQsImV4cCI6MjA2MDYyNTgyNH0.67e4m4mT2CjxgrWoSbYnhubXt3GcweQgdPhq2oalKuM",
+        "EXPO_PUBLIC_SUPABASE_FUNCTIONS_URL": "https://euqnfrvptiriujrdebpr.supabase.co/functions/v1/admin-stats",
+        "SUPABASE_SERVICE_ROLE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV1cW5mcnZwdGlyaXVqcmRlYnByIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDUwNDk4MjQsImV4cCI6MjA2MDYyNTgyNH0.67e4m4mT2CjxgrWoSbYnhubXt3GcweQgdPhq2oalKuM"
+      },
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleRelease",
+        "withoutCredentials": false,
+        "image": "latest"
+      },
+      "ios": {
+        "simulator": false,
+        "distribution": "store"
+      }
+    }
+  },
+  "submit": {
+    "production": {
+      "android": {
+        "track": "production",
+        "releaseStatus": "completed"
+      },
+      "ios": {
+        "appleId": "seu-apple-id@exemplo.com",
+        "ascAppId": "SEU_APP_ID",
+        "appleTeamId": "SUA_EQUIPE_APPLE_ID"
+      }
+    }
+  }
+}
