@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "aws-docs": {
+      "command": "C:\\Users\\rilto\\AppData\\Local\\Microsoft\\WinGet\\Packages\\astral-sh.uv_Microsoft.Winget.Source_8wekyb3d8bbwe\\uv.exe",
+      "args": ["tool", "run", "awslabs.aws-documentation-mcp-server@latest"],
+      "env": {
+        "FASTMCP_LOG_LEVEL": "INFO"
+      },
+      "disabled": false,
+      "autoApprove": []
+    }
+  }
+}
